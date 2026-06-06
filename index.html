@@ -299,8 +299,8 @@
       </div>
 
       <div class="screen" id="screen-lancar">
-        <div class="page-title">Lançar despesa</div>
-        <div class="page-sub">Vinculada a uma viagem ou avulsa</div>
+        <div class="page-title" id="d-titulo">Lançar despesa</div>
+        <div class="page-sub" id="d-subtitulo">Vinculada a uma viagem ou avulsa</div>
         <div class="form-card">
           <div class="tipo-toggle">
             <div class="tipo-btn active" id="tipo-viagem" onclick="setTipo('viagem')">Vinculada a viagem</div>
@@ -336,7 +336,7 @@
           <div id="d-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn" onclick="limparFormDespesa()">Limpar</button>
-            <button class="btn btn-mint" onclick="salvarDespesa()">Salvar despesa</button>
+            <button class="btn btn-mint" id="d-btn-salvar" onclick="salvarDespesa()">Salvar despesa</button>
           </div>
         </div>
       </div>
@@ -611,7 +611,7 @@ async function carregarAgenda() {
   const ids=(viagens||[]).map(v=>v.id)
   let despPorViagem={}
   if(ids.length){
-    const{data:desps}=await sb.from('despesas').select('viagem_id,valor,status').in('viagem_id',ids)
+    const{data:desps}=await sb.from('despesas').select('id,viagem_id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url').in('viagem_id',ids)
     ;(desps||[]).forEach(d=>{
       if(!despPorViagem[d.viagem_id])despPorViagem[d.viagem_id]=[]
       despPorViagem[d.viagem_id].push(d)
@@ -634,6 +634,10 @@ async function carregarAgenda() {
     html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px"><div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:500">Despesas avulsas · mês atual</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">Sem viagem vinculada</div></div><div style="display:flex;gap:6px">${avulsas.length} itens${pend>0?` · ${moeda(pend)} pendente`:''}</div></div></div>`
   }
 
+  // Busca categorias para mostrar nome
+  const{data:catsAgenda}=await sb.from('categorias').select('id,nome')
+  const catPorId={};(catsAgenda||[]).forEach(c=>catPorId[c.id]=c.nome)
+
   if(!viagens||!viagens.length){
     html+=`<div class="empty">Nenhuma viagem registrada.<br><br><button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-agenda'))">Criar primeira viagem</button></div>`
   } else {
@@ -646,8 +650,57 @@ async function carregarAgenda() {
       const quem=perfil.papel==='aprovador'&&nomePorId[v.usuario_id]?` · ${nomePorId[v.usuario_id]}`:''
       const estadoLabel=v.estado?` · ${v.estado}`:''
       const temResultado=v.fechou_negocio!==null
-      const fechouLabel=v.fechou_negocio?'<span class="badge b-mint" style="font-size:9px">Fechou!</span>':'<span class="badge b-red" style="font-size:9px">Não fechou</span>'
-      html+=`<div class="card"><div class="card-header"><div style="flex:1;min-width:0"><div class="card-title">${v.destino}${estadoLabel} · ${v.cliente}</div><div class="card-meta">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}${quem} · ${v.motivo}</div></div>${statusBadge(v.status)}</div>${ds.length?`<div style="padding:8px 12px;font-size:11px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:12px"><span>${ds.length} despesa${ds.length>1?'s':''}</span><span>Total: <strong style="color:var(--ink)">${moeda(total)}</strong></span>${aprov>0?`<span style="color:var(--mint-dark)">Aprov: ${moeda(aprov)}</span>`:''} ${pend>0?`<span style="color:var(--orange-dark)">Pend: ${moeda(pend)}</span>`:''} ${rejN>0?`<span style="color:#991B1B">${rejN} rejeitado(s)</span>`:''}</div>`:`<div style="padding:8px 12px;font-size:11px;color:var(--ink2)">Nenhuma despesa lançada.</div>`}${temResultado?`<div style="padding:6px 12px;font-size:11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px">${fechouLabel}<span style="color:var(--ink2)">Resultado registrado</span></div>`:''}<div class="card-footer"><span></span><div style="display:flex;gap:6px"><button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button><button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button></div></div></div>`
+      const fechouLabel=v.fechou_negocio===true?'<span class="badge b-mint" style="font-size:9px">Fechou!</span>':v.fechou_negocio===false?'<span class="badge b-red" style="font-size:9px">Não fechou</span>':''
+
+      // Lista expansível de despesas
+      let despesasHtml=''
+      if(ds.length){
+        const ehDono=perfil.papel==='aprovador'||(v.usuario_id===perfil.id)
+        const linhas=ds.map(d=>{
+          const dotCor=d.status==='aprovado'?'dot-mint':d.status==='rejeitado'?'dot-red':'dot-orange'
+          const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
+          const editBtn=(d.status==='pendente'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button>`:''
+          return`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line)">
+            <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
+            <div style="flex:1;min-width:0">
+              <span style="font-size:11px;color:var(--ink)">${catPorId[d.categoria_id]||'?'}${d.descricao?' · <span style="color:var(--ink2)">'+d.descricao+'</span>':''} · ${dataFmt(d.data_despesa)}</span>
+              ${rejNote}
+            </div>
+            <span style="font-size:11px;font-weight:500;color:var(--ink);flex-shrink:0">${moeda(d.valor)}</span>
+            ${editBtn}
+          </div>`
+        }).join('')
+        despesasHtml=`
+          <div id="desp-${v.id}" style="display:none">${linhas}</div>
+          <div style="padding:6px 12px;font-size:11px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:10px;cursor:pointer" onclick="toggleDespesas('${v.id}')">
+            <span id="toggle-lbl-${v.id}">▶ ${ds.length} despesa${ds.length>1?'s':''}</span>
+            <span>Total: <strong style="color:var(--ink)">${moeda(total)}</strong></span>
+            ${aprov>0?`<span style="color:var(--mint-dark)">Aprov: ${moeda(aprov)}</span>`:''}
+            ${pend>0?`<span style="color:var(--orange-dark)">Pend: ${moeda(pend)}</span>`:''}
+            ${rejN>0?`<span style="color:#991B1B">${rejN} rejeitado(s)</span>`:''}
+          </div>`
+      } else {
+        despesasHtml=`<div style="padding:8px 12px;font-size:11px;color:var(--ink2)">Nenhuma despesa lançada.</div>`
+      }
+
+      html+=`<div class="card">
+        <div class="card-header">
+          <div style="flex:1;min-width:0">
+            <div class="card-title">${v.destino}${estadoLabel} · ${v.cliente}</div>
+            <div class="card-meta">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}${quem} · ${v.motivo}</div>
+          </div>
+          ${statusBadge(v.status)}
+        </div>
+        ${despesasHtml}
+        ${temResultado?`<div style="padding:6px 12px;font-size:11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px">${fechouLabel}<span style="color:var(--ink2)">Resultado registrado</span></div>`:''}
+        <div class="card-footer">
+          <span></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button>
+            <button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button>
+          </div>
+        </div>
+      </div>`
     })
   }
   document.getElementById('agenda-lista').innerHTML=html
@@ -656,6 +709,15 @@ async function carregarAgenda() {
 function lancarParaViagem(vid){
   showScreen('lancar',document.getElementById('nav-lancar'))
   setTimeout(()=>{setTipo('viagem');const s=document.getElementById('d-viagem');if(s)s.value=vid},200)
+}
+
+function toggleDespesas(vid){
+  const el=document.getElementById('desp-'+vid)
+  const lbl=document.getElementById('toggle-lbl-'+vid)
+  if(!el)return
+  const aberto=el.style.display!=='none'
+  el.style.display=aberto?'none':'block'
+  if(lbl)lbl.textContent=(aberto?'▶':'▼')+lbl.textContent.slice(1)
 }
 
 async function salvarViagem(){
@@ -680,16 +742,17 @@ async function salvarViagem(){
   showScreen('agenda',document.getElementById('nav-agenda'))
 }
 
+let despesaEditandoId = null
+
 async function prepararFormDespesa(){
+  despesaEditandoId = null
+  document.getElementById('d-titulo').textContent = 'Lançar despesa'
+  document.getElementById('d-subtitulo').textContent = 'Vinculada a uma viagem ou avulsa'
+  document.getElementById('d-btn-salvar').textContent = 'Salvar despesa'
   document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
   arquivoComprimido=null
-  document.getElementById('d-arquivo').value=''
   resetUpload()
-  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
-  const sel=document.getElementById('d-viagem')
-  sel.innerHTML='<option value="">Selecione a viagem</option>'
-  ;(viagens||[]).forEach(v=>{sel.innerHTML+=`<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>`})
-  await atualizarCategoriasDrop()
+  await prepararFormViagensSelect()
 }
 
 function resetUpload(){
@@ -771,6 +834,52 @@ async function handleArquivo(input){
   img.src=url
 }
 
+async function editarDespesa(id){
+  // Busca despesa
+  const{data:d}=await sb.from('despesas').select('*').eq('id',id).single()
+  if(!d)return
+  if(d.status==='aprovado'){alert('Despesas aprovadas não podem ser editadas.');return}
+
+  despesaEditandoId=id
+  document.getElementById('d-titulo').textContent='Editar despesa'
+  document.getElementById('d-subtitulo').textContent=d.status==='rejeitado'?'⚠️ Rejeitada — corrija e reenvie para aprovação':'Pendente de aprovação'
+  document.getElementById('d-btn-salvar').textContent=d.status==='rejeitado'?'Corrigir e reenviar':'Salvar alterações'
+
+  // Preenche o form
+  await prepararFormViagensSelect()
+  setTipo(d.viagem_id?'viagem':'avulso')
+  if(d.viagem_id){
+    setTimeout(()=>{document.getElementById('d-viagem').value=d.viagem_id},100)
+  }
+  document.getElementById('d-data').value=d.data_despesa
+  document.getElementById('d-valor').value=d.valor
+  document.getElementById('d-descricao').value=d.descricao||''
+  document.getElementById('ai-sugestao').style.display='none'
+
+  await atualizarCategoriasDrop()
+  setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id},150)
+
+  // Comprovante existente
+  if(d.comprovante_url){
+    document.getElementById('upload-preview').innerHTML=`<div class="upload-info">📎 ${d.comprovante_nome||'comprovante'}</div><div class="upload-sub">já anexado · clique para substituir</div>`
+  } else {
+    resetUpload()
+  }
+  arquivoComprimido=null
+
+  showScreen('lancar',document.getElementById('nav-lancar'))
+}
+
+async function prepararFormViagensSelect(){
+  document.getElementById('d-arquivo').value=''
+  resetUpload()
+  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
+  const sel=document.getElementById('d-viagem')
+  sel.innerHTML='<option value="">Selecione a viagem</option>'
+  ;(viagens||[]).forEach(v=>{sel.innerHTML+=`<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>`})
+  await atualizarCategoriasDrop()
+}
+
 async function salvarDespesa(){
   const catId=document.getElementById('d-categoria').value
   const data=document.getElementById('d-data').value
@@ -783,7 +892,17 @@ async function salvarDespesa(){
   if(tipoAtual==='viagem'&&!viagId){err.textContent='Selecione a viagem.';err.style.display='block';return}
   if(!valor||valor<=0){err.textContent='Informe um valor válido.';err.style.display='block';return}
   if(!data){err.textContent='Informe a data.';err.style.display='block';return}
+
   let comprovante_url=null,comprovante_nome=null,comprovante_tamanho_kb=null
+
+  // Se editando, mantém comprovante existente se não subiu novo
+  if(despesaEditandoId&&!arquivoComprimido){
+    const{data:d}=await sb.from('despesas').select('comprovante_url,comprovante_nome,comprovante_tamanho_kb').eq('id',despesaEditandoId).single()
+    comprovante_url=d?.comprovante_url||null
+    comprovante_nome=d?.comprovante_nome||null
+    comprovante_tamanho_kb=d?.comprovante_tamanho_kb||null
+  }
+
   if(arquivoComprimido){
     const path=`${perfil.id}/${Date.now()}_${arquivoComprimido.name}`
     const{error:upErr}=await sb.storage.from('comprovantes').upload(path,arquivoComprimido,{contentType:arquivoComprimido.type})
@@ -791,8 +910,9 @@ async function salvarDespesa(){
     const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
     comprovante_url=publicUrl;comprovante_nome=arquivoComprimido.name;comprovante_tamanho_kb=Math.round(arquivoComprimido.size/1024)
   }
-  // Estado: viagem usa estado da viagem, avulso usa estado_base do perfil
-  let estado_despesa = null
+
+  // Estado
+  let estado_despesa=null
   if(tipoAtual==='viagem'&&viagId){
     const{data:viag}=await sb.from('viagens').select('estado').eq('id',viagId).single()
     estado_despesa=viag?.estado||null
@@ -800,14 +920,35 @@ async function salvarDespesa(){
     estado_despesa=perfil.estado_base||null
   }
 
-  const{error}=await sb.from('despesas').insert({usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,valor,data_despesa:data,status:'pendente',comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa})
-  if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+  if(despesaEditandoId){
+    // EDIÇÃO — atualiza e volta pra pendente
+    const{error}=await sb.from('despesas').update({
+      viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,
+      valor,data_despesa:data,status:'pendente',
+      motivo_rejeicao:null,aprovado_por:null,aprovado_em:null,
+      comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
+    }).eq('id',despesaEditandoId)
+    if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+  } else {
+    // NOVO
+    const{error}=await sb.from('despesas').insert({
+      usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,
+      descricao:desc||null,valor,data_despesa:data,status:'pendente',
+      comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
+    })
+    if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+  }
+
   limparFormDespesa()
   await contarPendentes()
   showScreen('agenda',document.getElementById('nav-agenda'))
 }
 
 function limparFormDespesa(){
+  despesaEditandoId=null
+  document.getElementById('d-titulo').textContent='Lançar despesa'
+  document.getElementById('d-subtitulo').textContent='Vinculada a uma viagem ou avulsa'
+  document.getElementById('d-btn-salvar').textContent='Salvar despesa'
   document.getElementById('d-categoria').value=''
   document.getElementById('d-valor').value=''
   document.getElementById('d-descricao').value=''
