@@ -196,11 +196,10 @@
       <div class="screen active" id="screen-dashboard">
         <div class="page-title">Visão geral</div>
         <div class="page-sub" id="dash-sub">Carregando...</div>
-        <div class="metrics">
+        <div class="metrics" style="grid-template-columns: repeat(3, 1fr);">
           <div class="metric m-purple"><div class="metric-label">Total válido</div><div class="metric-value" id="m-total">—</div></div>
           <div class="metric m-mint"><div class="metric-label">Aprovado</div><div class="metric-value" id="m-aprov">—</div></div>
           <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
-          <div class="metric m-red"><div class="metric-label">Rejeitadas</div><div class="metric-value" id="m-rej">—</div></div>
         </div>
 
         <!-- Quadro geral -->
@@ -885,11 +884,10 @@ async function carregarDashboard() {
   const ds=despesas||[]
   const dsValidas=ds.filter(d=>d.status!=='rejeitado')
 
-  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'} · rejeitadas ficam fora do financeiro`
+  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
   document.getElementById('m-total').textContent=moeda(dsValidas.reduce((s,d)=>s+(d.valor||0),0))
   document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0))
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0))
-  document.getElementById('m-rej').textContent=String(ds.filter(d=>d.status==='rejeitado').length)
 
   await carregarAvisosDashboard()
   await carregarDemandasResumo()
@@ -900,7 +898,7 @@ async function carregarDashboard() {
     todosProfs=profs||[]
 
     // Alerta RDV — quem lançou e quem não lançou esse mês
-    const lançaramIds=new Set(ds.map(d=>d.usuario_id))
+    const lançaramIds=new Set(dsValidas.map(d=>d.usuario_id))
     const lançaram=todosProfs.filter(p=>lançaramIds.has(p.id)).map(p=>p.nome)
     const naoLancaram=todosProfs.filter(p=>!lançaramIds.has(p.id)).map(p=>p.nome)
     let alertaHtml=`<div class="card" style="margin-bottom:12px">
@@ -1329,6 +1327,7 @@ async function excluirDespesa(id, origem='agenda'){
   await contarPendentes()
   if(origem==='avulsas') await carregarAvulsas()
   else await carregarAgenda()
+  await carregarDashboard()
 }
 
 async function prepararFormViagensSelect(){
@@ -1506,6 +1505,7 @@ async function aprovar(id){
   await sb.from('despesas').update({status:'aprovado',aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
   await contarPendentes()
   await carregarAprovacoes()
+  await carregarDashboard()
 }
 
 function mostrarRejeitar(id){
@@ -1519,6 +1519,7 @@ async function rejeitar(id){
   await sb.from('despesas').update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
   await contarPendentes()
   await carregarAprovacoes()
+  await carregarDashboard()
 }
 
 async function carregarInsights(){
@@ -1529,13 +1530,14 @@ async function carregarInsights(){
   const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
   const catPorId={};(cats||[]).forEach(c=>catPorId[c.id]=c.nome)
 
-  if(!despesas||despesas.length<5){
+  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
+  if(!despesasValidas||despesasValidas.length<5){
     document.getElementById('insights-lista').innerHTML=`<div class="insight-card" style="background:var(--purple-light);border-color:#C4B5FD"><div class="insight-icon" style="background:white;border:1.5px solid #C4B5FD;font-size:16px">💡</div><div><div style="font-size:12px">Dados insuficientes. Continue lançando despesas.</div><div style="font-size:11px;color:var(--ink2);margin-top:4px">Mínimo: 5 lançamentos nos últimos 90 dias</div></div></div>`
     return
   }
 
   const porPessoa={};const porCat={}
-  despesas.forEach(d=>{
+  despesasValidas.forEach(d=>{
     const nome=nomePorId[d.usuario_id]||'?'
     const cat=catPorId[d.categoria_id]||'?'
     if(!porPessoa[nome])porPessoa[nome]={total:0,count:0}
