@@ -383,6 +383,8 @@
         <div class="page-sub">Configure o estado base de cada coordenador</div>
         <div id="equipe-lista" style="max-width:500px"><div class="loading">Carregando...</div></div>
       </div>
+
+      <div class="screen" id="screen-categorias">
         <div class="page-title">Categorias</div>
         <div class="page-sub">Dropdown que os coordenadores veem ao lançar</div>
         <div class="form-card" style="max-width:440px">
@@ -969,6 +971,8 @@ async function excluirDespesa(id, origem='agenda'){
   if(origem==='avulsas') await carregarAvulsas()
   else await carregarAgenda()
 }
+
+async function prepararFormViagensSelect(){
   document.getElementById('d-arquivo').value=''
   resetUpload()
   const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
