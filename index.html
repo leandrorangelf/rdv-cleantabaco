@@ -177,6 +177,14 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         Categorias
       </div>
+      <div class="nav-item aprovador-only" onclick="showScreen('skus',this)" id="nav-skus" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        SKUs
+      </div>
+      <div class="nav-item aprovador-only" onclick="showScreen('equipe',this)" id="nav-equipe" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Equipe
+      </div>
     </div>
 
     <div class="main">
@@ -228,21 +236,64 @@
 
       <div class="screen" id="screen-novaviagem">
         <div class="page-title">Nova viagem</div>
-        <div class="page-sub">Preencha os dados da viagem</div>
+        <div class="page-sub">Preencha os dados antes de viajar</div>
         <div class="form-card">
           <div class="form-row">
-            <div class="form-group"><label class="form-label">Destino *</label><input id="v-destino" class="form-input" placeholder="ex: São Paulo"></div>
+            <div class="form-group"><label class="form-label">Destino (cidade) *</label><input id="v-destino" class="form-input" placeholder="ex: São Paulo"></div>
+            <div class="form-group">
+              <label class="form-label">Estado *</label>
+              <select id="v-estado" class="form-select">
+                <option value="">Selecione</option>
+                <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+                <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+                <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+                <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+                <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+                <option>SP</option><option>SE</option><option>TO</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
             <div class="form-group"><label class="form-label">Cliente visitado *</label><input id="v-cliente" class="form-input" placeholder="ex: Atacadão SP"></div>
+            <div class="form-group"><label class="form-label">Motivo da visita *</label><input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Data início *</label><input id="v-inicio" type="date" class="form-input"></div>
             <div class="form-group"><label class="form-label">Data fim *</label><input id="v-fim" type="date" class="form-input"></div>
           </div>
-          <div class="form-group" style="margin-bottom:10px"><label class="form-label">Motivo da visita *</label><input id="v-motivo" class="form-input" placeholder="ex: apresentação linha Gudang"></div>
           <div id="v-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn" onclick="showScreen('agenda',document.getElementById('nav-agenda'))">Cancelar</button>
             <button class="btn btn-mint" onclick="salvarViagem()">Salvar viagem</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RELATÓRIO PÓS-VISITA -->
+      <div class="screen" id="screen-resultado">
+        <div class="page-title">Resultado da visita</div>
+        <div class="page-sub" id="res-sub">Preencha após retornar</div>
+        <div class="form-card">
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">Fechou negócio?</label>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <div class="tipo-btn" id="res-sim" onclick="setFechou(true)" style="flex:none;padding:6px 20px">Sim</div>
+              <div class="tipo-btn" id="res-nao" onclick="setFechou(false)" style="flex:none;padding:6px 20px">Não</div>
+            </div>
+          </div>
+          <div id="res-skus-wrap">
+            <label class="form-label" style="margin-bottom:6px;display:block">Caixas vendidas por SKU</label>
+            <div id="res-skus-campos"></div>
+          </div>
+          <div class="form-group" style="margin-top:10px;margin-bottom:10px">
+            <label class="form-label">Observações</label>
+            <textarea id="res-obs" class="form-input" rows="3" placeholder="Comentários sobre a visita, próximos passos..."></textarea>
+          </div>
+          <div id="res-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="showScreen('agenda',document.getElementById('nav-agenda'))">Cancelar</button>
+            <button class="btn btn-mint" onclick="salvarResultado()">Salvar resultado</button>
           </div>
         </div>
       </div>
@@ -302,7 +353,24 @@
         <div id="insights-lista"><div class="loading">Analisando dados...</div></div>
       </div>
 
-      <div class="screen" id="screen-categorias">
+      <div class="screen" id="screen-skus">
+        <div class="page-title">SKUs</div>
+        <div class="page-sub">Produtos disponíveis para registrar no resultado da visita</div>
+        <div class="form-card" style="max-width:440px">
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input id="sku-nome" class="form-input" placeholder="Nome do SKU (ex: Gudang Red)" style="flex:1">
+            <input id="sku-sigla" class="form-input" placeholder="Sigla (ex: GR)" style="width:80px">
+            <button class="btn btn-primary" onclick="adicionarSku()">Adicionar</button>
+          </div>
+          <div id="sku-lista"></div>
+        </div>
+      </div>
+
+      <div class="screen" id="screen-equipe">
+        <div class="page-title">Equipe</div>
+        <div class="page-sub">Configure o estado base de cada coordenador</div>
+        <div id="equipe-lista" style="max-width:500px"><div class="loading">Carregando...</div></div>
+      </div>
         <div class="page-title">Categorias</div>
         <div class="page-sub">Dropdown que os coordenadores veem ao lançar</div>
         <div class="form-card" style="max-width:440px">
@@ -381,7 +449,7 @@ function showScreen(nome,navEl) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe}
   if(loaders[nome])loaders[nome]()
 }
 
@@ -454,11 +522,13 @@ function renderViagensDash(){
     const futura=v.data_inicio>hoje
     const badge=emAndamento?'b-purple':futura?'b-mint':'b-gray'
     const label=emAndamento?'Em viagem':futura?'Futura':'Concluída'
+    const estadoLabel=v.estado?` · ${v.estado}`:''
+    const fechouLabel=v.fechou_negocio===true?'<span class="badge b-mint" style="font-size:9px;margin-left:4px">Fechou!</span>':v.fechou_negocio===false?'<span class="badge b-red" style="font-size:9px;margin-left:4px">Não fechou</span>':''
     html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)">
       <div style="width:7px;height:7px;border-radius:50%;background:${emAndamento?'var(--purple)':futura?'var(--mint)':'var(--line)'};flex-shrink:0"></div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:500;color:var(--ink)">${nomePessoa} → ${v.destino}</div>
-        <div style="font-size:11px;color:var(--ink2)">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${v.cliente} · ${v.motivo}</div>
+        <div style="font-size:12px;font-weight:500;color:var(--ink)">${nomePessoa} → ${v.destino}${estadoLabel} · ${v.cliente}${fechouLabel}</div>
+        <div style="font-size:11px;color:var(--ink2)">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${v.motivo}</div>
       </div>
       <span class="badge ${badge}">${label}</span>
     </div>`
@@ -526,6 +596,10 @@ async function carregarDashboard() {
       return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
     }).join('')
     document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
+
+    // Tabela por estado
+    const tabelaEstado=await carregarGastosPorEstado()
+    document.getElementById('dash-tabela').innerHTML+=(tabelaEstado||'')
   }
 }
 
@@ -570,7 +644,10 @@ async function carregarAgenda() {
       const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
       const rejN=ds.filter(d=>d.status==='rejeitado').length
       const quem=perfil.papel==='aprovador'&&nomePorId[v.usuario_id]?` · ${nomePorId[v.usuario_id]}`:''
-      html+=`<div class="card"><div class="card-header"><div style="flex:1;min-width:0"><div class="card-title">${v.destino} · ${v.cliente}</div><div class="card-meta">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}${quem} · ${v.motivo}</div></div>${statusBadge(v.status)}</div>${ds.length?`<div style="padding:8px 12px;font-size:11px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:12px"><span>${ds.length} despesa${ds.length>1?'s':''}</span><span>Total: <strong style="color:var(--ink)">${moeda(total)}</strong></span>${aprov>0?`<span style="color:var(--mint-dark)">Aprov: ${moeda(aprov)}</span>`:''} ${pend>0?`<span style="color:var(--orange-dark)">Pend: ${moeda(pend)}</span>`:''} ${rejN>0?`<span style="color:#991B1B">${rejN} rejeitado(s)</span>`:''}</div>`:`<div style="padding:8px 12px;font-size:11px;color:var(--ink2)">Nenhuma despesa lançada.</div>`}<div class="card-footer"><span></span><button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button></div></div>`
+      const estadoLabel=v.estado?` · ${v.estado}`:''
+      const temResultado=v.fechou_negocio!==null
+      const fechouLabel=v.fechou_negocio?'<span class="badge b-mint" style="font-size:9px">Fechou!</span>':'<span class="badge b-red" style="font-size:9px">Não fechou</span>'
+      html+=`<div class="card"><div class="card-header"><div style="flex:1;min-width:0"><div class="card-title">${v.destino}${estadoLabel} · ${v.cliente}</div><div class="card-meta">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}${quem} · ${v.motivo}</div></div>${statusBadge(v.status)}</div>${ds.length?`<div style="padding:8px 12px;font-size:11px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:12px"><span>${ds.length} despesa${ds.length>1?'s':''}</span><span>Total: <strong style="color:var(--ink)">${moeda(total)}</strong></span>${aprov>0?`<span style="color:var(--mint-dark)">Aprov: ${moeda(aprov)}</span>`:''} ${pend>0?`<span style="color:var(--orange-dark)">Pend: ${moeda(pend)}</span>`:''} ${rejN>0?`<span style="color:#991B1B">${rejN} rejeitado(s)</span>`:''}</div>`:`<div style="padding:8px 12px;font-size:11px;color:var(--ink2)">Nenhuma despesa lançada.</div>`}${temResultado?`<div style="padding:6px 12px;font-size:11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px">${fechouLabel}<span style="color:var(--ink2)">Resultado registrado</span></div>`:''}<div class="card-footer"><span></span><div style="display:flex;gap:6px"><button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button><button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button></div></div></div>`
     })
   }
   document.getElementById('agenda-lista').innerHTML=html
@@ -583,17 +660,19 @@ function lancarParaViagem(vid){
 
 async function salvarViagem(){
   const destino=document.getElementById('v-destino').value.trim()
+  const estado=document.getElementById('v-estado').value
   const cliente=document.getElementById('v-cliente').value.trim()
   const inicio=document.getElementById('v-inicio').value
   const fim=document.getElementById('v-fim').value
   const motivo=document.getElementById('v-motivo').value.trim()
   const err=document.getElementById('v-erro')
   err.style.display='none'
-  if(!destino||!cliente||!inicio||!fim||!motivo){err.textContent='Preencha todos os campos.';err.style.display='block';return}
+  if(!destino||!estado||!cliente||!inicio||!fim||!motivo){err.textContent='Preencha todos os campos.';err.style.display='block';return}
   if(fim<inicio){err.textContent='Data fim não pode ser anterior à data início.';err.style.display='block';return}
-  const{error}=await sb.from('viagens').insert({usuario_id:perfil.id,destino,cliente,data_inicio:inicio,data_fim:fim,motivo,status:'agendada'})
+  const{error}=await sb.from('viagens').insert({usuario_id:perfil.id,destino,estado,cliente,data_inicio:inicio,data_fim:fim,motivo,status:'agendada'})
   if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
   document.getElementById('v-destino').value=''
+  document.getElementById('v-estado').value=''
   document.getElementById('v-cliente').value=''
   document.getElementById('v-inicio').value=''
   document.getElementById('v-fim').value=''
@@ -712,7 +791,16 @@ async function salvarDespesa(){
     const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
     comprovante_url=publicUrl;comprovante_nome=arquivoComprimido.name;comprovante_tamanho_kb=Math.round(arquivoComprimido.size/1024)
   }
-  const{error}=await sb.from('despesas').insert({usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,valor,data_despesa:data,status:'pendente',comprovante_url,comprovante_nome,comprovante_tamanho_kb})
+  // Estado: viagem usa estado da viagem, avulso usa estado_base do perfil
+  let estado_despesa = null
+  if(tipoAtual==='viagem'&&viagId){
+    const{data:viag}=await sb.from('viagens').select('estado').eq('id',viagId).single()
+    estado_despesa=viag?.estado||null
+  } else {
+    estado_despesa=perfil.estado_base||null
+  }
+
+  const{error}=await sb.from('despesas').insert({usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,valor,data_despesa:data,status:'pendente',comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa})
   if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
   limparFormDespesa()
   await contarPendentes()
@@ -859,6 +947,173 @@ async function carregarInsights(){
   if(pend.length)insights.push({icon:'⏳',bg:'var(--orange-light)',border:'#FCD34D',texto:`${pend.length} despesa${pend.length>1?'s':''} pendente${pend.length>1?'s':''} de aprovação — ${moeda(pend.reduce((s,d)=>s+d.valor,0))}.`,sub:'Requer atenção do aprovador'})
 
   document.getElementById('insights-lista').innerHTML=insights.map(i=>`<div class="insight-card" style="background:${i.bg};border-color:${i.border}"><div class="insight-icon" style="background:white;border:1.5px solid ${i.border}">${i.icon}</div><div><div style="font-size:12px;line-height:1.5">${i.texto}</div><div style="font-size:11px;color:var(--ink2);margin-top:3px">${i.sub}</div></div></div>`).join('')
+}
+
+// ── Resultado pós-visita ──────────────────────
+let viagemResultadoId=null
+let fechouNegocio=null
+
+function setFechou(v){
+  fechouNegocio=v
+  document.getElementById('res-sim').classList.toggle('active',v===true)
+  document.getElementById('res-nao').classList.toggle('active',v===false)
+}
+
+async function abrirResultado(vid){
+  viagemResultadoId=vid
+  fechouNegocio=null
+  document.getElementById('res-sim').classList.remove('active')
+  document.getElementById('res-nao').classList.remove('active')
+  document.getElementById('res-obs').value=''
+  document.getElementById('res-erro').style.display='none'
+
+  // Busca viagem atual pra preencher se já tem resultado
+  const{data:viag}=await sb.from('viagens').select('*').eq('id',vid).single()
+  if(viag){
+    document.getElementById('res-sub').textContent=`${viag.destino} · ${viag.cliente}`
+    if(viag.fechou_negocio!==null){setFechou(viag.fechou_negocio)}
+    if(viag.observacao)document.getElementById('res-obs').value=viag.observacao
+  }
+
+  // Carrega SKUs e preenche campos
+  const{data:skus}=await sb.from('skus').select('*').eq('ativo',true).order('ordem')
+  let resultados={}
+  if(viag?.resultados_sku)resultados=viag.resultados_sku
+
+  let html=''
+  ;(skus||[]).forEach(s=>{
+    html+=`<div class="form-row" style="margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:500;color:var(--ink);min-width:100px">${s.sigla} – ${s.nome}</span>
+        <input type="number" min="0" id="sku-qtd-${s.id}" class="form-input" placeholder="0" value="${resultados[s.id]||''}" style="width:100px">
+        <span style="font-size:11px;color:var(--ink2)">caixas</span>
+      </div>
+    </div>`
+  })
+  document.getElementById('res-skus-campos').innerHTML=html||(skus?.length===0?'<div style="font-size:11px;color:var(--ink2)">Nenhum SKU cadastrado. Vá em Admin → SKUs para adicionar.</div>':'')
+  showScreen('resultado',document.getElementById('nav-agenda'))
+}
+
+async function salvarResultado(){
+  const err=document.getElementById('res-erro')
+  err.style.display='none'
+  if(fechouNegocio===null){err.textContent='Informe se fechou negócio.';err.style.display='block';return}
+
+  const{data:skus}=await sb.from('skus').select('id').eq('ativo',true)
+  const resultados_sku={}
+  ;(skus||[]).forEach(s=>{
+    const v=parseInt(document.getElementById('sku-qtd-'+s.id)?.value)||0
+    if(v>0)resultados_sku[s.id]=v
+  })
+
+  const obs=document.getElementById('res-obs').value.trim()
+  const{error}=await sb.from('viagens').update({
+    fechou_negocio:fechouNegocio,
+    resultados_sku,
+    observacao:obs||null,
+    status:'concluida'
+  }).eq('id',viagemResultadoId)
+
+  if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+  showScreen('agenda',document.getElementById('nav-agenda'))
+}
+
+// ── SKUs ──────────────────────────────────────
+async function carregarSkus(){
+  const{data:skus}=await sb.from('skus').select('*').order('ordem')
+  document.getElementById('sku-lista').innerHTML=(skus||[]).length
+    ?(skus||[]).map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+        <span style="font-size:11px;font-weight:500;color:var(--purple);min-width:36px">${s.sigla}</span>
+        <span style="flex:1;font-size:12px;${!s.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${s.nome}</span>
+        <button class="btn btn-sm" onclick="toggleSku('${s.id}',${s.ativo})" style="font-size:10px">${s.ativo?'Desativar':'Ativar'}</button>
+      </div>`).join('')
+    :'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhum SKU. Adicione acima.</div>'
+}
+
+async function adicionarSku(){
+  const nome=document.getElementById('sku-nome').value.trim()
+  const sigla=document.getElementById('sku-sigla').value.trim().toUpperCase()
+  if(!nome||!sigla)return
+  const{data:last}=await sb.from('skus').select('ordem').order('ordem',{ascending:false}).limit(1)
+  const maxOrdem=last?.[0]?.ordem||0
+  await sb.from('skus').insert({nome,sigla,ordem:maxOrdem+1})
+  document.getElementById('sku-nome').value=''
+  document.getElementById('sku-sigla').value=''
+  carregarSkus()
+}
+
+async function toggleSku(id,ativo){
+  await sb.from('skus').update({ativo:!ativo}).eq('id',id)
+  carregarSkus()
+}
+
+// ── Equipe ────────────────────────────────────
+const ESTADOS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+
+async function carregarEquipe(){
+  const{data:profs}=await sb.from('profiles').select('*').order('nome')
+  if(!profs||!profs.length){document.getElementById('equipe-lista').innerHTML='<div class="empty">Nenhum usuário.</div>';return}
+
+  const rows=profs.map(p=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)">
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;color:var(--ink)">${p.nome}</div>
+        <div style="font-size:11px;color:var(--ink2)">${p.email} · <span class="badge ${p.papel==='aprovador'?'b-purple':'b-gray'}" style="font-size:9px">${p.papel}</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--ink2)">Estado base:</label>
+        <select onchange="salvarEstadoBase('${p.id}',this.value)" class="form-select" style="width:80px;padding:4px 6px;font-size:11px">
+          <option value="">—</option>
+          ${ESTADOS.map(e=>`<option value="${e}" ${p.estado_base===e?'selected':''}>${e}</option>`).join('')}
+        </select>
+      </div>
+    </div>`).join('')
+
+  document.getElementById('equipe-lista').innerHTML=`<div class="card">${rows}</div>`
+}
+
+async function salvarEstadoBase(uid, estado){
+  await sb.from('profiles').update({estado_base:estado||null}).eq('id',uid)
+  // Atualiza perfil local se for o próprio
+  if(uid===perfil.id)perfil.estado_base=estado||null
+}
+
+// ── Tabela gastos por estado ──────────────────
+async function carregarGastosPorEstado(){
+  const mes=mesAtual()
+  const{data:despesas}=await sb.from('despesas')
+    .select('valor,status,estado,viagem_id')
+    .gte('data_despesa',`${mes}-01`)
+    .lte('data_despesa',`${mes}-31`)
+
+  if(!despesas||!despesas.length)return''
+
+  const porEstado={}
+  despesas.forEach(d=>{
+    const est=d.estado||'N/D'
+    if(!porEstado[est])porEstado[est]={viagem:0,local:0,total:0}
+    const v=d.valor||0
+    if(d.viagem_id)porEstado[est].viagem+=v
+    else porEstado[est].local+=v
+    porEstado[est].total+=v
+  })
+
+  const sorted=Object.entries(porEstado).sort((a,b)=>b[1].total-a[1].total)
+  if(!sorted.length)return''
+
+  const rows=sorted.map(([est,v])=>`
+    <tr>
+      <td style="font-weight:500">${est}</td>
+      <td style="color:var(--purple-dark)">${moeda(v.viagem)}</td>
+      <td style="color:var(--ink2)">${moeda(v.local)}</td>
+      <td style="font-weight:500">${moeda(v.total)}</td>
+    </tr>`).join('')
+
+  return`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Gastos por estado · mês atual</div></div>
+    <div class="card"><table class="tbl">
+      <thead><tr><th>Estado</th><th>Viagens</th><th>Local</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`
 }
 
 async function carregarCategorias(){
