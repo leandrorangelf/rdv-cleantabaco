@@ -612,6 +612,10 @@ async function carregarDashboard() {
     // Tabela por estado
     const tabelaEstado=await carregarGastosPorEstado()
     document.getElementById('dash-tabela').innerHTML+=(tabelaEstado||'')
+
+    // Tabela anual
+    const tabelaAnual=await carregarConsolidadoAnual(todosProfs)
+    document.getElementById('dash-tabela').innerHTML+=(tabelaAnual||'')
   }
 }
 
@@ -640,10 +644,27 @@ async function carregarAgenda() {
   if(perfil.papel!=='aprovador')q2=q2.eq('usuario_id',perfil.id)
   const{data:avulsas}=await q2
 
+  // Só mostra card se tiver avulsas que não foram rejeitadas
+  const avulsasAtivas=(avulsas||[]).filter(d=>d.status!=='rejeitado')
   let html=''
-  if(avulsas&&avulsas.length){
-    const pend=avulsas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
-    html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-agenda'))"><div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:500">Despesas avulsas · mês atual</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">Clique para ver e editar</div></div><div style="display:flex;gap:6px">${avulsas.length} itens${pend>0?` · ${moeda(pend)} pendente`:''}</div></div></div>`
+  if(avulsasAtivas.length){
+    const pend=avulsasAtivas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
+    const aprov=avulsasAtivas.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
+    const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
+    const rejLabel=rejeitadas>0?` · <span style="color:#991B1B">${rejeitadas} rejeitada${rejeitadas>1?'s':''}</span>`:''
+    html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-agenda'))">
+      <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:12px;font-weight:500">Despesas avulsas · mês atual</div>
+          <div style="font-size:11px;color:var(--ink2);margin-top:2px">Clique para ver e editar</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;font-size:11px">
+          <span>${avulsasAtivas.length} ${avulsasAtivas.length===1?'item':'itens'}</span>
+          ${pend>0?`<span style="color:var(--orange-dark)">${moeda(pend)} pend.</span>`:''}
+          ${aprov>0?`<span style="color:var(--mint-dark)">${moeda(aprov)} aprov.</span>`:''}
+        </div>
+      </div>
+    </div>`
   }
 
   // Busca categorias para mostrar nome
@@ -758,7 +779,7 @@ async function carregarAvulsas(){
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
     const editBtn=(d.status==='pendente'||d.status==='rejeitado')
-      ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button>`:''
+      ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button>`:''
     const quemLabel=perfil.papel==='aprovador'?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
     return`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)">
       <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
@@ -807,6 +828,7 @@ async function salvarViagem(){
 }
 
 let despesaEditandoId = null
+let telaOrigemDespesa = 'agenda'
 
 async function prepararFormDespesa(){
   despesaEditandoId = null
@@ -898,7 +920,8 @@ async function handleArquivo(input){
   img.src=url
 }
 
-async function editarDespesa(id){
+async function editarDespesa(id, origem='agenda'){
+  telaOrigemDespesa = origem
   // Busca despesa
   const{data:d}=await sb.from('despesas').select('*').eq('id',id).single()
   if(!d)return
@@ -1005,7 +1028,11 @@ async function salvarDespesa(){
 
   limparFormDespesa()
   await contarPendentes()
-  showScreen('agenda',document.getElementById('nav-agenda'))
+  if(telaOrigemDespesa==='avulsas'){
+    showScreen('avulsas',document.getElementById('nav-agenda'))
+  } else {
+    showScreen('agenda',document.getElementById('nav-agenda'))
+  }
 }
 
 function limparFormDespesa(){
@@ -1284,6 +1311,73 @@ async function salvarEstadoBase(uid, estado){
 }
 
 // ── Tabela gastos por estado ──────────────────
+async function carregarConsolidadoAnual(profs){
+  const ano=new Date().getFullYear()
+  const {data:despesas}=await sb.from('despesas')
+    .select('usuario_id,valor,status,data_despesa')
+    .gte('data_despesa',`${ano}-01-01`)
+    .lte('data_despesa',`${ano}-12-31`)
+
+  if(!despesas||!despesas.length) return ''
+
+  const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+  const nomePorId={}
+  ;(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+
+  // Monta estrutura: por pessoa, por mês
+  const dados={}
+  despesas.forEach(d=>{
+    const mes=new Date(d.data_despesa+'T00:00:00').getMonth() // 0-11
+    const uid=d.usuario_id
+    if(!dados[uid])dados[uid]=Array(12).fill(0)
+    dados[uid][mes]+=d.valor
+  })
+
+  // Total por mês (linha de rodapé)
+  const totaisMes=Array(12).fill(0)
+  Object.values(dados).forEach(mesesArr=>{
+    mesesArr.forEach((v,i)=>totaisMes[i]+=v)
+  })
+  const totalGeral=totaisMes.reduce((s,v)=>s+v,0)
+
+  // Descobre quais meses têm dados
+  const mesesComDados=meses.map((_,i)=>i).filter(i=>totaisMes[i]>0)
+  if(!mesesComDados.length) return ''
+
+  // Cabeçalho
+  let thead=`<tr><th style="text-align:left;min-width:90px">Nome</th>`
+  mesesComDados.forEach(i=>thead+=`<th style="text-align:right">${meses[i]}</th>`)
+  thead+=`<th style="text-align:right;color:var(--purple-dark)">Total</th></tr>`
+
+  // Linhas por pessoa
+  const rows=Object.entries(dados).map(([uid,mesesArr])=>{
+    const nome=nomePorId[uid]||'?'
+    const totalPessoa=mesesArr.reduce((s,v)=>s+v,0)
+    let cells=mesesComDados.map(i=>`<td style="text-align:right">${mesesArr[i]>0?moeda(mesesArr[i]):'—'}</td>`).join('')
+    return`<tr>
+      <td style="font-weight:500">${nome}</td>
+      ${cells}
+      <td style="text-align:right;font-weight:500;color:var(--purple-dark)">${moeda(totalPessoa)}</td>
+    </tr>`
+  }).join('')
+
+  // Linha de total geral
+  let rodape=`<tr style="background:var(--cream);border-top:1.5px solid var(--line)">
+    <td style="font-weight:500;color:var(--ink)">Total</td>`
+  mesesComDados.forEach(i=>rodape+=`<td style="text-align:right;font-weight:500">${moeda(totaisMes[i])}</td>`)
+  rodape+=`<td style="text-align:right;font-weight:500;color:var(--purple-dark)">${moeda(totalGeral)}</td></tr>`
+
+  return`<div class="sec-header" style="margin-top:16px">
+    <div class="sec-title">Consolidado anual ${ano}</div>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <table class="tbl" style="min-width:500px">
+      <thead>${thead}</thead>
+      <tbody>${rows}${rodape}</tbody>
+    </table>
+  </div>`
+}
+
 async function carregarGastosPorEstado(){
   const mes=mesAtual()
   const{data:despesas}=await sb.from('despesas')
