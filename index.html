@@ -224,6 +224,12 @@
 
         <!-- Tabela por coordenador -->
         <div id="dash-tabela"></div>
+
+        <!-- Valores para financeiro -->
+        <div id="dash-financeiro"></div>
+
+        <!-- Mapa operacional -->
+        <div id="dash-mapa-viagens"></div>
       </div>
 
       <div class="screen" id="screen-agenda">
@@ -552,6 +558,79 @@ function renderViagensDash(){
   document.getElementById('dash-viagens-lista').innerHTML=`<div class="card">${html}</div>`
 }
 
+
+function renderFinanceiroPagar(despesas, perfis){
+  const wrap=document.getElementById('dash-financeiro')
+  if(!wrap)return
+  const nomePorId={}
+  ;(perfis||[]).forEach(p=>nomePorId[p.id]=p.nome)
+  const por={}
+  ;(despesas||[]).forEach(d=>{
+    if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',aprovado:0,pendente:0,rejeitado:0,total:0}
+    por[d.usuario_id].total+=(d.valor||0)
+    if(d.status==='aprovado')por[d.usuario_id].aprovado+=(d.valor||0)
+    if(d.status==='pendente')por[d.usuario_id].pendente+=(d.valor||0)
+    if(d.status==='rejeitado')por[d.usuario_id].rejeitado+=(d.valor||0)
+  })
+  const linhas=Object.values(por).sort((a,b)=>b.aprovado-a.aprovado)
+  const totalAprov=linhas.reduce((s,r)=>s+r.aprovado,0)
+  const totalPend=linhas.reduce((s,r)=>s+r.pendente,0)
+  if(!linhas.length){wrap.innerHTML='';return}
+  const rows=linhas.map(r=>`<tr>
+    <td style="font-weight:500">${r.nome}</td>
+    <td style="color:var(--mint-dark);font-weight:600">${moeda(r.aprovado)}</td>
+    <td style="color:var(--orange-dark)">${moeda(r.pendente)}</td>
+    <td style="color:#991B1B">${moeda(r.rejeitado)}</td>
+  </tr>`).join('')
+  wrap.innerHTML=`<div class="sec-header" style="margin-top:12px">
+    <div><div class="sec-title">Valores para o financeiro pagar</div><div class="page-sub" style="margin-bottom:0">Base: despesas aprovadas no mês atual. Pendentes aparecem só para conferência.</div></div>
+  </div>
+  <div class="metrics" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
+    <div class="metric m-mint"><div class="metric-label">Total aprovado a pagar</div><div class="metric-value">${moeda(totalAprov)}</div></div>
+    <div class="metric m-orange"><div class="metric-label">Ainda pendente de aprovação</div><div class="metric-value">${moeda(totalPend)}</div></div>
+  </div>
+  <div class="card"><table class="tbl"><thead><tr><th>Pessoa</th><th>A pagar</th><th>Pendente</th><th>Rejeitado</th></tr></thead><tbody>${rows}</tbody></table></div>`
+}
+
+function renderMapaViagens(){
+  const wrap=document.getElementById('dash-mapa-viagens')
+  if(!wrap)return
+  const hoje=new Date().toISOString().slice(0,10)
+  const limite=new Date(); limite.setDate(limite.getDate()+30)
+  const limiteStr=limite.toISOString().slice(0,10)
+  const coord={
+    AC:[11,43],AM:[24,30],RR:[31,12],RO:[29,48],PA:[46,28],AP:[55,15],TO:[52,48],MA:[63,35],PI:[67,43],CE:[75,39],RN:[82,42],PB:[81,47],PE:[78,51],AL:[76,56],SE:[74,60],BA:[65,62],MT:[43,58],MS:[45,76],GO:[55,66],DF:[58,64],MG:[62,76],ES:[71,77],RJ:[67,83],SP:[57,83],PR:[53,91],SC:[55,96],RS:[51,103]
+  }
+  const nomePorId={};(todosProfs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+  const relevantes=(todasViagens||[]).filter(v=>v.status!=='cancelada' && v.estado && (
+    (v.data_inicio<=hoje && v.data_fim>=hoje) ||
+    (v.data_inicio>hoje && v.data_inicio<=limiteStr)
+  )).sort((a,b)=>a.data_inicio.localeCompare(b.data_inicio))
+  const atuais=relevantes.filter(v=>v.data_inicio<=hoje&&v.data_fim>=hoje)
+  const proximas=relevantes.filter(v=>v.data_inicio>hoje)
+  let svg=`<svg viewBox="0 0 90 112" style="width:100%;max-width:460px;height:auto;display:block;margin:auto">
+    <path d="M34 6 L55 10 L72 24 L84 44 L78 62 L71 78 L61 91 L53 108 L42 101 L36 88 L24 80 L19 65 L8 54 L15 38 L13 24 Z" fill="#FAF7F0" stroke="#E7E5E4" stroke-width="1.5"/>`
+  relevantes.forEach((v,i)=>{
+    const c=coord[v.estado]; if(!c)return
+    const atual=v.data_inicio<=hoje&&v.data_fim>=hoje
+    const x=c[0]+((i%3)-1)*1.4, y=c[1]+(Math.floor(i/3)%2)*1.4
+    const cor=atual?'#7C3AED':'#10B981'
+    const nome=(nomePorId[v.usuario_id]||'?').split(' ')[0]
+    svg+=`<g><circle cx="${x}" cy="${y}" r="3.2" fill="${cor}" stroke="white" stroke-width="1.2"><title>${nome} · ${v.destino}/${v.estado} · ${dataFmt(v.data_inicio)} a ${dataFmt(v.data_fim)}</title></circle><text x="${x+4}" y="${y+1.5}" font-size="3.3" fill="#1C1917">${v.estado}</text></g>`
+  })
+  svg+='</svg>'
+  const linha=(v,atual)=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+    <span style="width:8px;height:8px;border-radius:50%;background:${atual?'var(--purple)':'var(--mint)'};flex-shrink:0"></span>
+    <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500">${nomePorId[v.usuario_id]||'?'} → ${v.destino}/${v.estado}</div><div style="font-size:11px;color:var(--ink2)">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${v.cliente||''}</div></div>
+    <span class="badge ${atual?'b-purple':'b-mint'}">${atual?'Agora':'Próxima'}</span>
+  </div>`
+  wrap.innerHTML=`<div class="sec-header" style="margin-top:12px"><div><div class="sec-title">Mapa operacional de viagens</div><div class="page-sub" style="margin-bottom:0">Mostra quem está em viagem hoje e as próximas viagens dos próximos 30 dias.</div></div></div>
+  <div class="card"><div style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(260px,1.2fr);gap:12px;padding:12px;align-items:center">
+    <div>${svg}<div style="display:flex;gap:10px;justify-content:center;font-size:11px;color:var(--ink2);margin-top:6px"><span><span class="dot dot-mint"></span>Próxima</span><span><span class="dot" style="background:var(--purple)"></span>Agora</span></div></div>
+    <div>${relevantes.length?`<div style="font-size:12px;font-weight:500;margin-bottom:6px">Em viagem agora</div>${atuais.length?atuais.map(v=>linha(v,true)).join(''):'<div style="font-size:11px;color:var(--ink2);margin-bottom:10px">Ninguém em viagem hoje.</div>'}<div style="font-size:12px;font-weight:500;margin:10px 0 6px">Próximas viagens</div>${proximas.length?proximas.slice(0,12).map(v=>linha(v,false)).join(''):'<div style="font-size:11px;color:var(--ink2)">Nenhuma viagem próxima nos próximos 30 dias.</div>'}`:'<div class="empty">Nenhuma viagem atual ou próxima para mostrar.</div>'}</div>
+  </div></div>`
+}
+
 async function carregarDashboard() {
   const mes=mesAtual()
   let q=sb.from('despesas').select('valor,status,usuario_id').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
@@ -595,6 +674,7 @@ async function carregarDashboard() {
     document.getElementById('dash-viagens-wrap').style.display='block'
     renderCalendario()
     renderViagensDash()
+    renderMapaViagens()
 
     // Tabela por coordenador
     const nomePorId={}
@@ -620,6 +700,8 @@ async function carregarDashboard() {
     // Tabela anual
     const tabelaAnual=await carregarConsolidadoAnual(todosProfs)
     document.getElementById('dash-tabela').innerHTML+=(tabelaAnual||'')
+
+    renderFinanceiroPagar(ds,todosProfs)
   }
 }
 
@@ -733,15 +815,39 @@ async function carregarAgenda() {
         ${temResultado?`<div style="padding:6px 12px;font-size:11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px">${fechouLabel}<span style="color:var(--ink2)">Resultado registrado</span></div>`:''}
         <div class="card-footer">
           <span></span>
-          <div style="display:flex;gap:6px">
-            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button>
-            <button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            ${v.status!=='cancelada'?`<button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button>`:''}
+            ${v.status!=='cancelada'?`<button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button>`:''}
+            ${v.status!=='cancelada'?`<button class="btn" style="font-size:11px;padding:5px 10px" onclick="cancelarViagem('${v.id}')">Cancelar viagem</button>`:''}
+            <button class="btn btn-reject" style="font-size:11px;padding:5px 10px" onclick="excluirViagem('${v.id}')">Excluir</button>
           </div>
         </div>
       </div>`
     })
   }
   document.getElementById('agenda-lista').innerHTML=html
+}
+
+
+async function cancelarViagem(id){
+  if(!confirm('Cancelar esta viagem? Ela ficará no histórico como cancelada.')) return
+  const{error}=await sb.from('viagens').update({status:'cancelada'}).eq('id',id)
+  if(error){alert('Erro ao cancelar viagem: '+error.message);return}
+  await carregarAgenda()
+  await carregarDashboard()
+}
+
+async function excluirViagem(id){
+  const{data:desps}=await sb.from('despesas').select('id').eq('viagem_id',id).limit(1)
+  if(desps&&desps.length){
+    alert('Essa viagem tem despesas vinculadas. Exclua as despesas primeiro ou use Cancelar viagem para manter o histórico.')
+    return
+  }
+  if(!confirm('Excluir esta viagem definitivamente? Use isso só para testes ou lançamentos errados.')) return
+  const{error}=await sb.from('viagens').delete().eq('id',id)
+  if(error){alert('Erro ao excluir viagem: '+error.message);return}
+  await carregarAgenda()
+  await carregarDashboard()
 }
 
 function lancarParaViagem(vid){
@@ -1267,11 +1373,20 @@ async function salvarResultado(){
 
 // ── SKUs ──────────────────────────────────────
 async function carregarSkus(){
-  const{data:skus}=await sb.from('skus').select('*').order('ordem')
-  document.getElementById('sku-lista').innerHTML=(skus||[]).length
+  const box=document.getElementById('sku-lista')
+  box.innerHTML='<div class="loading">Carregando SKUs...</div>'
+
+  const {data:skus,error}=await sb.from('skus').select('*').order('ordem')
+  if(error){
+    box.innerHTML=`<div class="login-err" style="display:block">Erro ao carregar SKUs: ${error.message}</div>`
+    return
+  }
+
+  box.innerHTML=(skus||[]).length
     ?(skus||[]).map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
         <span style="font-size:11px;font-weight:500;color:var(--purple);min-width:36px">${s.sigla}</span>
         <span style="flex:1;font-size:12px;${!s.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${s.nome}</span>
+        <span class="badge ${s.ativo?'b-mint':'b-gray'}" style="font-size:9px">${s.ativo?'Ativo':'Inativo'}</span>
         <button class="btn btn-sm" onclick="toggleSku('${s.id}',${s.ativo})" style="font-size:10px">${s.ativo?'Desativar':'Ativar'}</button>
       </div>`).join('')
     :'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhum SKU. Adicione acima.</div>'
@@ -1280,17 +1395,37 @@ async function carregarSkus(){
 async function adicionarSku(){
   const nome=document.getElementById('sku-nome').value.trim()
   const sigla=document.getElementById('sku-sigla').value.trim().toUpperCase()
-  if(!nome||!sigla)return
-  const{data:last}=await sb.from('skus').select('ordem').order('ordem',{ascending:false}).limit(1)
+  const box=document.getElementById('sku-lista')
+
+  if(!nome||!sigla){
+    box.innerHTML='<div class="login-err" style="display:block">Informe nome e sigla do SKU.</div>'
+    return
+  }
+
+  const {data:last,error:erroOrdem}=await sb.from('skus').select('ordem').order('ordem',{ascending:false}).limit(1)
+  if(erroOrdem){
+    box.innerHTML=`<div class="login-err" style="display:block">Erro ao consultar ordem dos SKUs: ${erroOrdem.message}</div>`
+    return
+  }
+
   const maxOrdem=last?.[0]?.ordem||0
-  await sb.from('skus').insert({nome,sigla,ordem:maxOrdem+1})
+  const {error}=await sb.from('skus').insert({nome,sigla,ordem:maxOrdem+1,ativo:true})
+  if(error){
+    box.innerHTML=`<div class="login-err" style="display:block">Erro ao adicionar SKU: ${error.message}</div>`
+    return
+  }
+
   document.getElementById('sku-nome').value=''
   document.getElementById('sku-sigla').value=''
-  carregarSkus()
+  await carregarSkus()
 }
 
 async function toggleSku(id,ativo){
-  await sb.from('skus').update({ativo:!ativo}).eq('id',id)
+  const {error}=await sb.from('skus').update({ativo:!ativo}).eq('id',id)
+  if(error){
+    document.getElementById('sku-lista').innerHTML=`<div class="login-err" style="display:block">Erro ao alterar SKU: ${error.message}</div>`
+    return
+  }
   carregarSkus()
 }
 
