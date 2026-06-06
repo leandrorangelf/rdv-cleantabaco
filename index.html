@@ -159,6 +159,11 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Agenda
       </div>
+      <div class="nav-item" onclick="showScreen('demandas',this)" id="nav-demandas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Demandas
+        <span class="badge-pill" id="badge-demandas" style="display:none">0</span>
+      </div>
       <div class="nav-item" onclick="showScreen('lancar',this)" id="nav-lancar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Lançar despesa
@@ -197,6 +202,12 @@
           <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
           <div class="metric m-red"><div class="metric-label">Rejeitado</div><div class="metric-value" id="m-rej">—</div></div>
         </div>
+
+        <!-- Quadro geral -->
+        <div id="dash-avisos"></div>
+
+        <!-- Demandas de viagem -->
+        <div id="dash-demandas-resumo"></div>
 
         <!-- Alerta RDV -->
         <div id="dash-alerta-rdv"></div>
@@ -238,6 +249,45 @@
           <button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-agenda'))">+ Nova viagem</button>
         </div>
         <div id="agenda-lista"><div class="loading">Carregando...</div></div>
+      </div>
+
+      <div class="screen" id="screen-demandas">
+        <div class="sec-header">
+          <div>
+            <div class="page-title">Demandas de viagem</div>
+            <div class="page-sub">Solicitações da diretoria e acompanhamento de agendamento</div>
+          </div>
+        </div>
+
+        <div class="form-card aprovador-only" id="demanda-admin-box" style="display:none">
+          <div class="sec-title" style="margin-bottom:10px">Nova demanda de viagem</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Coordenador *</label><select id="dem-usuario" class="form-select"></select></div>
+            <div class="form-group"><label class="form-label">Estado *</label><select id="dem-estado" class="form-select"><option value="">Selecione</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Destino / cidade *</label><input id="dem-destino" class="form-input" placeholder="ex: Recife"></div>
+            <div class="form-group"><label class="form-label">Cliente / reunião *</label><input id="dem-cliente" class="form-input" placeholder="ex: Reunião diretoria / Cliente XPTO"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Data sugerida</label><input id="dem-data" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Motivo</label><input id="dem-motivo" class="form-input" placeholder="ex: abertura de cliente, reunião, auditoria"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px"><label class="form-label">Observação</label><textarea id="dem-obs" class="form-input" rows="2" placeholder="Orientações para o coordenador"></textarea></div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="criarDemandaViagem()">Criar demanda</button></div>
+        </div>
+
+        <div class="form-card aprovador-only" id="aviso-admin-box" style="display:none">
+          <div class="sec-title" style="margin-bottom:10px">Novo aviso geral</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Título *</label><input id="av-titulo" class="form-input" placeholder="ex: Fechamento do RDV"></div>
+            <div class="form-group"><label class="form-label">Válido até</label><input id="av-validade" type="date" class="form-input"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px"><label class="form-label">Mensagem *</label><textarea id="av-texto" class="form-input" rows="2" placeholder="Mensagem para todos os usuários"></textarea></div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn btn-mint" onclick="criarAvisoGeral()">Publicar aviso</button></div>
+        </div>
+
+        <div id="demandas-lista"><div class="loading">Carregando...</div></div>
       </div>
 
       <div class="screen" id="screen-novaviagem">
@@ -464,6 +514,7 @@ async function iniciarApp() {
   }
   await carregarDashboard()
   await contarPendentes()
+  await contarDemandasAbertas()
 }
 
 function showScreen(nome,navEl) {
@@ -471,7 +522,7 @@ function showScreen(nome,navEl) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas}
   if(loaders[nome])loaders[nome]()
 }
 
@@ -592,6 +643,150 @@ function renderFinanceiroPagar(despesas, perfis){
   <div class="card"><table class="tbl"><thead><tr><th>Pessoa</th><th>A pagar</th><th>Pendente</th><th>Rejeitado</th></tr></thead><tbody>${rows}</tbody></table></div>`
 }
 
+
+function escapeHtml(v){
+  return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
+}
+function demandaBadge(s){
+  const cls={solicitada:'b-orange',agendada:'b-purple',concluida:'b-mint',cancelada:'b-gray'}[s]||'b-gray'
+  const txt={solicitada:'Pendente de agenda',agendada:'Agendada',concluida:'Concluída',cancelada:'Cancelada'}[s]||s
+  return `<span class="badge ${cls}">${txt}</span>`
+}
+
+async function carregarAvisosDashboard(){
+  const wrap=document.getElementById('dash-avisos')
+  if(!wrap)return
+  const hoje=new Date().toISOString().slice(0,10)
+  const {data,error}=await sb.from('avisos').select('*').eq('ativo',true).order('created_at',{ascending:false}).limit(4)
+  if(error){wrap.innerHTML='';return}
+  const avisos=(data||[]).filter(a=>!a.validade||a.validade>=hoje)
+  if(!avisos.length){wrap.innerHTML='';return}
+  wrap.innerHTML=`<div class="card" style="border-color:var(--purple);margin-bottom:12px">
+    <div class="card-header"><div><div class="card-title">Quadro de avisos</div><div class="card-meta">Comunicados gerais para todos</div></div><button class="btn btn-sm" onclick="showScreen('demandas',document.getElementById('nav-demandas'))">Ver tudo</button></div>
+    <div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div></div>`).join('')}</div>
+  </div>`
+}
+
+async function carregarDemandasResumo(){
+  const wrap=document.getElementById('dash-demandas-resumo')
+  if(!wrap)return
+  let q=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false}).limit(20)
+  if(perfil&&perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
+  const {data,error}=await q
+  if(error){wrap.innerHTML='';return}
+  const demandas=(data||[]).filter(d=>d.status!=='cancelada'&&d.status!=='concluida')
+  if(!demandas.length){wrap.innerHTML='';return}
+  const solicitadas=demandas.filter(d=>d.status==='solicitada')
+  const agendadas=demandas.filter(d=>d.status==='agendada')
+  const ids=[...new Set(demandas.map(d=>d.usuario_id).filter(Boolean))]
+  let nomes={}
+  if(ids.length){const {data:ps}=await sb.from('profiles').select('id,nome').in('id',ids);(ps||[]).forEach(p=>nomes[p.id]=p.nome)}
+  const linhas=demandas.slice(0,6).map(d=>`<tr><td style="font-weight:500">${escapeHtml(nomes[d.usuario_id]||'—')}</td><td>${escapeHtml(d.destino)}/${escapeHtml(d.estado)}</td><td>${escapeHtml(d.cliente||'—')}</td><td>${d.data_sugerida?dataFmt(d.data_sugerida):'—'}</td><td>${demandaBadge(d.status)}</td></tr>`).join('')
+  wrap.innerHTML=`<div class="sec-header"><div><div class="sec-title">Demandas de viagem</div><div class="page-sub" style="margin-bottom:0">Solicitações abertas da diretoria.</div></div><button class="btn btn-sm" onclick="showScreen('demandas',document.getElementById('nav-demandas'))">Abrir</button></div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;border-bottom:1.5px solid var(--line);background:var(--cream)">
+      <div class="metric m-orange" style="margin:0"><div class="metric-label">Pendente de agenda</div><div class="metric-value">${solicitadas.length}</div></div>
+      <div class="metric m-purple" style="margin:0"><div class="metric-label">Já agendadas</div><div class="metric-value">${agendadas.length}</div></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Data sugerida</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>
+  </div>`
+}
+
+async function contarDemandasAbertas(){
+  const badge=document.getElementById('badge-demandas')
+  if(!badge||!perfil)return
+  let q=sb.from('demandas_viagem').select('id,status').in('status',['solicitada','agendada'])
+  if(perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
+  const {data,error}=await q
+  if(error||!data||!data.length){badge.style.display='none';return}
+  badge.textContent=data.length
+  badge.style.display='inline-flex'
+}
+
+async function carregarDemandas(){
+  const lista=document.getElementById('demandas-lista')
+  if(!lista)return
+  lista.innerHTML='<div class="loading">Carregando...</div>'
+  const isAprovador=perfil&&perfil.papel==='aprovador'
+  if(isAprovador){
+    document.getElementById('demanda-admin-box').style.display='block'
+    document.getElementById('aviso-admin-box').style.display='block'
+    const {data:profs}=await sb.from('profiles').select('id,nome').order('nome',{ascending:true})
+    const sel=document.getElementById('dem-usuario')
+    sel.innerHTML='<option value="">Selecione</option>'+(profs||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('')
+  }
+  let q=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false})
+  if(!isAprovador) q=q.eq('usuario_id',perfil.id)
+  const {data:demandas,error}=await q
+  const {data:avisos}=await sb.from('avisos').select('*').eq('ativo',true).order('created_at',{ascending:false}).limit(10)
+  if(error){lista.innerHTML='<div class="empty">Não foi possível carregar demandas. Verifique se a tabela demandas_viagem foi criada no Supabase.</div>';return}
+  const ids=[...new Set((demandas||[]).map(d=>d.usuario_id).filter(Boolean))]
+  let nomes={}
+  if(ids.length){const {data:ps}=await sb.from('profiles').select('id,nome').in('id',ids);(ps||[]).forEach(p=>nomes[p.id]=p.nome)}
+
+  const avisoHtml=(avisos&&avisos.length)?`<div class="card"><div class="card-header"><div class="card-title">Quadro de avisos geral</div></div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div>${isAprovador?`<button class="btn btn-sm btn-reject" style="margin-top:6px" onclick="desativarAviso('${a.id}')">Remover aviso</button>`:''}</div>`).join('')}</div>`:''
+
+  const linhas=(demandas||[]).map(d=>{
+    const podeAgendar=d.status==='solicitada' || d.status==='agendada'
+    return `<tr>
+      <td style="font-weight:500">${escapeHtml(nomes[d.usuario_id]||'—')}</td>
+      <td>${escapeHtml(d.destino)}/${escapeHtml(d.estado)}</td>
+      <td>${escapeHtml(d.cliente||'—')}</td>
+      <td>${d.data_sugerida?dataFmt(d.data_sugerida):'—'}</td>
+      <td>${demandaBadge(d.status)}</td>
+      <td style="font-size:10px;color:var(--ink2)">${escapeHtml(d.motivo||'')}${d.observacao?' · '+escapeHtml(d.observacao):''}</td>
+      <td style="white-space:nowrap">
+        ${podeAgendar?`<button class="btn btn-sm" onclick="atualizarStatusDemanda('${d.id}','agendada')">Marcar agendada</button>`:''}
+        ${d.status!=='concluida'?`<button class="btn btn-sm btn-approve" onclick="atualizarStatusDemanda('${d.id}','concluida')">Concluir</button>`:''}
+        ${isAprovador&&d.status!=='cancelada'?`<button class="btn btn-sm btn-reject" onclick="atualizarStatusDemanda('${d.id}','cancelada')">Cancelar</button>`:''}
+      </td>
+    </tr>`
+  }).join('')
+  const demandasHtml=linhas?`<div class="card"><table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Data sugerida</th><th>Status</th><th>Obs.</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table></div>`:'<div class="empty">Nenhuma demanda de viagem cadastrada.</div>'
+  lista.innerHTML=avisoHtml+demandasHtml
+}
+
+async function criarDemandaViagem(){
+  const usuario_id=document.getElementById('dem-usuario').value
+  const estado=document.getElementById('dem-estado').value
+  const destino=document.getElementById('dem-destino').value.trim()
+  const cliente=document.getElementById('dem-cliente').value.trim()
+  const data_sugerida=document.getElementById('dem-data').value||null
+  const motivo=document.getElementById('dem-motivo').value.trim()
+  const observacao=document.getElementById('dem-obs').value.trim()
+  if(!usuario_id||!estado||!destino||!cliente){alert('Preencha coordenador, estado, destino e cliente/reunião.');return}
+  const {error}=await sb.from('demandas_viagem').insert({usuario_id,estado,destino,cliente,data_sugerida,motivo,observacao,status:'solicitada',created_by:perfil.id})
+  if(error){alert('Erro ao criar demanda: '+error.message);return}
+  ;['dem-usuario','dem-estado','dem-destino','dem-cliente','dem-data','dem-motivo','dem-obs'].forEach(id=>document.getElementById(id).value='')
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
+async function atualizarStatusDemanda(id,status){
+  const payload={status}
+  if(status==='agendada') payload.agendada_em=new Date().toISOString()
+  const {error}=await sb.from('demandas_viagem').update(payload).eq('id',id)
+  if(error){alert('Erro ao atualizar demanda: '+error.message);return}
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
+async function criarAvisoGeral(){
+  const titulo=document.getElementById('av-titulo').value.trim()
+  const texto=document.getElementById('av-texto').value.trim()
+  const validade=document.getElementById('av-validade').value||null
+  if(!titulo||!texto){alert('Preencha título e mensagem.');return}
+  const {error}=await sb.from('avisos').insert({titulo,texto,validade,ativo:true,created_by:perfil.id})
+  if(error){alert('Erro ao publicar aviso: '+error.message);return}
+  ;['av-titulo','av-texto','av-validade'].forEach(id=>document.getElementById(id).value='')
+  await carregarDemandas(); await carregarDashboard()
+}
+
+async function desativarAviso(id){
+  if(!confirm('Remover este aviso do quadro geral?'))return
+  const {error}=await sb.from('avisos').update({ativo:false}).eq('id',id)
+  if(error){alert('Erro ao remover aviso: '+error.message);return}
+  await carregarDemandas(); await carregarDashboard()
+}
+
 function renderMapaViagens(){
   const wrap=document.getElementById('dash-mapa-viagens')
   if(!wrap)return
@@ -600,14 +795,6 @@ function renderMapaViagens(){
   const limiteStr=limite.toISOString().slice(0,10)
   const nomePorId={};(todosProfs||[]).forEach(p=>nomePorId[p.id]=p.nome)
 
-  const ufNome={AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Brasília / DF',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'}
-  const regiao={
-    Norte:['AC','AM','AP','PA','RO','RR','TO'],
-    Nordeste:['AL','BA','CE','MA','PB','PE','PI','RN','SE'],
-    'Centro-Oeste':['DF','GO','MT','MS'],
-    Sudeste:['ES','MG','RJ','SP'],
-    Sul:['PR','RS','SC']
-  }
   const relevantes=(todasViagens||[]).filter(v=>v.status!=='cancelada' && v.estado && (
     (v.data_inicio<=hoje && v.data_fim>=hoje) ||
     (v.data_inicio>hoje && v.data_inicio<=limiteStr)
@@ -615,63 +802,24 @@ function renderMapaViagens(){
   const atuais=relevantes.filter(v=>v.data_inicio<=hoje&&v.data_fim>=hoje)
   const proximas=relevantes.filter(v=>v.data_inicio>hoje)
 
-  const viagensPorUf={}
-  relevantes.forEach(v=>{
-    if(!viagensPorUf[v.estado])viagensPorUf[v.estado]=[]
-    viagensPorUf[v.estado].push(v)
-  })
+  const linha=(v,atual)=>`<tr>
+    <td style="font-weight:500">${nomePorId[v.usuario_id]||'?'}</td>
+    <td>${v.destino}/${v.estado}</td>
+    <td>${v.cliente||'—'}</td>
+    <td>${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}</td>
+    <td>${atual?'<span class="badge b-purple">Em andamento</span>':'<span class="badge b-mint">Próxima</span>'}</td>
+  </tr>`
 
-  const linha=(v,atual)=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
-    <span style="width:9px;height:9px;border-radius:50%;background:${atual?'var(--purple)':'var(--mint)'};flex-shrink:0;margin-top:4px"></span>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:12px;font-weight:500;color:var(--ink)">${nomePorId[v.usuario_id]||'?'} → ${v.destino}/${v.estado}</div>
-      <div style="font-size:11px;color:var(--ink2);margin-top:1px">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${v.cliente||''}</div>
-    </div>
-    <span class="badge ${atual?'b-purple':'b-mint'}">${atual?'Agora':'Próxima'}</span>
-  </div>`
-
-  const ufCard=(uf)=>{
-    const lista=viagensPorUf[uf]||[]
-    const atual=lista.some(v=>v.data_inicio<=hoje&&v.data_fim>=hoje)
-    const proxima=lista.some(v=>v.data_inicio>hoje)
-    const cls=atual?'b-purple':proxima?'b-mint':'b-gray'
-    const label=atual?'Agora':proxima?'Próxima':'Sem viagem'
-    const qtd=lista.length
-    const resumo=lista.slice(0,2).map(v=>`${(nomePorId[v.usuario_id]||'?').split(' ')[0]} · ${v.destino}`).join('<br>')
-    return `<div style="background:white;border:1.5px solid ${atual?'var(--purple)':proxima?'var(--mint)':'var(--line)'};border-radius:12px;padding:10px;min-height:92px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-        <div style="font-size:20px;font-weight:700;color:${atual?'var(--purple-dark)':proxima?'var(--mint-dark)':'var(--ink2)'};letter-spacing:.5px">${uf}</div>
-        <span class="badge ${cls}" style="font-size:9px">${label}</span>
-      </div>
-      <div style="font-size:11px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ufNome[uf]||uf}</div>
-      <div style="font-size:10px;color:var(--ink2);margin-top:4px;line-height:1.35">${qtd?resumo+(qtd>2?`<br>+${qtd-2} viagem(ns)`: ''):'Nenhum deslocamento nos próximos 30 dias'}</div>
-    </div>`
-  }
-
-  const regiaoBloco=(nome,ufs)=>`<div style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px 2px">${nome}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px">${ufs.map(ufCard).join('')}</div>
-  </div>`
-
-  const painelRegioes=Object.entries(regiao).map(([nome,ufs])=>regiaoBloco(nome,ufs)).join('')
-  const resumoLista=relevantes.length?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    <div><div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--purple-dark)">Em viagem agora</div>${atuais.length?atuais.map(v=>linha(v,true)).join(''):'<div style="font-size:11px;color:var(--ink2);padding:8px 0">Ninguém em viagem hoje.</div>'}</div>
-    <div><div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--mint-dark)">Próximas viagens</div>${proximas.length?proximas.slice(0,12).map(v=>linha(v,false)).join(''):'<div style="font-size:11px;color:var(--ink2);padding:8px 0">Nenhuma viagem próxima nos próximos 30 dias.</div>'}</div>
-  </div>`:'<div class="empty">Nenhuma viagem atual ou próxima para mostrar.</div>'
-
+  const linhas=[...atuais.map(v=>linha(v,true)),...proximas.slice(0,10).map(v=>linha(v,false))].join('')
   wrap.innerHTML=`<div class="sec-header" style="margin-top:12px">
-    <div><div class="sec-title">Painel operacional de viagens</div><div class="page-sub" style="margin-bottom:0">Visual por estado: quem está fora hoje e próximas viagens dos próximos 30 dias.</div></div>
+    <div><div class="sec-title">Viagens em andamento e próximas</div><div class="page-sub" style="margin-bottom:0">Resumo operacional dos próximos 30 dias.</div></div>
   </div>
   <div class="card">
-    <div style="padding:12px;background:linear-gradient(180deg,#FFFFFF 0%,#FAF7F0 100%)">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-        <div class="metric m-purple" style="margin:0"><div class="metric-label">Em viagem agora</div><div class="metric-value">${atuais.length}</div></div>
-        <div class="metric m-mint" style="margin:0"><div class="metric-label">Próximas 30 dias</div><div class="metric-value">${proximas.length}</div></div>
-        <div class="metric m-orange" style="margin:0"><div class="metric-label">Estados com agenda</div><div class="metric-value">${Object.keys(viagensPorUf).length}</div></div>
-      </div>
-      ${painelRegioes}
-      <div style="border-top:1.5px solid var(--line);margin-top:12px;padding-top:12px">${resumoLista}</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;border-bottom:1.5px solid var(--line);background:var(--cream)">
+      <div class="metric m-purple" style="margin:0"><div class="metric-label">Em andamento</div><div class="metric-value">${atuais.length}</div></div>
+      <div class="metric m-mint" style="margin:0"><div class="metric-label">Próximas 30 dias</div><div class="metric-value">${proximas.length}</div></div>
     </div>
+    ${relevantes.length?`<table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Período</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>`:'<div class="empty">Nenhuma viagem em andamento ou próxima.</div>'}
   </div>`
 }
 
@@ -687,6 +835,9 @@ async function carregarDashboard() {
   document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0))
+
+  await carregarAvisosDashboard()
+  await carregarDemandasResumo()
 
   if(perfil.papel==='aprovador'){
     // Perfis
