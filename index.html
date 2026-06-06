@@ -298,6 +298,18 @@
         </div>
       </div>
 
+      <!-- DESPESAS AVULSAS -->
+      <div class="screen" id="screen-avulsas">
+        <div class="sec-header">
+          <div>
+            <div class="page-title">Despesas avulsas</div>
+            <div class="page-sub" id="avulsas-sub">Mês atual · sem viagem vinculada</div>
+          </div>
+          <button class="btn btn-primary" onclick="setTipo('avulso');showScreen('lancar',document.getElementById('nav-lancar'))">+ Nova avulsa</button>
+        </div>
+        <div id="avulsas-lista"><div class="loading">Carregando...</div></div>
+      </div>
+
       <div class="screen" id="screen-lancar">
         <div class="page-title" id="d-titulo">Lançar despesa</div>
         <div class="page-sub" id="d-subtitulo">Vinculada a uma viagem ou avulsa</div>
@@ -449,7 +461,7 @@ function showScreen(nome,navEl) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas}
   if(loaders[nome])loaders[nome]()
 }
 
@@ -631,7 +643,7 @@ async function carregarAgenda() {
   let html=''
   if(avulsas&&avulsas.length){
     const pend=avulsas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
-    html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px"><div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:500">Despesas avulsas · mês atual</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">Sem viagem vinculada</div></div><div style="display:flex;gap:6px">${avulsas.length} itens${pend>0?` · ${moeda(pend)} pendente`:''}</div></div></div>`
+    html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-agenda'))"><div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:500">Despesas avulsas · mês atual</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">Clique para ver e editar</div></div><div style="display:flex;gap:6px">${avulsas.length} itens${pend>0?` · ${moeda(pend)} pendente`:''}</div></div></div>`
   }
 
   // Busca categorias para mostrar nome
@@ -709,6 +721,58 @@ async function carregarAgenda() {
 function lancarParaViagem(vid){
   showScreen('lancar',document.getElementById('nav-lancar'))
   setTimeout(()=>{setTipo('viagem');const s=document.getElementById('d-viagem');if(s)s.value=vid},200)
+}
+
+async function carregarAvulsas(){
+  const mes=mesAtual()
+  let q=sb.from('despesas')
+    .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id')
+    .is('viagem_id',null)
+    .gte('data_despesa',`${mes}-01`)
+    .lte('data_despesa',`${mes}-31`)
+    .order('data_despesa',{ascending:false})
+
+  if(perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
+  const{data:avulsas}=await q
+
+  const{data:catsA}=await sb.from('categorias').select('id,nome')
+  const catPorIdA={};(catsA||[]).forEach(c=>catPorIdA[c.id]=c.nome)
+
+  let nomePorIdA={}
+  if(perfil.papel==='aprovador'){
+    const{data:profs}=await sb.from('profiles').select('id,nome')
+    ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
+  }
+
+  const total=(avulsas||[]).reduce((s,d)=>s+d.valor,0)
+  const pend=(avulsas||[]).filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
+  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total: ${moeda(total)} · Pendente: ${moeda(pend)}`
+
+  if(!avulsas||!avulsas.length){
+    document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
+    return
+  }
+
+  const linhas=avulsas.map(d=>{
+    const dotCor=d.status==='aprovado'?'dot-mint':d.status==='rejeitado'?'dot-red':'dot-orange'
+    const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
+      ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
+    const editBtn=(d.status==='pendente'||d.status==='rejeitado')
+      ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button>`:''
+    const quemLabel=perfil.papel==='aprovador'?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
+    return`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)">
+      <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--ink);font-weight:500">${catPorIdA[d.categoria_id]||'?'}${d.descricao?' · <span style="font-weight:400;color:var(--ink2)">'+d.descricao+'</span>':''}${quemLabel}</div>
+        <div style="font-size:11px;color:var(--ink2);margin-top:1px">${dataFmt(d.data_despesa)} · ${statusBadge(d.status)}</div>
+        ${rejNote}
+      </div>
+      <span style="font-size:12px;font-weight:500;color:var(--ink);flex-shrink:0">${moeda(d.valor)}</span>
+      ${editBtn}
+    </div>`
+  }).join('')
+
+  document.getElementById('avulsas-lista').innerHTML=`<div class="card">${linhas}</div>`
 }
 
 function toggleDespesas(vid){
