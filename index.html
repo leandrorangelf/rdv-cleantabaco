@@ -797,8 +797,7 @@ async function editarDemanda(id){
 async function excluirDemanda(id){
   if(!confirm('Excluir definitivamente esta demanda de viagem?'))return
   const {error}=await sb.from('demandas_viagem').delete().eq('id',id)
-  if(error){alert('Erro ao excluir demanda: '+error.message+'
-Se for permissão, rode a policy de DELETE no Supabase.');return}
+  if(error){alert('Erro ao excluir demanda: '+error.message+'\nSe for permissão, rode a policy de DELETE no Supabase.');return}
   await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
 }
 
