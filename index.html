@@ -695,7 +695,7 @@ async function carregarAgenda() {
         const linhas=ds.map(d=>{
           const dotCor=d.status==='aprovado'?'dot-mint':d.status==='rejeitado'?'dot-red':'dot-orange'
           const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
-          const editBtn=(d.status==='pendente'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button>`:''
+          const editBtn=(d.status==='pendente'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:perfil.papel==='aprovador'?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:''
           return`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line)">
             <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
             <div style="flex:1;min-width:0">
@@ -782,7 +782,8 @@ async function carregarAvulsas(){
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
     const editBtn=(d.status==='pendente'||d.status==='rejeitado')
-      ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button>`:''
+      ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`
+      :perfil.papel==='aprovador'?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
     const quemLabel=perfil.papel==='aprovador'?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
     return`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)">
       <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
@@ -960,7 +961,14 @@ async function editarDespesa(id, origem='agenda'){
   showScreen('lancar',document.getElementById('nav-lancar'))
 }
 
-async function prepararFormViagensSelect(){
+async function excluirDespesa(id, origem='agenda'){
+  if(!confirm('Tem certeza que quer excluir essa despesa? Essa ação não pode ser desfeita.')) return
+  const{error}=await sb.from('despesas').delete().eq('id',id)
+  if(error){alert('Erro ao excluir. Tente novamente.');return}
+  await contarPendentes()
+  if(origem==='avulsas') await carregarAvulsas()
+  else await carregarAgenda()
+}
   document.getElementById('d-arquivo').value=''
   resetUpload()
   const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
