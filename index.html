@@ -197,7 +197,7 @@
         <div class="page-title">Visão geral</div>
         <div class="page-sub" id="dash-sub">Carregando...</div>
         <div class="metrics">
-          <div class="metric m-purple"><div class="metric-label">Total solicitado</div><div class="metric-value" id="m-total">—</div></div>
+          <div class="metric m-purple"><div class="metric-label">Total válido</div><div class="metric-value" id="m-total">—</div></div>
           <div class="metric m-mint"><div class="metric-label">Aprovado</div><div class="metric-value" id="m-aprov">—</div></div>
           <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
           <div class="metric m-red"><div class="metric-label">Rejeitado</div><div class="metric-value" id="m-rej">—</div></div>
@@ -618,7 +618,7 @@ function renderFinanceiroPagar(despesas, perfis){
   const por={}
   ;(despesas||[]).forEach(d=>{
     if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',aprovado:0,pendente:0,rejeitado:0,total:0}
-    por[d.usuario_id].total+=(d.valor||0)
+    if(d.status!=='rejeitado')por[d.usuario_id].total+=(d.valor||0)
     if(d.status==='aprovado')por[d.usuario_id].aprovado+=(d.valor||0)
     if(d.status==='pendente')por[d.usuario_id].pendente+=(d.valor||0)
     if(d.status==='rejeitado')por[d.usuario_id].rejeitado+=(d.valor||0)
@@ -883,12 +883,13 @@ async function carregarDashboard() {
   if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
+  const dsValidas=ds.filter(d=>d.status!=='rejeitado')
 
-  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
-  document.getElementById('m-total').textContent=moeda(ds.reduce((s,d)=>s+d.valor,0))
-  document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
-  document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
-  document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0))
+  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'} · rejeitadas não entram no total`
+  document.getElementById('m-total').textContent=moeda(dsValidas.reduce((s,d)=>s+(d.valor||0),0))
+  document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0))
+  document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0))
+  document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+(d.valor||0),0))
 
   await carregarAvisosDashboard()
   await carregarDemandasResumo()
@@ -931,16 +932,16 @@ async function carregarDashboard() {
     const por={}
     ds.forEach(d=>{
       if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',total:0,aprov:0,pend:0,rej:0}
-      por[d.usuario_id].total+=d.valor
-      if(d.status==='aprovado')por[d.usuario_id].aprov+=d.valor
-      if(d.status==='pendente')por[d.usuario_id].pend+=d.valor
-      if(d.status==='rejeitado')por[d.usuario_id].rej+=d.valor
+      if(d.status!=='rejeitado')por[d.usuario_id].total+=(d.valor||0)
+      if(d.status==='aprovado')por[d.usuario_id].aprov+=(d.valor||0)
+      if(d.status==='pendente')por[d.usuario_id].pend+=(d.valor||0)
+      if(d.status==='rejeitado')por[d.usuario_id].rej+=(d.valor||0)
     })
     const rows=Object.values(por).map(r=>{
       const st=r.rej>0?'rejeitado':r.pend>0?'pendente':'aprovado'
       return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
     }).join('')
-    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
+    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total válido</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
 
     // Tabela por estado
     const tabelaEstado=await carregarGastosPorEstado()
@@ -1012,9 +1013,10 @@ async function carregarAgenda() {
   } else {
     viagens.forEach(v=>{
       const ds=despPorViagem[v.id]||[]
-      const total=ds.reduce((s,d)=>s+d.valor,0)
-      const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
-      const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
+      const dsValidasViagem=ds.filter(d=>d.status!=='rejeitado')
+      const total=dsValidasViagem.reduce((s,d)=>s+(d.valor||0),0)
+      const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0)
+      const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0)
       const rejN=ds.filter(d=>d.status==='rejeitado').length
       const quem=perfil.papel==='aprovador'&&nomePorId[v.usuario_id]?` · ${nomePorId[v.usuario_id]}`:''
       const estadoLabel=v.estado?` · ${v.estado}`:''
@@ -1125,9 +1127,11 @@ async function carregarAvulsas(){
     ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
   }
 
-  const total=(avulsas||[]).reduce((s,d)=>s+d.valor,0)
-  const pend=(avulsas||[]).filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
-  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total: ${moeda(total)} · Pendente: ${moeda(pend)}`
+  const avulsasValidas=(avulsas||[]).filter(d=>d.status!=='rejeitado')
+  const total=avulsasValidas.reduce((s,d)=>s+(d.valor||0),0)
+  const pend=avulsasValidas.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0)
+  const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
+  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total válido: ${moeda(total)} · Pendente: ${moeda(pend)}${rejeitadas?` · ${rejeitadas} rejeitada${rejeitadas>1?'s':''}`:''}`
 
   if(!avulsas||!avulsas.length){
     document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
@@ -1755,7 +1759,8 @@ async function carregarConsolidadoAnual(profs){
     .gte('data_despesa',`${ano}-01-01`)
     .lte('data_despesa',`${ano}-12-31`)
 
-  if(!despesas||!despesas.length) return ''
+  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
+  if(!despesasValidas.length) return ''
 
   const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
   const nomePorId={}
@@ -1763,7 +1768,7 @@ async function carregarConsolidadoAnual(profs){
 
   // Monta estrutura: por pessoa, por mês
   const dados={}
-  despesas.forEach(d=>{
+  despesasValidas.forEach(d=>{
     const mes=new Date(d.data_despesa+'T00:00:00').getMonth() // 0-11
     const uid=d.usuario_id
     if(!dados[uid])dados[uid]=Array(12).fill(0)
@@ -1822,10 +1827,11 @@ async function carregarGastosPorEstado(){
     .gte('data_despesa',`${mes}-01`)
     .lte('data_despesa',fimMes(mes))
 
-  if(!despesas||!despesas.length)return''
+  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
+  if(!despesasValidas.length)return''
 
   const porEstado={}
-  despesas.forEach(d=>{
+  despesasValidas.forEach(d=>{
     const est=d.estado||'N/D'
     if(!porEstado[est])porEstado[est]={viagem:0,local:0,total:0}
     const v=d.valor||0
@@ -1845,7 +1851,7 @@ async function carregarGastosPorEstado(){
       <td style="font-weight:500">${moeda(v.total)}</td>
     </tr>`).join('')
 
-  return`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Gastos por estado · mês atual</div></div>
+  return`<div class="sec-header" style="margin-top:12px"><div><div class="sec-title">Gastos por estado · mês atual</div><div class="page-sub" style="margin-bottom:0">Rejeitadas não entram nos totais.</div></div></div>
     <div class="card"><table class="tbl">
       <thead><tr><th>Estado</th><th>Viagens</th><th>Local</th><th>Total</th></tr></thead>
       <tbody>${rows}</tbody>
