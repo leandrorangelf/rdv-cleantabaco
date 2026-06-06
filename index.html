@@ -414,6 +414,8 @@ function moeda(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',curre
 function dataFmt(s) { if(!s)return''; const[y,m,d]=s.split('-'); return`${d}/${m}/${y}` }
 function iniciais(nome) { return nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase() }
 function mesAtual() { const n=new Date(); return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` }
+function ultimoDiaMes(mesStr) { const[y,m]=mesStr.split('-'); return new Date(y,m,0).getDate() }
+function fimMes(mesStr) { return`${mesStr}-${ultimoDiaMes(mesStr)}` }
 function statusBadge(s) {
   const m={pendente:'b-orange',aprovado:'b-mint',rejeitado:'b-red',agendada:'b-gray',em_andamento:'b-purple',concluida:'b-mint',cancelada:'b-gray'}
   const l={pendente:'Pendente',aprovado:'Aprovado',rejeitado:'Rejeitado',agendada:'Agendada',em_andamento:'Em andamento',concluida:'Concluída',cancelada:'Cancelada'}
@@ -550,7 +552,7 @@ function renderViagensDash(){
 
 async function carregarDashboard() {
   const mes=mesAtual()
-  let q=sb.from('despesas').select('valor,status,usuario_id').gte('data_despesa',`${mes}-01`).lte('data_despesa',`${mes}-31`)
+  let q=sb.from('despesas').select('valor,status,usuario_id').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
   if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
@@ -640,7 +642,8 @@ async function carregarAgenda() {
     ;(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
   }
 
-  let q2=sb.from('despesas').select('id,valor,status').is('viagem_id',null).gte('data_despesa',`${mesAtual()}-01`)
+  const _mes=mesAtual()
+  let q2=sb.from('despesas').select('id,valor,status').is('viagem_id',null).gte('data_despesa',`${_mes}-01`).lte('data_despesa',fimMes(_mes))
   if(perfil.papel!=='aprovador')q2=q2.eq('usuario_id',perfil.id)
   const{data:avulsas}=await q2
 
@@ -750,7 +753,7 @@ async function carregarAvulsas(){
     .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id')
     .is('viagem_id',null)
     .gte('data_despesa',`${mes}-01`)
-    .lte('data_despesa',`${mes}-31`)
+    .lte('data_despesa',fimMes(mes))
     .order('data_despesa',{ascending:false})
 
   if(perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
@@ -1383,7 +1386,7 @@ async function carregarGastosPorEstado(){
   const{data:despesas}=await sb.from('despesas')
     .select('valor,status,estado,viagem_id')
     .gte('data_despesa',`${mes}-01`)
-    .lte('data_despesa',`${mes}-31`)
+    .lte('data_despesa',fimMes(mes))
 
   if(!despesas||!despesas.length)return''
 
