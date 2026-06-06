@@ -189,6 +189,32 @@
           <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
           <div class="metric m-red"><div class="metric-label">Rejeitado</div><div class="metric-value" id="m-rej">—</div></div>
         </div>
+
+        <!-- Alerta RDV -->
+        <div id="dash-alerta-rdv"></div>
+
+        <!-- Calendário -->
+        <div id="dash-calendario-wrap" style="display:none">
+          <div class="sec-header" style="margin-bottom:6px">
+            <div class="sec-title">Calendário de viagens</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn" style="padding:4px 8px;font-size:11px" onclick="navMes(-1)">‹</button>
+              <span id="cal-titulo" style="font-size:12px;font-weight:500;min-width:120px;text-align:center"></span>
+              <button class="btn" style="padding:4px 8px;font-size:11px" onclick="navMes(1)">›</button>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:12px">
+            <div id="dash-calendario" style="padding:8px"></div>
+          </div>
+        </div>
+
+        <!-- Lista de viagens -->
+        <div id="dash-viagens-wrap" style="display:none">
+          <div class="sec-header"><div class="sec-title">Todas as viagens</div></div>
+          <div id="dash-viagens-lista"></div>
+        </div>
+
+        <!-- Tabela por coordenador -->
         <div id="dash-tabela"></div>
       </div>
 
@@ -359,22 +385,134 @@ function showScreen(nome,navEl) {
   if(loaders[nome])loaders[nome]()
 }
 
+// ── Calendário ────────────────────────────────
+let calAno=new Date().getFullYear()
+let calMes=new Date().getMonth()
+let todasViagens=[]
+let todosProfs=[]
+
+function navMes(d){calMes+=d;if(calMes>11){calMes=0;calAno++}if(calMes<0){calMes=11;calAno--};renderCalendario()}
+
+function renderCalendario(){
+  const titulo=new Date(calAno,calMes,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  document.getElementById('cal-titulo').textContent=titulo.charAt(0).toUpperCase()+titulo.slice(1)
+  const primeiroDia=new Date(calAno,calMes,1).getDay()
+  const diasNoMes=new Date(calAno,calMes+1,0).getDate()
+  const hoje=new Date()
+
+  // Mapeia viagens para dias do mês
+  const viagensPorDia={}
+  todasViagens.forEach(v=>{
+    const ini=new Date(v.data_inicio+'T00:00:00')
+    const fim=new Date(v.data_fim+'T00:00:00')
+    for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){
+      if(d.getFullYear()===calAno&&d.getMonth()===calMes){
+        const dia=d.getDate()
+        if(!viagensPorDia[dia])viagensPorDia[dia]=[]
+        const nomePessoa=todosProfs.find(p=>p.id===v.usuario_id)?.nome||'?'
+        if(!viagensPorDia[dia].find(x=>x.nome===nomePessoa))
+          viagensPorDia[dia].push({nome:nomePessoa,destino:v.destino})
+      }
+    }
+  })
+
+  const cores=['#7C3AED','#10B981','#F97316','#EF4444','#0891B2','#65A30D','#DB2777','#D97706']
+  const nomeCor={}
+  todosProfs.forEach((p,i)=>nomeCor[p.nome]=cores[i%cores.length])
+
+  const dias=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+  let html=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">`
+  dias.forEach(d=>html+=`<div style="text-align:center;font-size:10px;font-weight:500;color:var(--ink2);padding:4px 0">${d}</div>`)
+  html+=`</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`
+
+  for(let i=0;i<primeiroDia;i++) html+=`<div></div>`
+  for(let dia=1;dia<=diasNoMes;dia++){
+    const isHoje=hoje.getDate()===dia&&hoje.getMonth()===calMes&&hoje.getFullYear()===calAno
+    const viags=viagensPorDia[dia]||[]
+    html+=`<div style="min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isHoje?'var(--purple)':'var(--line)'};background:${isHoje?'var(--purple-light)':'white'}">`
+    html+=`<div style="font-size:10px;font-weight:${isHoje?'600':'400'};color:${isHoje?'var(--purple-dark)':'var(--ink2)'};margin-bottom:2px">${dia}</div>`
+    viags.slice(0,2).forEach(v=>{
+      const cor=nomeCor[v.nome]||'#888'
+      html+=`<div style="font-size:9px;background:${cor}20;color:${cor};border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis" title="${v.nome} · ${v.destino}">${v.nome.split(' ')[0]}</div>`
+    })
+    if(viags.length>2) html+=`<div style="font-size:9px;color:var(--ink2)">+${viags.length-2}</div>`
+    html+=`</div>`
+  }
+  html+=`</div>`
+  document.getElementById('dash-calendario').innerHTML=html
+}
+
+function renderViagensDash(){
+  const hoje=new Date().toISOString().slice(0,10)
+  const sorted=[...todasViagens].sort((a,b)=>a.data_inicio.localeCompare(b.data_inicio))
+  if(!sorted.length){document.getElementById('dash-viagens-lista').innerHTML='<div class="empty">Nenhuma viagem registrada.</div>';return}
+
+  let html=''
+  sorted.forEach(v=>{
+    const nomePessoa=todosProfs.find(p=>p.id===v.usuario_id)?.nome||'?'
+    const emAndamento=v.data_inicio<=hoje&&v.data_fim>=hoje
+    const futura=v.data_inicio>hoje
+    const badge=emAndamento?'b-purple':futura?'b-mint':'b-gray'
+    const label=emAndamento?'Em viagem':futura?'Futura':'Concluída'
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)">
+      <div style="width:7px;height:7px;border-radius:50%;background:${emAndamento?'var(--purple)':futura?'var(--mint)':'var(--line)'};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--ink)">${nomePessoa} → ${v.destino}</div>
+        <div style="font-size:11px;color:var(--ink2)">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${v.cliente} · ${v.motivo}</div>
+      </div>
+      <span class="badge ${badge}">${label}</span>
+    </div>`
+  })
+  document.getElementById('dash-viagens-lista').innerHTML=`<div class="card">${html}</div>`
+}
+
 async function carregarDashboard() {
   const mes=mesAtual()
   let q=sb.from('despesas').select('valor,status,usuario_id').gte('data_despesa',`${mes}-01`).lte('data_despesa',`${mes}-31`)
   if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
+
   document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
   document.getElementById('m-total').textContent=moeda(ds.reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0))
 
-  if(perfil.papel==='aprovador') {
-    const {data:profs}=await sb.from('profiles').select('id,nome')
+  if(perfil.papel==='aprovador'){
+    // Perfis
+    const{data:profs}=await sb.from('profiles').select('id,nome')
+    todosProfs=profs||[]
+
+    // Alerta RDV — quem lançou e quem não lançou esse mês
+    const lançaramIds=new Set(ds.map(d=>d.usuario_id))
+    const lançaram=todosProfs.filter(p=>lançaramIds.has(p.id)).map(p=>p.nome)
+    const naoLancaram=todosProfs.filter(p=>!lançaramIds.has(p.id)).map(p=>p.nome)
+    let alertaHtml=`<div class="card" style="margin-bottom:12px">
+      <div class="card-header"><div class="card-title">RDV este mês</div></div>
+      <div style="display:flex;gap:0">`
+    alertaHtml+=`<div style="flex:1;padding:10px 12px;border-right:1px solid var(--line)">
+      <div style="font-size:10px;color:var(--mint-dark);font-weight:500;margin-bottom:6px">✓ Lançaram</div>
+      ${lançaram.length?lançaram.map(n=>`<div style="font-size:11px;color:var(--ink);margin-bottom:3px">· ${n}</div>`).join(''):'<div style="font-size:11px;color:var(--ink2)">Nenhum ainda</div>'}
+    </div>`
+    alertaHtml+=`<div style="flex:1;padding:10px 12px">
+      <div style="font-size:10px;color:#991B1B;font-weight:500;margin-bottom:6px">✗ Não lançaram</div>
+      ${naoLancaram.length?naoLancaram.map(n=>`<div style="font-size:11px;color:var(--ink);margin-bottom:3px">· ${n}</div>`).join(''):'<div style="font-size:11px;color:var(--mint-dark)">Todos lançaram!</div>'}
+    </div>`
+    alertaHtml+=`</div></div>`
+    document.getElementById('dash-alerta-rdv').innerHTML=alertaHtml
+
+    // Viagens
+    const{data:viagens}=await sb.from('viagens').select('*').order('data_inicio',{ascending:true})
+    todasViagens=viagens||[]
+    document.getElementById('dash-calendario-wrap').style.display='block'
+    document.getElementById('dash-viagens-wrap').style.display='block'
+    renderCalendario()
+    renderViagensDash()
+
+    // Tabela por coordenador
     const nomePorId={}
-    ;(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+    todosProfs.forEach(p=>nomePorId[p.id]=p.nome)
     const por={}
     ds.forEach(d=>{
       if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',total:0,aprov:0,pend:0,rej:0}
@@ -387,7 +525,7 @@ async function carregarDashboard() {
       const st=r.rej>0?'rejeitado':r.pend>0?'pendente':'aprovado'
       return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
     }).join('')
-    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header"><div class="sec-title">Por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
+    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
   }
 }
 
