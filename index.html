@@ -724,7 +724,7 @@ async function carregarDemandas(){
   let nomes={}
   if(ids.length){const {data:ps}=await sb.from('profiles').select('id,nome').in('id',ids);(ps||[]).forEach(p=>nomes[p.id]=p.nome)}
 
-  const avisoHtml=(avisos&&avisos.length)?`<div class="card"><div class="card-header"><div class="card-title">Quadro de avisos geral</div></div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div>${isAprovador?`<button class="btn btn-sm btn-reject" style="margin-top:6px" onclick="desativarAviso('${a.id}')">Remover aviso</button>`:''}</div>`).join('')}</div>`:''
+  const avisoHtml=(avisos&&avisos.length)?`<div class="card"><div class="card-header"><div class="card-title">Quadro de avisos geral</div></div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div>${isAprovador?`<div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-sm" onclick="editarAviso('${a.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="excluirAviso('${a.id}')">Excluir</button></div>`:''}</div>`).join('')}</div>`:''
 
   const linhas=(demandas||[]).map(d=>{
     const podeAgendar=d.status==='solicitada' || d.status==='agendada'
@@ -738,7 +738,9 @@ async function carregarDemandas(){
       <td style="white-space:nowrap">
         ${podeAgendar?`<button class="btn btn-sm" onclick="atualizarStatusDemanda('${d.id}','agendada')">Marcar agendada</button>`:''}
         ${d.status!=='concluida'?`<button class="btn btn-sm btn-approve" onclick="atualizarStatusDemanda('${d.id}','concluida')">Concluir</button>`:''}
+        ${isAprovador?`<button class="btn btn-sm" onclick="editarDemanda('${d.id}')">Editar</button>`:''}
         ${isAprovador&&d.status!=='cancelada'?`<button class="btn btn-sm btn-reject" onclick="atualizarStatusDemanda('${d.id}','cancelada')">Cancelar</button>`:''}
+        ${isAprovador?`<button class="btn btn-sm btn-reject" onclick="excluirDemanda('${d.id}')">Excluir</button>`:''}
       </td>
     </tr>`
   }).join('')
@@ -769,6 +771,37 @@ async function atualizarStatusDemanda(id,status){
   await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
 }
 
+
+async function editarDemanda(id){
+  const {data:d,error}=await sb.from('demandas_viagem').select('*').eq('id',id).single()
+  if(error||!d){alert('Não foi possível carregar a demanda para edição.');return}
+  const destino=prompt('Destino / cidade:', d.destino||'')
+  if(destino===null)return
+  const estado=prompt('Estado (UF):', d.estado||'')
+  if(estado===null)return
+  const cliente=prompt('Cliente / reunião:', d.cliente||'')
+  if(cliente===null)return
+  const data_sugerida=prompt('Data sugerida (AAAA-MM-DD), deixe vazio se não tiver:', d.data_sugerida||'')
+  if(data_sugerida===null)return
+  const motivo=prompt('Motivo:', d.motivo||'')
+  if(motivo===null)return
+  const observacao=prompt('Observação:', d.observacao||'')
+  if(observacao===null)return
+  if(!destino.trim()||!estado.trim()||!cliente.trim()){alert('Destino, estado e cliente/reunião são obrigatórios.');return}
+  const payload={destino:destino.trim(),estado:estado.trim().toUpperCase(),cliente:cliente.trim(),data_sugerida:data_sugerida||null,motivo:motivo.trim(),observacao:observacao.trim()}
+  const {error:upErr}=await sb.from('demandas_viagem').update(payload).eq('id',id)
+  if(upErr){alert('Erro ao editar demanda: '+upErr.message);return}
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
+async function excluirDemanda(id){
+  if(!confirm('Excluir definitivamente esta demanda de viagem?'))return
+  const {error}=await sb.from('demandas_viagem').delete().eq('id',id)
+  if(error){alert('Erro ao excluir demanda: '+error.message+'
+Se for permissão, rode a policy de DELETE no Supabase.');return}
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
 async function criarAvisoGeral(){
   const titulo=document.getElementById('av-titulo').value.trim()
   const texto=document.getElementById('av-texto').value.trim()
@@ -780,11 +813,33 @@ async function criarAvisoGeral(){
   await carregarDemandas(); await carregarDashboard()
 }
 
-async function desativarAviso(id){
-  if(!confirm('Remover este aviso do quadro geral?'))return
-  const {error}=await sb.from('avisos').update({ativo:false}).eq('id',id)
-  if(error){alert('Erro ao remover aviso: '+error.message);return}
+async function editarAviso(id){
+  const {data:a,error}=await sb.from('avisos').select('*').eq('id',id).single()
+  if(error||!a){alert('Não foi possível carregar o aviso para edição.');return}
+  const titulo=prompt('Título do aviso:', a.titulo||'')
+  if(titulo===null)return
+  const texto=prompt('Mensagem do aviso:', a.texto||'')
+  if(texto===null)return
+  const validade=prompt('Válido até (AAAA-MM-DD), deixe vazio se não tiver:', a.validade||'')
+  if(validade===null)return
+  if(!titulo.trim()||!texto.trim()){alert('Título e mensagem são obrigatórios.');return}
+  const {error:upErr}=await sb.from('avisos').update({titulo:titulo.trim(),texto:texto.trim(),validade:validade||null}).eq('id',id)
+  if(upErr){alert('Erro ao editar aviso: '+upErr.message);return}
   await carregarDemandas(); await carregarDashboard()
+}
+
+async function excluirAviso(id){
+  if(!confirm('Excluir definitivamente este aviso?'))return
+  const {error}=await sb.from('avisos').delete().eq('id',id)
+  if(error){
+    const {error:fallback}=await sb.from('avisos').update({ativo:false}).eq('id',id)
+    if(fallback){alert('Erro ao excluir aviso: '+error.message);return}
+  }
+  await carregarDemandas(); await carregarDashboard()
+}
+
+async function desativarAviso(id){
+  return excluirAviso(id)
 }
 
 function renderMapaViagens(){
@@ -1582,7 +1637,9 @@ async function carregarSkus(){
         <span style="font-size:11px;font-weight:500;color:var(--purple);min-width:36px">${s.sigla}</span>
         <span style="flex:1;font-size:12px;${!s.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${s.nome}</span>
         <span class="badge ${s.ativo?'b-mint':'b-gray'}" style="font-size:9px">${s.ativo?'Ativo':'Inativo'}</span>
+        <button class="btn btn-sm" onclick="editarSku('${s.id}')" style="font-size:10px">Editar</button>
         <button class="btn btn-sm" onclick="toggleSku('${s.id}',${s.ativo})" style="font-size:10px">${s.ativo?'Desativar':'Ativar'}</button>
+        <button class="btn btn-sm btn-reject" onclick="excluirSku('${s.id}')" style="font-size:10px">Excluir</button>
       </div>`).join('')
     :'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhum SKU. Adicione acima.</div>'
 }
@@ -1615,6 +1672,31 @@ async function adicionarSku(){
   await carregarSkus()
 }
 
+
+async function editarSku(id){
+  const {data:s,error}=await sb.from('skus').select('*').eq('id',id).single()
+  if(error||!s){alert('Não foi possível carregar o SKU.');return}
+  const nome=prompt('Nome do SKU:', s.nome||'')
+  if(nome===null)return
+  const sigla=prompt('Sigla do SKU:', s.sigla||'')
+  if(sigla===null)return
+  if(!nome.trim()||!sigla.trim()){alert('Nome e sigla são obrigatórios.');return}
+  const {error:upErr}=await sb.from('skus').update({nome:nome.trim(),sigla:sigla.trim().toUpperCase()}).eq('id',id)
+  if(upErr){alert('Erro ao editar SKU: '+upErr.message);return}
+  carregarSkus()
+}
+
+async function excluirSku(id){
+  if(!confirm('Excluir definitivamente este SKU? Se ele já foi usado em visitas, prefira desativar.'))return
+  const {error}=await sb.from('skus').delete().eq('id',id)
+  if(error){
+    const {error:fallback}=await sb.from('skus').update({ativo:false}).eq('id',id)
+    if(fallback){alert('Erro ao excluir SKU: '+error.message);return}
+    alert('Não foi possível excluir definitivamente; o SKU foi desativado para preservar histórico.')
+  }
+  carregarSkus()
+}
+
 async function toggleSku(id,ativo){
   const {error}=await sb.from('skus').update({ativo:!ativo}).eq('id',id)
   if(error){
@@ -1628,7 +1710,8 @@ async function toggleSku(id,ativo){
 const ESTADOS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
 async function carregarEquipe(){
-  const{data:profs}=await sb.from('profiles').select('*').order('nome')
+  const{data:profs,error}=await sb.from('profiles').select('*').order('nome')
+  if(error){document.getElementById('equipe-lista').innerHTML=`<div class="login-err" style="display:block">Erro ao carregar equipe: ${error.message}</div>`;return}
   if(!profs||!profs.length){document.getElementById('equipe-lista').innerHTML='<div class="empty">Nenhum usuário.</div>';return}
 
   const rows=profs.map(p=>`
@@ -1636,23 +1719,33 @@ async function carregarEquipe(){
       <div style="flex:1">
         <div style="font-size:12px;font-weight:500;color:var(--ink)">${p.nome}</div>
         <div style="font-size:11px;color:var(--ink2)">${p.email} · <span class="badge ${p.papel==='aprovador'?'b-purple':'b-gray'}" style="font-size:9px">${p.papel}</span></div>
+        <div id="eq-status-${p.id}" style="font-size:10px;color:var(--ink2);margin-top:3px">Estado atual: ${p.estado_base||'não definido'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <label style="font-size:11px;color:var(--ink2)">Estado base:</label>
-        <select onchange="salvarEstadoBase('${p.id}',this.value)" class="form-select" style="width:80px;padding:4px 6px;font-size:11px">
+        <select id="eq-estado-${p.id}" class="form-select" style="width:80px;padding:4px 6px;font-size:11px">
           <option value="">—</option>
           ${ESTADOS.map(e=>`<option value="${e}" ${p.estado_base===e?'selected':''}>${e}</option>`).join('')}
         </select>
+        <button class="btn btn-sm btn-primary" style="font-size:10px;padding:3px 9px" onclick="salvarEstadoBase('${p.id}')">Salvar</button>
       </div>
     </div>`).join('')
 
   document.getElementById('equipe-lista').innerHTML=`<div class="card">${rows}</div>`
 }
 
-async function salvarEstadoBase(uid, estado){
-  await sb.from('profiles').update({estado_base:estado||null}).eq('id',uid)
-  // Atualiza perfil local se for o próprio
+async function salvarEstadoBase(uid){
+  const select=document.getElementById('eq-estado-'+uid)
+  const status=document.getElementById('eq-status-'+uid)
+  const estado=select?select.value:null
+  if(status){status.textContent='Salvando...';status.style.color='var(--ink2)'}
+  const {error}=await sb.from('profiles').update({estado_base:estado||null}).eq('id',uid)
+  if(error){
+    if(status){status.textContent='Erro ao salvar: '+error.message;status.style.color='#991B1B'}
+    return
+  }
   if(uid===perfil.id)perfil.estado_base=estado||null
+  if(status){status.textContent='Salvo: '+(estado||'não definido');status.style.color='var(--mint-dark)'}
 }
 
 // ── Tabela gastos por estado ──────────────────
@@ -1763,7 +1856,7 @@ async function carregarGastosPorEstado(){
 async function carregarCategorias(){
   const{data:cats}=await sb.from('categorias').select('*').order('tipo').order('ordem')
   const lista=(cats||[]).filter(c=>c.tipo===catTipoAtual)
-  document.getElementById('cat-lista').innerHTML=lista.length?lista.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:12px;${!c.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${c.nome}</span><span class="badge ${c.tipo==='viagem'?'b-purple':'b-gray'}">${c.tipo}</span><button class="btn btn-sm" onclick="toggleCategoria('${c.id}',${c.ativo})" style="font-size:10px">${c.ativo?'Desativar':'Ativar'}</button></div>`).join(''):'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhuma categoria.</div>'
+  document.getElementById('cat-lista').innerHTML=lista.length?lista.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:12px;${!c.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${c.nome}</span><span class="badge ${c.tipo==='viagem'?'b-purple':'b-gray'}">${c.tipo}</span><button class="btn btn-sm" onclick="editarCategoria('${c.id}')" style="font-size:10px">Editar</button><button class="btn btn-sm" onclick="toggleCategoria('${c.id}',${c.ativo})" style="font-size:10px">${c.ativo?'Desativar':'Ativar'}</button><button class="btn btn-sm btn-reject" onclick="excluirCategoria('${c.id}')" style="font-size:10px">Excluir</button></div>`).join(''):'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhuma categoria.</div>'
 }
 
 function setCatTipo(t){
@@ -1776,10 +1869,35 @@ function setCatTipo(t){
 async function adicionarCategoria(){
   const nome=document.getElementById('cat-nome').value.trim()
   if(!nome)return
-  const{data:cats}=await sb.from('categorias').select('ordem').eq('tipo',catTipoAtual).order('ordem',{ascending:false}).limit(1)
+  const{data:cats,error:ordErr}=await sb.from('categorias').select('ordem').eq('tipo',catTipoAtual).order('ordem',{ascending:false}).limit(1)
+  if(ordErr){alert('Erro ao consultar categorias: '+ordErr.message);return}
   const maxOrdem=cats?.[0]?.ordem||0
-  await sb.from('categorias').insert({nome,tipo:catTipoAtual,ordem:maxOrdem+1})
+  const {error}=await sb.from('categorias').insert({nome,tipo:catTipoAtual,ordem:maxOrdem+1,ativo:true})
+  if(error){alert('Erro ao adicionar categoria: '+error.message);return}
   document.getElementById('cat-nome').value=''
+  carregarCategorias()
+}
+
+
+async function editarCategoria(id){
+  const {data:c,error}=await sb.from('categorias').select('*').eq('id',id).single()
+  if(error||!c){alert('Não foi possível carregar a categoria.');return}
+  const nome=prompt('Nome da categoria:', c.nome||'')
+  if(nome===null)return
+  if(!nome.trim()){alert('Nome é obrigatório.');return}
+  const {error:upErr}=await sb.from('categorias').update({nome:nome.trim()}).eq('id',id)
+  if(upErr){alert('Erro ao editar categoria: '+upErr.message);return}
+  carregarCategorias()
+}
+
+async function excluirCategoria(id){
+  if(!confirm('Excluir definitivamente esta categoria? Se ela já foi usada em despesas, prefira desativar.'))return
+  const {error}=await sb.from('categorias').delete().eq('id',id)
+  if(error){
+    const {error:fallback}=await sb.from('categorias').update({ativo:false}).eq('id',id)
+    if(fallback){alert('Erro ao excluir categoria: '+error.message);return}
+    alert('Não foi possível excluir definitivamente; a categoria foi desativada para preservar histórico.')
+  }
   carregarCategorias()
 }
 
