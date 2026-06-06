@@ -200,7 +200,7 @@
           <div class="metric m-purple"><div class="metric-label">Total válido</div><div class="metric-value" id="m-total">—</div></div>
           <div class="metric m-mint"><div class="metric-label">Aprovado</div><div class="metric-value" id="m-aprov">—</div></div>
           <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
-          <div class="metric m-red"><div class="metric-label">Rejeitado</div><div class="metric-value" id="m-rej">—</div></div>
+          <div class="metric m-red"><div class="metric-label">Rejeitadas</div><div class="metric-value" id="m-rej">—</div></div>
         </div>
 
         <!-- Quadro geral -->
@@ -617,13 +617,14 @@ function renderFinanceiroPagar(despesas, perfis){
   ;(perfis||[]).forEach(p=>nomePorId[p.id]=p.nome)
   const por={}
   ;(despesas||[]).forEach(d=>{
-    if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',aprovado:0,pendente:0,rejeitado:0,total:0}
-    if(d.status!=='rejeitado')por[d.usuario_id].total+=(d.valor||0)
+    // Financeiro só enxerga valores aprovados ou pendentes. Rejeitado fica fora do painel de pagamento.
+    if(d.status!=='aprovado' && d.status!=='pendente') return
+    if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',aprovado:0,pendente:0,total:0}
+    por[d.usuario_id].total+=(d.valor||0)
     if(d.status==='aprovado')por[d.usuario_id].aprovado+=(d.valor||0)
     if(d.status==='pendente')por[d.usuario_id].pendente+=(d.valor||0)
-    if(d.status==='rejeitado')por[d.usuario_id].rejeitado+=(d.valor||0)
   })
-  const linhas=Object.values(por).sort((a,b)=>b.aprovado-a.aprovado)
+  const linhas=Object.values(por).filter(r=>r.aprovado>0||r.pendente>0).sort((a,b)=>b.aprovado-a.aprovado)
   const totalAprov=linhas.reduce((s,r)=>s+r.aprovado,0)
   const totalPend=linhas.reduce((s,r)=>s+r.pendente,0)
   if(!linhas.length){wrap.innerHTML='';return}
@@ -631,16 +632,15 @@ function renderFinanceiroPagar(despesas, perfis){
     <td style="font-weight:500">${r.nome}</td>
     <td style="color:var(--mint-dark);font-weight:600">${moeda(r.aprovado)}</td>
     <td style="color:var(--orange-dark)">${moeda(r.pendente)}</td>
-    <td style="color:#991B1B">${moeda(r.rejeitado)}</td>
   </tr>`).join('')
   wrap.innerHTML=`<div class="sec-header" style="margin-top:12px">
-    <div><div class="sec-title">Valores para o financeiro pagar</div><div class="page-sub" style="margin-bottom:0">Base: despesas aprovadas no mês atual. Pendentes aparecem só para conferência.</div></div>
+    <div><div class="sec-title">Valores para o financeiro pagar</div><div class="page-sub" style="margin-bottom:0">Base: somente despesas aprovadas. Pendentes aparecem só para conferência. Rejeitadas ficam fora deste quadro.</div></div>
   </div>
   <div class="metrics" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
     <div class="metric m-mint"><div class="metric-label">Total aprovado a pagar</div><div class="metric-value">${moeda(totalAprov)}</div></div>
     <div class="metric m-orange"><div class="metric-label">Ainda pendente de aprovação</div><div class="metric-value">${moeda(totalPend)}</div></div>
   </div>
-  <div class="card"><table class="tbl"><thead><tr><th>Pessoa</th><th>A pagar</th><th>Pendente</th><th>Rejeitado</th></tr></thead><tbody>${rows}</tbody></table></div>`
+  <div class="card"><table class="tbl"><thead><tr><th>Pessoa</th><th>A pagar</th><th>Pendente</th></tr></thead><tbody>${rows}</tbody></table></div>`
 }
 
 
@@ -885,11 +885,11 @@ async function carregarDashboard() {
   const ds=despesas||[]
   const dsValidas=ds.filter(d=>d.status!=='rejeitado')
 
-  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'} · rejeitadas não entram no total`
+  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'} · rejeitadas ficam fora do financeiro`
   document.getElementById('m-total').textContent=moeda(dsValidas.reduce((s,d)=>s+(d.valor||0),0))
   document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0))
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0))
-  document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+(d.valor||0),0))
+  document.getElementById('m-rej').textContent=String(ds.filter(d=>d.status==='rejeitado').length)
 
   await carregarAvisosDashboard()
   await carregarDemandasResumo()
@@ -937,8 +937,8 @@ async function carregarDashboard() {
       if(d.status==='pendente')por[d.usuario_id].pend+=(d.valor||0)
       if(d.status==='rejeitado')por[d.usuario_id].rej+=(d.valor||0)
     })
-    const rows=Object.values(por).map(r=>{
-      const st=r.rej>0?'rejeitado':r.pend>0?'pendente':'aprovado'
+    const rows=Object.values(por).filter(r=>r.total>0||r.aprov>0||r.pend>0).map(r=>{
+      const st=r.pend>0?'pendente':'aprovado'
       return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
     }).join('')
     document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total válido</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
