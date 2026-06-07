@@ -1343,7 +1343,7 @@ async function editarDespesa(id, origem='agenda'){
   showScreen('lancar',document.getElementById('nav-lancar'))
 }
 
-async function excluirDespesaasync function excluirDespesa(id, origem='agenda'){
+async function excluirDespesa(id, origem='agenda'){
   if(!confirm('Tem certeza que quer excluir essa despesa? Essa ação não pode ser desfeita.')) return
 
   let q = sb.from('despesas').delete().eq('id',id)
@@ -1363,7 +1363,7 @@ async function excluirDespesaasync function excluirDespesa(id, origem='agenda'){
   await carregarDashboard()
 }
 
-async function prepararFormViagensSelectasync function prepararFormViagensSelect(){
+async function prepararFormViagensSelect(){
   document.getElementById('d-arquivo').value=''
   resetUpload()
   const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
@@ -1450,7 +1450,7 @@ async function salvarDespesa(){
   }
 }
 
-function limparFormDespesafunction limparFormDespesa(){
+function limparFormDespesa(){
   despesaEditandoId=null
   document.getElementById('d-titulo').textContent='Lançar despesa'
   document.getElementById('d-subtitulo').textContent='Vinculada a uma viagem ou avulsa'
@@ -1564,7 +1564,7 @@ async function aprovar(id){
   await carregarDashboard()
 }
 
-function mostrarRejeitarfunction mostrarRejeitar(id){
+function mostrarRejeitar(id){
   document.getElementById('rej-form-'+id).style.display='block'
   document.getElementById('rej-motivo-'+id).focus()
 }
@@ -1593,7 +1593,7 @@ async function rejeitar(id){
   await carregarDashboard()
 }
 
-async function carregarInsightsasync function carregarInsights(){
+async function carregarInsights(){
   const ini=new Date();ini.setDate(ini.getDate()-90)
   const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').gte('data_despesa',ini.toISOString().slice(0,10))
   const{data:profs}=await sb.from('profiles').select('id,nome')
