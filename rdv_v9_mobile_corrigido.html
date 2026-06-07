@@ -1,0 +1,2202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDV · Cleantabaco</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --purple: #7C3AED; --purple-light: #EDE9FE; --purple-dark: #4C1D95;
+    --mint: #10B981; --mint-light: #D1FAE5; --mint-dark: #065F46;
+    --orange: #F97316; --orange-light: #FEF3C7; --orange-dark: #92400E;
+    --red: #EF4444; --red-light: #FEE2E2;
+    --cream: #FAF7F0; --ink: #1C1917; --ink2: #57534E; --line: #E7E5E4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: var(--cream); color: var(--ink); font-size: 14px; }
+  #app { display: none; min-height: 100vh; flex-direction: column; }
+  #app.show { display: flex; }
+  .topbar { background: var(--purple); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-logo { color: white; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .topbar-user { display: flex; align-items: center; gap: 8px; background: var(--purple-dark); border-radius: 20px; padding: 4px 12px; }
+  .topbar-user span { font-size: 11px; color: #EDE9FE; }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--mint); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--mint-dark); }
+  .layout { display: flex; flex: 1; }
+  .sidebar { width: 168px; border-right: 1.5px solid var(--line); background: var(--cream); padding: 12px 8px; flex-shrink: 0; }
+  .nav-label { font-size: 10px; color: var(--ink2); text-transform: uppercase; letter-spacing: .6px; padding: 0 6px; margin-bottom: 4px; margin-top: 10px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; font-size: 12px; color: var(--ink2); cursor: pointer; margin-bottom: 2px; border: 1.5px solid transparent; }
+  .nav-item:hover { background: white; color: var(--ink); }
+  .nav-item.active { background: white; color: var(--purple); font-weight: 500; border-color: var(--purple); }
+  .nav-item .badge-pill { margin-left: auto; background: var(--orange); color: white; font-size: 10px; padding: 1px 6px; border-radius: 20px; font-weight: 600; }
+  .main { flex: 1; padding: 20px; overflow-y: auto; max-height: calc(100vh - 44px); }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .page-title { font-size: 15px; font-weight: 500; margin-bottom: 2px; }
+  .page-sub { font-size: 11px; color: var(--ink2); margin-bottom: 16px; }
+  .card { border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; background: white; margin-bottom: 10px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--cream); border-bottom: 1.5px solid var(--line); }
+  .card-title { font-size: 12px; font-weight: 500; }
+  .card-meta { font-size: 11px; color: var(--ink2); margin-top: 2px; }
+  .card-footer { padding: 8px 12px; background: var(--cream); border-top: 1.5px solid var(--line); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--ink2); }
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
+  .metric { border-radius: 10px; padding: 10px 12px; border: 1.5px solid; }
+  .metric-label { font-size: 10px; color: var(--ink2); margin-bottom: 4px; }
+  .metric-value { font-size: 17px; font-weight: 500; }
+  .m-purple { background: var(--purple-light); border-color: var(--purple); }
+  .m-purple .metric-value { color: var(--purple-dark); }
+  .m-mint { background: var(--mint-light); border-color: var(--mint); }
+  .m-mint .metric-value { color: var(--mint-dark); }
+  .m-orange { background: var(--orange-light); border-color: var(--orange); }
+  .m-orange .metric-value { color: var(--orange-dark); }
+  .m-red { background: var(--red-light); border-color: var(--red); }
+  .m-red .metric-value { color: #991B1B; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 500; border: 1px solid; }
+  .b-purple { background: var(--purple-light); color: var(--purple-dark); border-color: #C4B5FD; }
+  .b-mint { background: var(--mint-light); color: var(--mint-dark); border-color: #6EE7B7; }
+  .b-orange { background: var(--orange-light); color: var(--orange-dark); border-color: #FCD34D; }
+  .b-red { background: var(--red-light); color: #991B1B; border-color: #FCA5A5; }
+  .b-gray { background: #F5F5F4; color: var(--ink2); border-color: var(--line); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; border: 1.5px solid var(--line); background: white; color: var(--ink); cursor: pointer; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--purple); color: white; border-color: var(--purple-dark); }
+  .btn-mint { background: var(--mint); color: white; border-color: var(--mint-dark); }
+  .btn-sm { padding: 3px 10px; font-size: 11px; border-radius: 20px; }
+  .btn-approve { background: var(--mint-light); color: var(--mint-dark); border-color: #6EE7B7; }
+  .btn-reject { background: var(--red-light); color: #991B1B; border-color: #FCA5A5; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 11px; font-weight: 500; color: var(--ink2); }
+  .form-input, .form-select { width: 100%; padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--ink); background: white; outline: none; }
+  .form-input:focus, .form-select:focus { border-color: var(--purple); }
+  .form-card { border: 1.5px solid var(--line); border-radius: 10px; padding: 14px; background: white; margin-bottom: 12px; }
+  .upload-area { border: 1.5px dashed var(--purple); border-radius: 10px; padding: 16px; text-align: center; background: var(--purple-light); cursor: pointer; }
+  .upload-area:hover { opacity: .85; }
+  .upload-info { font-size: 11px; color: var(--purple-dark); }
+  .upload-sub { font-size: 10px; color: var(--ink2); margin-top: 4px; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .tbl th { padding: 6px 10px; text-align: left; font-weight: 500; color: var(--ink2); background: var(--cream); border-bottom: 1.5px solid var(--line); }
+  .tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); color: var(--ink); }
+  .tbl tr:last-child td { border-bottom: none; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .dot-mint { background: var(--mint); } .dot-orange { background: var(--orange); } .dot-red { background: var(--red); }
+  .tipo-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tipo-btn { flex: 1; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 500; border: 2px solid var(--line); background: white; color: var(--ink2); cursor: pointer; text-align: center; }
+  .tipo-btn.active { background: var(--purple); border-color: var(--purple-dark); color: white; }
+  .reject-note { font-size: 10px; color: #991B1B; background: var(--red-light); border: 1px solid #FCA5A5; border-radius: 6px; padding: 3px 8px; margin-top: 4px; }
+  .ai-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--purple-dark); background: var(--purple-light); padding: 2px 7px; border-radius: 20px; border: 1px solid #C4B5FD; margin-top: 3px; }
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--cream); }
+  .login-box { width: 100%; max-width: 340px; padding: 0 16px; }
+  .login-logo { text-align: center; margin-bottom: 24px; }
+  .login-icon { width: 56px; height: 56px; border-radius: 16px; background: var(--purple); border: 2px solid var(--purple-dark); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+  .login-card { background: white; border: 1.5px solid var(--line); border-radius: 12px; padding: 20px; }
+  .login-err { background: var(--red-light); color: #991B1B; border-radius: 8px; padding: 8px 10px; font-size: 11px; margin-bottom: 10px; }
+  .insight-card { border: 1.5px solid; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 10px; }
+  .insight-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+  .empty { text-align: center; padding: 32px; color: var(--ink2); font-size: 12px; }
+  .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .sec-title { font-size: 12px; font-weight: 500; }
+  .approve-row { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  .approve-row:last-child { border-bottom: none; }
+  .loading { text-align: center; padding: 24px; color: var(--ink2); font-size: 12px; }
+
+
+/* ===== AJUSTE RESPONSIVO MOBILE / TABLET ===== */
+@media (max-width: 900px) {
+  body { font-size: 14px; overflow-x: hidden; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 10px 12px;
+  }
+
+  .topbar-logo { font-size: 12px; white-space: nowrap; }
+  .topbar-user { padding: 4px 8px; gap: 6px; }
+  .topbar-user span { max-width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .layout {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1.5px solid var(--line);
+    padding: 8px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: sticky;
+    top: 44px;
+    z-index: 40;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar::-webkit-scrollbar { display: none; }
+  .nav-label { display: none !important; }
+
+  .nav-item {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    white-space: nowrap;
+    font-size: 12px;
+    background: white;
+  }
+
+  .nav-item svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .nav-item .badge-pill {
+    margin-left: 4px;
+  }
+
+  .main {
+    width: 100%;
+    max-width: 100%;
+    padding: 14px 12px 28px;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .page-title { font-size: 18px; }
+  .page-sub { font-size: 12px; margin-bottom: 12px; }
+
+  .metrics,
+  .metrics[style] {
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+
+  .metric {
+    padding: 12px;
+  }
+
+  .metric-value {
+    font-size: 20px;
+  }
+
+  .form-card {
+    padding: 14px;
+    width: 100%;
+    max-width: 100% !important;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .tipo-toggle {
+    flex-direction: column;
+  }
+
+  .tipo-btn {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .form-input,
+  .form-select,
+  .btn {
+    min-height: 44px;
+    font-size: 16px; /* evita zoom automático em iPhone/Android */
+  }
+
+  .upload-area {
+    padding: 18px 12px;
+  }
+
+  .sec-header {
+    align-items: flex-start;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .sec-header .btn,
+  .card-header .btn,
+  .card-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .card-header,
+  .card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .card {
+    border-radius: 12px;
+    overflow-x: auto;
+  }
+
+  .tbl {
+    min-width: 620px;
+  }
+
+  .approve-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .approve-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  #dash-calendario-wrap .sec-header {
+    flex-direction: column;
+  }
+
+  #dash-calendario-wrap .sec-header > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #dash-calendario {
+    overflow-x: auto;
+  }
+
+  #dash-calendario > div {
+    min-width: 520px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    gap: 8px;
+  }
+
+  .topbar-logo svg { display: none; }
+  .topbar-logo { font-size: 11px; }
+
+  .main {
+    padding: 12px 10px 24px;
+  }
+
+  .nav-item {
+    font-size: 11px;
+    padding: 8px 9px;
+  }
+
+  .card,
+  .form-card {
+    border-radius: 12px;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  div[style*="justify-content:flex-end"] {
+    flex-direction: column;
+  }
+}
+
+</style>
+</head>
+<body>
+
+<script>
+  const SUPABASE_URL  = 'https://fiauhpvnwpompyzuhzwh.supabase.co'
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpYXVocHZud3BvbXB5enVoendoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MjMwMzMsImV4cCI6MjA5NjI5OTAzM30.35axNEijEjrg8XKZG-nXr1CrbhvHvXG5dr0YQrzXkdk'
+</script>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.91-1.85a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </div>
+      <div style="font-size:16px;font-weight:500;color:var(--ink)">RDV · Cleantabaco</div>
+      <div style="font-size:11px;color:var(--ink2);margin-top:2px">Reembolso de Despesas</div>
+    </div>
+    <div class="login-card">
+      <div id="login-err" class="login-err" style="display:none"></div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">E-mail</label>
+        <input id="login-email" type="email" class="form-input" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Senha</label>
+        <input id="login-senha" type="password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:9px" onclick="doLogin()">Entrar</button>
+    </div>
+    <p style="text-align:center;font-size:10px;color:var(--ink2);margin-top:10px">Problemas? Fale com o gestor.</p>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      RDV · Cleantabaco
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="topbar-user">
+        <span id="topbar-nome"></span>
+        <div class="avatar" id="topbar-avatar"></div>
+      </div>
+      <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;color:#EDE9FE;font-size:11px">Sair</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="nav-label">Menu</div>
+      <div class="nav-item active" onclick="showScreen('dashboard',this)" id="nav-dashboard">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="showScreen('agenda',this)" id="nav-agenda">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Agenda
+      </div>
+      <div class="nav-item" onclick="showScreen('demandas',this)" id="nav-demandas">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Demandas
+        <span class="badge-pill" id="badge-demandas" style="display:none">0</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('lancar',this)" id="nav-lancar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Lançar despesa
+      </div>
+      <div class="nav-item aprovador-only" onclick="showScreen('aprovar',this)" id="nav-aprovar" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Aprovar
+        <span class="badge-pill" id="badge-pendentes" style="display:none">0</span>
+      </div>
+      <div class="nav-item aprovador-only" onclick="showScreen('insights',this)" id="nav-insights" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Insights IA
+      </div>
+      <div class="nav-label aprovador-only" id="nav-label-admin" style="display:none">Admin</div>
+      <div class="nav-item aprovador-only" onclick="showScreen('categorias',this)" id="nav-categorias" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        Categorias
+      </div>
+      <div class="nav-item aprovador-only" onclick="showScreen('skus',this)" id="nav-skus" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        SKUs
+      </div>
+      <div class="nav-item aprovador-only" onclick="showScreen('equipe',this)" id="nav-equipe" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Equipe
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="screen active" id="screen-dashboard">
+        <div class="page-title">Visão geral</div>
+        <div class="page-sub" id="dash-sub">Carregando...</div>
+        <div class="metrics" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="metric m-purple"><div class="metric-label">Aprovado + pendente</div><div class="metric-value" id="m-total">—</div></div>
+          <div class="metric m-mint"><div class="metric-label">Aprovado</div><div class="metric-value" id="m-aprov">—</div></div>
+          <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
+        </div>
+
+        <!-- Quadro geral -->
+        <div id="dash-avisos"></div>
+
+        <!-- Demandas de viagem -->
+        <div id="dash-demandas-resumo"></div>
+
+        <!-- Alerta RDV -->
+        <div id="dash-alerta-rdv"></div>
+
+        <!-- Calendário -->
+        <div id="dash-calendario-wrap" style="display:none">
+          <div class="sec-header" style="margin-bottom:6px">
+            <div class="sec-title">Calendário de viagens</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn" style="padding:4px 8px;font-size:11px" onclick="navMes(-1)">‹</button>
+              <span id="cal-titulo" style="font-size:12px;font-weight:500;min-width:120px;text-align:center"></span>
+              <button class="btn" style="padding:4px 8px;font-size:11px" onclick="navMes(1)">›</button>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:12px">
+            <div id="dash-calendario" style="padding:8px"></div>
+          </div>
+        </div>
+
+        <!-- Lista de viagens -->
+        <div id="dash-viagens-wrap" style="display:none">
+          <div class="sec-header"><div class="sec-title">Todas as viagens</div></div>
+          <div id="dash-viagens-lista"></div>
+        </div>
+
+        <!-- Tabela por coordenador -->
+        <div id="dash-tabela"></div>
+
+        <!-- Valores para financeiro -->
+        <div id="dash-financeiro"></div>
+
+        <!-- Mapa operacional -->
+        <div id="dash-mapa-viagens"></div>
+      </div>
+
+      <div class="screen" id="screen-agenda">
+        <div class="sec-header">
+          <div><div class="page-title">Agenda de viagens</div><div class="page-sub">Próximas e recentes</div></div>
+          <button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-agenda'))">+ Nova viagem</button>
+        </div>
+        <div id="agenda-lista"><div class="loading">Carregando...</div></div>
+      </div>
+
+      <div class="screen" id="screen-demandas">
+        <div class="sec-header">
+          <div>
+            <div class="page-title">Demandas de viagem</div>
+            <div class="page-sub">Solicitações da diretoria e acompanhamento de agendamento</div>
+          </div>
+        </div>
+
+        <div class="form-card aprovador-only" id="demanda-admin-box" style="display:none">
+          <div class="sec-title" style="margin-bottom:10px">Nova demanda de viagem</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Coordenador *</label><select id="dem-usuario" class="form-select"></select></div>
+            <div class="form-group"><label class="form-label">Estado *</label><select id="dem-estado" class="form-select"><option value="">Selecione</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Destino / cidade *</label><input id="dem-destino" class="form-input" placeholder="ex: Recife"></div>
+            <div class="form-group"><label class="form-label">Cliente / reunião *</label><input id="dem-cliente" class="form-input" placeholder="ex: Reunião diretoria / Cliente XPTO"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Data sugerida</label><input id="dem-data" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Motivo</label><input id="dem-motivo" class="form-input" placeholder="ex: abertura de cliente, reunião, auditoria"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px"><label class="form-label">Observação</label><textarea id="dem-obs" class="form-input" rows="2" placeholder="Orientações para o coordenador"></textarea></div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="criarDemandaViagem()">Criar demanda</button></div>
+        </div>
+
+        <div class="form-card aprovador-only" id="aviso-admin-box" style="display:none">
+          <div class="sec-title" style="margin-bottom:10px">Novo aviso geral</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Título *</label><input id="av-titulo" class="form-input" placeholder="ex: Fechamento do RDV"></div>
+            <div class="form-group"><label class="form-label">Válido até</label><input id="av-validade" type="date" class="form-input"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px"><label class="form-label">Mensagem *</label><textarea id="av-texto" class="form-input" rows="2" placeholder="Mensagem para todos os usuários"></textarea></div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn btn-mint" onclick="criarAvisoGeral()">Publicar aviso</button></div>
+        </div>
+
+        <div id="demandas-lista"><div class="loading">Carregando...</div></div>
+      </div>
+
+      <div class="screen" id="screen-novaviagem">
+        <div class="page-title">Nova viagem</div>
+        <div class="page-sub">Preencha os dados antes de viajar</div>
+        <div class="form-card">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Destino (cidade) *</label><input id="v-destino" class="form-input" placeholder="ex: São Paulo"></div>
+            <div class="form-group">
+              <label class="form-label">Estado *</label>
+              <select id="v-estado" class="form-select">
+                <option value="">Selecione</option>
+                <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+                <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+                <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+                <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+                <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+                <option>SP</option><option>SE</option><option>TO</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Cliente visitado *</label><input id="v-cliente" class="form-input" placeholder="ex: Atacadão SP"></div>
+            <div class="form-group"><label class="form-label">Motivo da visita *</label><input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Data início *</label><input id="v-inicio" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Data fim *</label><input id="v-fim" type="date" class="form-input"></div>
+          </div>
+          <div id="v-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="showScreen('agenda',document.getElementById('nav-agenda'))">Cancelar</button>
+            <button class="btn btn-mint" onclick="salvarViagem()">Salvar viagem</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RELATÓRIO PÓS-VISITA -->
+      <div class="screen" id="screen-resultado">
+        <div class="page-title">Resultado da visita</div>
+        <div class="page-sub" id="res-sub">Preencha após retornar</div>
+        <div class="form-card">
+          <div class="form-group" style="margin-bottom:12px">
+            <label class="form-label">Fechou negócio?</label>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <div class="tipo-btn" id="res-sim" onclick="setFechou(true)" style="flex:none;padding:6px 20px">Sim</div>
+              <div class="tipo-btn" id="res-nao" onclick="setFechou(false)" style="flex:none;padding:6px 20px">Não</div>
+            </div>
+          </div>
+          <div id="res-skus-wrap">
+            <label class="form-label" style="margin-bottom:6px;display:block">Caixas vendidas por SKU</label>
+            <div id="res-skus-campos"></div>
+          </div>
+          <div class="form-group" style="margin-top:10px;margin-bottom:10px">
+            <label class="form-label">Observações</label>
+            <textarea id="res-obs" class="form-input" rows="3" placeholder="Comentários sobre a visita, próximos passos..."></textarea>
+          </div>
+          <div id="res-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="showScreen('agenda',document.getElementById('nav-agenda'))">Cancelar</button>
+            <button class="btn btn-mint" onclick="salvarResultado()">Salvar resultado</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DESPESAS AVULSAS -->
+      <div class="screen" id="screen-avulsas">
+        <div class="sec-header">
+          <div>
+            <div class="page-title">Despesas avulsas</div>
+            <div class="page-sub" id="avulsas-sub">Mês atual · sem viagem vinculada</div>
+          </div>
+          <button class="btn btn-primary" onclick="setTipo('avulso');showScreen('lancar',document.getElementById('nav-lancar'))">+ Nova avulsa</button>
+        </div>
+        <div id="avulsas-lista"><div class="loading">Carregando...</div></div>
+      </div>
+
+      <div class="screen" id="screen-lancar">
+        <div class="page-title" id="d-titulo">Lançar despesa</div>
+        <div class="page-sub" id="d-subtitulo">Vinculada a uma viagem ou avulsa</div>
+        <div class="form-card">
+          <div class="tipo-toggle">
+            <div class="tipo-btn active" id="tipo-viagem" onclick="setTipo('viagem')">Vinculada a viagem</div>
+            <div class="tipo-btn" id="tipo-avulso" onclick="setTipo('avulso')">Despesa avulsa</div>
+          </div>
+          <div id="campo-viagem" class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Viagem *</label>
+            <select id="d-viagem" class="form-select"><option value="">Selecione</option></select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Categoria *</label>
+              <select id="d-categoria" class="form-select" onchange="setSugestaoManual()"><option value="">Selecione</option></select>
+              <div id="ai-sugestao" class="ai-pill" style="display:none">✦ IA sugeriu esta categoria</div>
+            </div>
+            <div class="form-group"><label class="form-label">Data *</label><input id="d-data" type="date" class="form-input"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Valor (R$) *</label><input id="d-valor" type="number" step="0.01" class="form-input" placeholder="0,00" onblur="sugerirCategoria()"></div>
+            <div class="form-group"><label class="form-label">Descrição</label><input id="d-descricao" class="form-input" placeholder="Opcional" onblur="sugerirCategoria()"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Comprovante</label>
+            <div class="upload-area" onclick="document.getElementById('d-arquivo').click()">
+              <div id="upload-preview">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.5" style="display:block;margin:0 auto 4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                <div class="upload-info">Clique para anexar comprovante</div>
+                <div class="upload-sub">JPG · PNG · PDF · máx 10 MB · comprimido automaticamente</div>
+              </div>
+            </div>
+            <input id="d-arquivo" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none" onchange="handleArquivo(this)">
+          </div>
+          <div id="d-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="limparFormDespesa()">Limpar</button>
+            <button class="btn btn-mint" id="d-btn-salvar" onclick="salvarDespesa()">Salvar despesa</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="screen-aprovar">
+        <div class="page-title">Aprovações pendentes</div>
+        <div class="page-sub" id="aprovar-sub">Carregando...</div>
+        <div id="aprovar-lista"><div class="loading">Carregando...</div></div>
+      </div>
+
+      <div class="screen" id="screen-insights">
+        <div class="page-title">Insights IA</div>
+        <div class="page-sub">Análise automática dos últimos 90 dias</div>
+        <div id="insights-lista"><div class="loading">Analisando dados...</div></div>
+      </div>
+
+      <div class="screen" id="screen-skus">
+        <div class="page-title">SKUs</div>
+        <div class="page-sub">Produtos disponíveis para registrar no resultado da visita</div>
+        <div class="form-card" style="max-width:440px">
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input id="sku-nome" class="form-input" placeholder="Nome do SKU (ex: Gudang Red)" style="flex:1">
+            <input id="sku-sigla" class="form-input" placeholder="Sigla (ex: GR)" style="width:80px">
+            <button class="btn btn-primary" onclick="adicionarSku()">Adicionar</button>
+          </div>
+          <div id="sku-lista"></div>
+        </div>
+      </div>
+
+      <div class="screen" id="screen-equipe">
+        <div class="page-title">Equipe</div>
+        <div class="page-sub">Configure o estado base de cada coordenador</div>
+        <div id="equipe-lista" style="max-width:500px"><div class="loading">Carregando...</div></div>
+      </div>
+
+      <div class="screen" id="screen-categorias">
+        <div class="page-title">Categorias</div>
+        <div class="page-sub">Dropdown que os coordenadores veem ao lançar</div>
+        <div class="form-card" style="max-width:440px">
+          <div class="tipo-toggle">
+            <div class="tipo-btn active" id="cat-tipo-viagem" onclick="setCatTipo('viagem')">Viagem</div>
+            <div class="tipo-btn" id="cat-tipo-avulso" onclick="setCatTipo('avulso')">Avulso</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input id="cat-nome" class="form-input" placeholder="Nome da nova categoria" style="flex:1">
+            <button class="btn btn-primary" onclick="adicionarCategoria()">Adicionar</button>
+          </div>
+          <div id="cat-lista"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON)
+
+let perfil = null
+let tipoAtual = 'viagem'
+let catTipoAtual = 'viagem'
+let arquivoComprimido = null
+
+function moeda(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0) }
+function dataFmt(s) { if(!s)return''; const[y,m,d]=s.split('-'); return`${d}/${m}/${y}` }
+function iniciais(nome) { return nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase() }
+function mesAtual() { const n=new Date(); return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` }
+function ultimoDiaMes(mesStr) { const[y,m]=mesStr.split('-'); return new Date(y,m,0).getDate() }
+function fimMes(mesStr) { return`${mesStr}-${ultimoDiaMes(mesStr)}` }
+function statusBadge(s) {
+  const m={pendente:'b-orange',aprovado:'b-mint',rejeitado:'b-red',agendada:'b-gray',em_andamento:'b-purple',concluida:'b-mint',cancelada:'b-gray'}
+  const l={pendente:'Pendente',aprovado:'Aprovado',rejeitado:'Rejeitado',agendada:'Agendada',em_andamento:'Em andamento',concluida:'Concluída',cancelada:'Cancelada'}
+  return`<span class="badge ${m[s]||'b-gray'}">${l[s]||s}</span>`
+}
+
+async function doLogin() {
+  const email=document.getElementById('login-email').value.trim()
+  const senha=document.getElementById('login-senha').value
+  const err=document.getElementById('login-err')
+  err.style.display='none'
+  const {error}=await sb.auth.signInWithPassword({email,password:senha})
+  if(error){err.textContent='E-mail ou senha incorretos.';err.style.display='block';return}
+  await iniciarApp()
+}
+document.getElementById('login-senha').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()})
+
+async function doLogout() {
+  await sb.auth.signOut()
+  perfil=null
+  document.getElementById('login-screen').style.display='flex'
+  document.getElementById('app').classList.remove('show')
+}
+
+async function iniciarApp() {
+  const {data:{user}}=await sb.auth.getUser()
+  if(!user)return
+  const {data}=await sb.from('profiles').select('*').eq('id',user.id).single()
+  if(!data)return
+  perfil=data
+  document.getElementById('topbar-nome').textContent=perfil.nome
+  document.getElementById('topbar-avatar').textContent=iniciais(perfil.nome)
+  document.getElementById('login-screen').style.display='none'
+  document.getElementById('app').classList.add('show')
+  if(perfil.papel==='aprovador'){
+    document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='flex')
+    document.getElementById('nav-label-admin').style.display='block'
+  }
+  await carregarDashboard()
+  await contarPendentes()
+  await contarDemandasAbertas()
+}
+
+function showScreen(nome,navEl) {
+  const telasAdmin = ['aprovar','insights','categorias','skus','equipe']
+
+  if(telasAdmin.includes(nome) && perfil?.papel !== 'aprovador'){
+    alert('Acesso restrito ao aprovador.')
+    return
+  }
+
+  const tela = document.getElementById('screen-'+nome)
+  if(!tela){
+    alert('Tela não encontrada.')
+    return
+  }
+
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
+  tela.classList.add('active')
+  if(navEl)navEl.classList.add('active')
+
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas}
+  if(loaders[nome])loaders[nome]()
+}
+
+// ── Calendário// ── Calendário ────────────────────────────────
+let calAno=new Date().getFullYear()
+let calMes=new Date().getMonth()
+let todasViagens=[]
+let todosProfs=[]
+
+function navMes(d){calMes+=d;if(calMes>11){calMes=0;calAno++}if(calMes<0){calMes=11;calAno--};renderCalendario()}
+
+function renderCalendario(){
+  const titulo=new Date(calAno,calMes,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  document.getElementById('cal-titulo').textContent=titulo.charAt(0).toUpperCase()+titulo.slice(1)
+  const primeiroDia=new Date(calAno,calMes,1).getDay()
+  const diasNoMes=new Date(calAno,calMes+1,0).getDate()
+  const hoje=new Date()
+
+  // Mapeia viagens para dias do mês
+  const viagensPorDia={}
+  todasViagens.forEach(v=>{
+    const ini=new Date(v.data_inicio+'T00:00:00')
+    const fim=new Date(v.data_fim+'T00:00:00')
+    for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){
+      if(d.getFullYear()===calAno&&d.getMonth()===calMes){
+        const dia=d.getDate()
+        if(!viagensPorDia[dia])viagensPorDia[dia]=[]
+        const nomePessoa=todosProfs.find(p=>p.id===v.usuario_id)?.nome||'?'
+        if(!viagensPorDia[dia].find(x=>x.nome===nomePessoa))
+          viagensPorDia[dia].push({nome:nomePessoa,destino:v.destino})
+      }
+    }
+  })
+
+  const cores=['#7C3AED','#10B981','#F97316','#EF4444','#0891B2','#65A30D','#DB2777','#D97706']
+  const nomeCor={}
+  todosProfs.forEach((p,i)=>nomeCor[p.nome]=cores[i%cores.length])
+
+  const dias=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+  let html=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">`
+  dias.forEach(d=>html+=`<div style="text-align:center;font-size:10px;font-weight:500;color:var(--ink2);padding:4px 0">${d}</div>`)
+  html+=`</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`
+
+  for(let i=0;i<primeiroDia;i++) html+=`<div></div>`
+  for(let dia=1;dia<=diasNoMes;dia++){
+    const isHoje=hoje.getDate()===dia&&hoje.getMonth()===calMes&&hoje.getFullYear()===calAno
+    const viags=viagensPorDia[dia]||[]
+    html+=`<div style="min-height:52px;border-radius:6px;padding:3px;border:1px solid ${isHoje?'var(--purple)':'var(--line)'};background:${isHoje?'var(--purple-light)':'white'}">`
+    html+=`<div style="font-size:10px;font-weight:${isHoje?'600':'400'};color:${isHoje?'var(--purple-dark)':'var(--ink2)'};margin-bottom:2px">${dia}</div>`
+    viags.slice(0,2).forEach(v=>{
+      const cor=nomeCor[v.nome]||'#888'
+      html+=`<div style="font-size:9px;background:${cor}20;color:${cor};border-radius:3px;padding:1px 4px;margin-bottom:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis" title="${v.nome} · ${v.destino}">${v.nome.split(' ')[0]}</div>`
+    })
+    if(viags.length>2) html+=`<div style="font-size:9px;color:var(--ink2)">+${viags.length-2}</div>`
+    html+=`</div>`
+  }
+  html+=`</div>`
+  document.getElementById('dash-calendario').innerHTML=html
+}
+
+function renderViagensDash(){
+  const hoje=new Date().toISOString().slice(0,10)
+  const sorted=[...todasViagens].sort((a,b)=>a.data_inicio.localeCompare(b.data_inicio))
+  if(!sorted.length){document.getElementById('dash-viagens-lista').innerHTML='<div class="empty">Nenhuma viagem registrada.</div>';return}
+
+  let html=''
+  sorted.forEach(v=>{
+    const nomePessoa=todosProfs.find(p=>p.id===v.usuario_id)?.nome||'?'
+    const emAndamento=v.data_inicio<=hoje&&v.data_fim>=hoje
+    const futura=v.data_inicio>hoje
+    const badge=emAndamento?'b-purple':futura?'b-mint':'b-gray'
+    const label=emAndamento?'Em viagem':futura?'Futura':'Concluída'
+    const estadoLabel=v.estado?` · ${v.estado}`:''
+    const fechouLabel=v.fechou_negocio===true?'<span class="badge b-mint" style="font-size:9px;margin-left:4px">Fechou!</span>':v.fechou_negocio===false?'<span class="badge b-red" style="font-size:9px;margin-left:4px">Não fechou</span>':''
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)">
+      <div style="width:7px;height:7px;border-radius:50%;background:${emAndamento?'var(--purple)':futura?'var(--mint)':'var(--line)'};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--ink)">${nomePessoa} → ${v.destino}${estadoLabel} · ${v.cliente}${fechouLabel}</div>
+        <div style="font-size:11px;color:var(--ink2)">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${v.motivo}</div>
+      </div>
+      <span class="badge ${badge}">${label}</span>
+    </div>`
+  })
+  document.getElementById('dash-viagens-lista').innerHTML=`<div class="card">${html}</div>`
+}
+
+
+function renderFinanceiroPagar(despesas, perfis){
+  const wrap=document.getElementById('dash-financeiro')
+  if(!wrap)return
+  const nomePorId={}
+  ;(perfis||[]).forEach(p=>nomePorId[p.id]=p.nome)
+  const por={}
+  ;(despesas||[]).forEach(d=>{
+    // Financeiro só enxerga valores aprovados ou pendentes. Rejeitado fica fora do painel de pagamento.
+    if(d.status!=='aprovado' && d.status!=='pendente') return
+    if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',aprovado:0,pendente:0,total:0}
+    por[d.usuario_id].total+=(d.valor||0)
+    if(d.status==='aprovado')por[d.usuario_id].aprovado+=(d.valor||0)
+    if(d.status==='pendente')por[d.usuario_id].pendente+=(d.valor||0)
+  })
+  const linhas=Object.values(por).filter(r=>r.aprovado>0||r.pendente>0).sort((a,b)=>b.aprovado-a.aprovado)
+  const totalAprov=linhas.reduce((s,r)=>s+r.aprovado,0)
+  const totalPend=linhas.reduce((s,r)=>s+r.pendente,0)
+  if(!linhas.length){wrap.innerHTML='';return}
+  const rows=linhas.map(r=>`<tr>
+    <td style="font-weight:500">${r.nome}</td>
+    <td style="color:var(--mint-dark);font-weight:600">${moeda(r.aprovado)}</td>
+    <td style="color:var(--orange-dark)">${moeda(r.pendente)}</td>
+  </tr>`).join('')
+  wrap.innerHTML=`<div class="sec-header" style="margin-top:12px">
+    <div><div class="sec-title">Valores para o financeiro pagar</div><div class="page-sub" style="margin-bottom:0">Base: somente despesas aprovadas. Pendentes aparecem só para conferência. Rejeitadas ficam fora deste quadro.</div></div>
+  </div>
+  <div class="metrics" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
+    <div class="metric m-mint"><div class="metric-label">Total aprovado a pagar</div><div class="metric-value">${moeda(totalAprov)}</div></div>
+    <div class="metric m-orange"><div class="metric-label">Ainda pendente de aprovação</div><div class="metric-value">${moeda(totalPend)}</div></div>
+  </div>
+  <div class="card"><table class="tbl"><thead><tr><th>Pessoa</th><th>A pagar</th><th>Pendente</th></tr></thead><tbody>${rows}</tbody></table></div>`
+}
+
+
+function escapeHtml(v){
+  return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
+}
+function demandaBadge(s){
+  const cls={solicitada:'b-orange',agendada:'b-purple',concluida:'b-mint',cancelada:'b-gray'}[s]||'b-gray'
+  const txt={solicitada:'Pendente de agenda',agendada:'Agendada',concluida:'Concluída',cancelada:'Cancelada'}[s]||s
+  return `<span class="badge ${cls}">${txt}</span>`
+}
+
+async function carregarAvisosDashboard(){
+  const wrap=document.getElementById('dash-avisos')
+  if(!wrap)return
+  const hoje=new Date().toISOString().slice(0,10)
+  const {data,error}=await sb.from('avisos').select('*').eq('ativo',true).order('created_at',{ascending:false}).limit(4)
+  if(error){wrap.innerHTML='';return}
+  const avisos=(data||[]).filter(a=>!a.validade||a.validade>=hoje)
+  if(!avisos.length){wrap.innerHTML='';return}
+  wrap.innerHTML=`<div class="card" style="border-color:var(--purple);margin-bottom:12px">
+    <div class="card-header"><div><div class="card-title">Quadro de avisos</div><div class="card-meta">Comunicados gerais para todos</div></div><button class="btn btn-sm" onclick="showScreen('demandas',document.getElementById('nav-demandas'))">Ver tudo</button></div>
+    <div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div></div>`).join('')}</div>
+  </div>`
+}
+
+async function carregarDemandasResumo(){
+  const wrap=document.getElementById('dash-demandas-resumo')
+  if(!wrap)return
+  let q=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false}).limit(20)
+  if(perfil&&perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
+  const {data,error}=await q
+  if(error){wrap.innerHTML='';return}
+  const demandas=(data||[]).filter(d=>d.status!=='cancelada'&&d.status!=='concluida')
+  if(!demandas.length){wrap.innerHTML='';return}
+  const solicitadas=demandas.filter(d=>d.status==='solicitada')
+  const agendadas=demandas.filter(d=>d.status==='agendada')
+  const ids=[...new Set(demandas.map(d=>d.usuario_id).filter(Boolean))]
+  let nomes={}
+  if(ids.length){const {data:ps}=await sb.from('profiles').select('id,nome').in('id',ids);(ps||[]).forEach(p=>nomes[p.id]=p.nome)}
+  const linhas=demandas.slice(0,6).map(d=>`<tr><td style="font-weight:500">${escapeHtml(nomes[d.usuario_id]||'—')}</td><td>${escapeHtml(d.destino)}/${escapeHtml(d.estado)}</td><td>${escapeHtml(d.cliente||'—')}</td><td>${d.data_sugerida?dataFmt(d.data_sugerida):'—'}</td><td>${demandaBadge(d.status)}</td></tr>`).join('')
+  wrap.innerHTML=`<div class="sec-header"><div><div class="sec-title">Demandas de viagem</div><div class="page-sub" style="margin-bottom:0">Solicitações abertas da diretoria.</div></div><button class="btn btn-sm" onclick="showScreen('demandas',document.getElementById('nav-demandas'))">Abrir</button></div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;border-bottom:1.5px solid var(--line);background:var(--cream)">
+      <div class="metric m-orange" style="margin:0"><div class="metric-label">Pendente de agenda</div><div class="metric-value">${solicitadas.length}</div></div>
+      <div class="metric m-purple" style="margin:0"><div class="metric-label">Já agendadas</div><div class="metric-value">${agendadas.length}</div></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Data sugerida</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>
+  </div>`
+}
+
+async function contarDemandasAbertas(){
+  const badge=document.getElementById('badge-demandas')
+  if(!badge||!perfil)return
+  let q=sb.from('demandas_viagem').select('id,status').in('status',['solicitada','agendada'])
+  if(perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
+  const {data,error}=await q
+  if(error||!data||!data.length){badge.style.display='none';return}
+  badge.textContent=data.length
+  badge.style.display='inline-flex'
+}
+
+async function carregarDemandas(){
+  const lista=document.getElementById('demandas-lista')
+  if(!lista)return
+  lista.innerHTML='<div class="loading">Carregando...</div>'
+  const isAprovador=perfil&&perfil.papel==='aprovador'
+  if(isAprovador){
+    document.getElementById('demanda-admin-box').style.display='block'
+    document.getElementById('aviso-admin-box').style.display='block'
+    const {data:profs}=await sb.from('profiles').select('id,nome').order('nome',{ascending:true})
+    const sel=document.getElementById('dem-usuario')
+    sel.innerHTML='<option value="">Selecione</option>'+(profs||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('')
+  }
+  let q=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false})
+  if(!isAprovador) q=q.eq('usuario_id',perfil.id)
+  const {data:demandas,error}=await q
+  const {data:avisos}=await sb.from('avisos').select('*').eq('ativo',true).order('created_at',{ascending:false}).limit(10)
+  if(error){lista.innerHTML='<div class="empty">Não foi possível carregar demandas. Verifique se a tabela demandas_viagem foi criada no Supabase.</div>';return}
+  const ids=[...new Set((demandas||[]).map(d=>d.usuario_id).filter(Boolean))]
+  let nomes={}
+  if(ids.length){const {data:ps}=await sb.from('profiles').select('id,nome').in('id',ids);(ps||[]).forEach(p=>nomes[p.id]=p.nome)}
+
+  const avisoHtml=(avisos&&avisos.length)?`<div class="card"><div class="card-header"><div class="card-title">Quadro de avisos geral</div></div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div>${isAprovador?`<div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-sm" onclick="editarAviso('${a.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="excluirAviso('${a.id}')">Excluir</button></div>`:''}</div>`).join('')}</div>`:''
+
+  const linhas=(demandas||[]).map(d=>{
+    const podeAgendar=d.status==='solicitada' || d.status==='agendada'
+    return `<tr>
+      <td style="font-weight:500">${escapeHtml(nomes[d.usuario_id]||'—')}</td>
+      <td>${escapeHtml(d.destino)}/${escapeHtml(d.estado)}</td>
+      <td>${escapeHtml(d.cliente||'—')}</td>
+      <td>${d.data_sugerida?dataFmt(d.data_sugerida):'—'}</td>
+      <td>${demandaBadge(d.status)}</td>
+      <td style="font-size:10px;color:var(--ink2)">${escapeHtml(d.motivo||'')}${d.observacao?' · '+escapeHtml(d.observacao):''}</td>
+      <td style="white-space:nowrap">
+        ${podeAgendar?`<button class="btn btn-sm" onclick="atualizarStatusDemanda('${d.id}','agendada')">Marcar agendada</button>`:''}
+        ${d.status!=='concluida'?`<button class="btn btn-sm btn-approve" onclick="atualizarStatusDemanda('${d.id}','concluida')">Concluir</button>`:''}
+        ${isAprovador?`<button class="btn btn-sm" onclick="editarDemanda('${d.id}')">Editar</button>`:''}
+        ${isAprovador&&d.status!=='cancelada'?`<button class="btn btn-sm btn-reject" onclick="atualizarStatusDemanda('${d.id}','cancelada')">Cancelar</button>`:''}
+        ${isAprovador?`<button class="btn btn-sm btn-reject" onclick="excluirDemanda('${d.id}')">Excluir</button>`:''}
+      </td>
+    </tr>`
+  }).join('')
+  const demandasHtml=linhas?`<div class="card"><table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Data sugerida</th><th>Status</th><th>Obs.</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table></div>`:'<div class="empty">Nenhuma demanda de viagem cadastrada.</div>'
+  lista.innerHTML=avisoHtml+demandasHtml
+}
+
+async function criarDemandaViagem(){
+  const usuario_id=document.getElementById('dem-usuario').value
+  const estado=document.getElementById('dem-estado').value
+  const destino=document.getElementById('dem-destino').value.trim()
+  const cliente=document.getElementById('dem-cliente').value.trim()
+  const data_sugerida=document.getElementById('dem-data').value||null
+  const motivo=document.getElementById('dem-motivo').value.trim()
+  const observacao=document.getElementById('dem-obs').value.trim()
+  if(!usuario_id||!estado||!destino||!cliente){alert('Preencha coordenador, estado, destino e cliente/reunião.');return}
+  const {error}=await sb.from('demandas_viagem').insert({usuario_id,estado,destino,cliente,data_sugerida,motivo,observacao,status:'solicitada',created_by:perfil.id})
+  if(error){alert('Erro ao criar demanda: '+error.message);return}
+  ;['dem-usuario','dem-estado','dem-destino','dem-cliente','dem-data','dem-motivo','dem-obs'].forEach(id=>document.getElementById(id).value='')
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
+async function atualizarStatusDemanda(id,status){
+  const payload={status}
+  if(status==='agendada') payload.agendada_em=new Date().toISOString()
+  const {error}=await sb.from('demandas_viagem').update(payload).eq('id',id)
+  if(error){alert('Erro ao atualizar demanda: '+error.message);return}
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
+
+async function editarDemanda(id){
+  const {data:d,error}=await sb.from('demandas_viagem').select('*').eq('id',id).single()
+  if(error||!d){alert('Não foi possível carregar a demanda para edição.');return}
+  const destino=prompt('Destino / cidade:', d.destino||'')
+  if(destino===null)return
+  const estado=prompt('Estado (UF):', d.estado||'')
+  if(estado===null)return
+  const cliente=prompt('Cliente / reunião:', d.cliente||'')
+  if(cliente===null)return
+  const data_sugerida=prompt('Data sugerida (AAAA-MM-DD), deixe vazio se não tiver:', d.data_sugerida||'')
+  if(data_sugerida===null)return
+  const motivo=prompt('Motivo:', d.motivo||'')
+  if(motivo===null)return
+  const observacao=prompt('Observação:', d.observacao||'')
+  if(observacao===null)return
+  if(!destino.trim()||!estado.trim()||!cliente.trim()){alert('Destino, estado e cliente/reunião são obrigatórios.');return}
+  const payload={destino:destino.trim(),estado:estado.trim().toUpperCase(),cliente:cliente.trim(),data_sugerida:data_sugerida||null,motivo:motivo.trim(),observacao:observacao.trim()}
+  const {error:upErr}=await sb.from('demandas_viagem').update(payload).eq('id',id)
+  if(upErr){alert('Erro ao editar demanda: '+upErr.message);return}
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
+async function excluirDemanda(id){
+  if(!confirm('Excluir definitivamente esta demanda de viagem?'))return
+  const {error}=await sb.from('demandas_viagem').delete().eq('id',id)
+  if(error){alert('Erro ao excluir demanda: '+error.message+'\nSe for permissão, rode a policy de DELETE no Supabase.');return}
+  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
+}
+
+async function criarAvisoGeral(){
+  const titulo=document.getElementById('av-titulo').value.trim()
+  const texto=document.getElementById('av-texto').value.trim()
+  const validade=document.getElementById('av-validade').value||null
+  if(!titulo||!texto){alert('Preencha título e mensagem.');return}
+  const {error}=await sb.from('avisos').insert({titulo,texto,validade,ativo:true,created_by:perfil.id})
+  if(error){alert('Erro ao publicar aviso: '+error.message);return}
+  ;['av-titulo','av-texto','av-validade'].forEach(id=>document.getElementById(id).value='')
+  await carregarDemandas(); await carregarDashboard()
+}
+
+async function editarAviso(id){
+  const {data:a,error}=await sb.from('avisos').select('*').eq('id',id).single()
+  if(error||!a){alert('Não foi possível carregar o aviso para edição.');return}
+  const titulo=prompt('Título do aviso:', a.titulo||'')
+  if(titulo===null)return
+  const texto=prompt('Mensagem do aviso:', a.texto||'')
+  if(texto===null)return
+  const validade=prompt('Válido até (AAAA-MM-DD), deixe vazio se não tiver:', a.validade||'')
+  if(validade===null)return
+  if(!titulo.trim()||!texto.trim()){alert('Título e mensagem são obrigatórios.');return}
+  const {error:upErr}=await sb.from('avisos').update({titulo:titulo.trim(),texto:texto.trim(),validade:validade||null}).eq('id',id)
+  if(upErr){alert('Erro ao editar aviso: '+upErr.message);return}
+  await carregarDemandas(); await carregarDashboard()
+}
+
+async function excluirAviso(id){
+  if(!confirm('Excluir definitivamente este aviso?'))return
+  const {error}=await sb.from('avisos').delete().eq('id',id)
+  if(error){
+    const {error:fallback}=await sb.from('avisos').update({ativo:false}).eq('id',id)
+    if(fallback){alert('Erro ao excluir aviso: '+error.message);return}
+  }
+  await carregarDemandas(); await carregarDashboard()
+}
+
+async function desativarAviso(id){
+  return excluirAviso(id)
+}
+
+function renderMapaViagens(){
+  const wrap=document.getElementById('dash-mapa-viagens')
+  if(!wrap)return
+  const hoje=new Date().toISOString().slice(0,10)
+  const limite=new Date(); limite.setDate(limite.getDate()+30)
+  const limiteStr=limite.toISOString().slice(0,10)
+  const nomePorId={};(todosProfs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+
+  const relevantes=(todasViagens||[]).filter(v=>v.status!=='cancelada' && v.estado && (
+    (v.data_inicio<=hoje && v.data_fim>=hoje) ||
+    (v.data_inicio>hoje && v.data_inicio<=limiteStr)
+  )).sort((a,b)=>a.data_inicio.localeCompare(b.data_inicio))
+  const atuais=relevantes.filter(v=>v.data_inicio<=hoje&&v.data_fim>=hoje)
+  const proximas=relevantes.filter(v=>v.data_inicio>hoje)
+
+  const linha=(v,atual)=>`<tr>
+    <td style="font-weight:500">${nomePorId[v.usuario_id]||'?'}</td>
+    <td>${v.destino}/${v.estado}</td>
+    <td>${v.cliente||'—'}</td>
+    <td>${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}</td>
+    <td>${atual?'<span class="badge b-purple">Em andamento</span>':'<span class="badge b-mint">Próxima</span>'}</td>
+  </tr>`
+
+  const linhas=[...atuais.map(v=>linha(v,true)),...proximas.slice(0,10).map(v=>linha(v,false))].join('')
+  wrap.innerHTML=`<div class="sec-header" style="margin-top:12px">
+    <div><div class="sec-title">Viagens em andamento e próximas</div><div class="page-sub" style="margin-bottom:0">Resumo operacional dos próximos 30 dias.</div></div>
+  </div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;border-bottom:1.5px solid var(--line);background:var(--cream)">
+      <div class="metric m-purple" style="margin:0"><div class="metric-label">Em andamento</div><div class="metric-value">${atuais.length}</div></div>
+      <div class="metric m-mint" style="margin:0"><div class="metric-label">Próximas 30 dias</div><div class="metric-value">${proximas.length}</div></div>
+    </div>
+    ${relevantes.length?`<table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Período</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>`:'<div class="empty">Nenhuma viagem em andamento ou próxima.</div>'}
+  </div>`
+}
+
+async function carregarDashboard() {
+  const mes=mesAtual()
+  let q=sb.from('despesas').select('valor,status,usuario_id').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
+  if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
+  const{data:despesas}=await q
+  const ds=despesas||[]
+  const dsValidas=ds.filter(d=>d.status!=='rejeitado')
+
+  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
+  document.getElementById('m-total').textContent=moeda(dsValidas.reduce((s,d)=>s+(d.valor||0),0))
+  document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0))
+  document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0))
+
+  await carregarAvisosDashboard()
+  await carregarDemandasResumo()
+
+  if(perfil.papel==='aprovador'){
+    // Perfis
+    const{data:profs}=await sb.from('profiles').select('id,nome')
+    todosProfs=profs||[]
+
+    // Alerta RDV — quem lançou e quem não lançou esse mês
+    const lançaramIds=new Set(dsValidas.map(d=>d.usuario_id))
+    const lançaram=todosProfs.filter(p=>lançaramIds.has(p.id)).map(p=>p.nome)
+    const naoLancaram=todosProfs.filter(p=>!lançaramIds.has(p.id)).map(p=>p.nome)
+    let alertaHtml=`<div class="card" style="margin-bottom:12px">
+      <div class="card-header"><div class="card-title">RDV este mês</div></div>
+      <div style="display:flex;gap:0">`
+    alertaHtml+=`<div style="flex:1;padding:10px 12px;border-right:1px solid var(--line)">
+      <div style="font-size:10px;color:var(--mint-dark);font-weight:500;margin-bottom:6px">✓ Lançaram</div>
+      ${lançaram.length?lançaram.map(n=>`<div style="font-size:11px;color:var(--ink);margin-bottom:3px">· ${n}</div>`).join(''):'<div style="font-size:11px;color:var(--ink2)">Nenhum ainda</div>'}
+    </div>`
+    alertaHtml+=`<div style="flex:1;padding:10px 12px">
+      <div style="font-size:10px;color:#991B1B;font-weight:500;margin-bottom:6px">✗ Não lançaram</div>
+      ${naoLancaram.length?naoLancaram.map(n=>`<div style="font-size:11px;color:var(--ink);margin-bottom:3px">· ${n}</div>`).join(''):'<div style="font-size:11px;color:var(--mint-dark)">Todos lançaram!</div>'}
+    </div>`
+    alertaHtml+=`</div></div>`
+    document.getElementById('dash-alerta-rdv').innerHTML=alertaHtml
+
+    // Viagens
+    const{data:viagens}=await sb.from('viagens').select('*').order('data_inicio',{ascending:true})
+    todasViagens=viagens||[]
+    document.getElementById('dash-calendario-wrap').style.display='block'
+    document.getElementById('dash-viagens-wrap').style.display='block'
+    renderCalendario()
+    renderViagensDash()
+    renderMapaViagens()
+
+    // Tabela por coordenador
+    const nomePorId={}
+    todosProfs.forEach(p=>nomePorId[p.id]=p.nome)
+    const por={}
+    ds.forEach(d=>{
+      if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',total:0,aprov:0,pend:0,rej:0}
+      if(d.status!=='rejeitado')por[d.usuario_id].total+=(d.valor||0)
+      if(d.status==='aprovado')por[d.usuario_id].aprov+=(d.valor||0)
+      if(d.status==='pendente')por[d.usuario_id].pend+=(d.valor||0)
+      if(d.status==='rejeitado')por[d.usuario_id].rej+=(d.valor||0)
+    })
+    const rows=Object.values(por).filter(r=>r.total>0||r.aprov>0||r.pend>0).map(r=>{
+      const st=r.pend>0?'pendente':'aprovado'
+      return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
+    }).join('')
+    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Aprovado + pendente</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
+
+    // Tabela por estado
+    const tabelaEstado=await carregarGastosPorEstado()
+    document.getElementById('dash-tabela').innerHTML+=(tabelaEstado||'')
+
+    // Tabela anual
+    const tabelaAnual=await carregarConsolidadoAnual(todosProfs)
+    document.getElementById('dash-tabela').innerHTML+=(tabelaAnual||'')
+
+    renderFinanceiroPagar(ds,todosProfs)
+  }
+}
+
+async function carregarAgenda() {
+  let q=sb.from('viagens').select('*').order('data_inicio',{ascending:false})
+  if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
+  const{data:viagens}=await q
+
+  const ids=(viagens||[]).map(v=>v.id)
+  let despPorViagem={}
+  if(ids.length){
+    const{data:desps}=await sb.from('despesas').select('id,viagem_id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url').in('viagem_id',ids)
+    ;(desps||[]).forEach(d=>{
+      if(!despPorViagem[d.viagem_id])despPorViagem[d.viagem_id]=[]
+      despPorViagem[d.viagem_id].push(d)
+    })
+  }
+
+  let nomePorId={}
+  if(perfil.papel==='aprovador'){
+    const{data:profs}=await sb.from('profiles').select('id,nome')
+    ;(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+  }
+
+  const _mes=mesAtual()
+  let q2=sb.from('despesas').select('id,valor,status').is('viagem_id',null).gte('data_despesa',`${_mes}-01`).lte('data_despesa',fimMes(_mes))
+  if(perfil.papel!=='aprovador')q2=q2.eq('usuario_id',perfil.id)
+  const{data:avulsas}=await q2
+
+  // Só mostra card se tiver avulsas que não foram rejeitadas
+  const avulsasAtivas=(avulsas||[]).filter(d=>d.status!=='rejeitado')
+  let html=''
+  if(avulsasAtivas.length){
+    const pend=avulsasAtivas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
+    const aprov=avulsasAtivas.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
+    const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
+    const rejLabel=rejeitadas>0?` · <span style="color:#991B1B">${rejeitadas} rejeitada${rejeitadas>1?'s':''} fora do total fora do total</span>`:''
+    html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-agenda'))">
+      <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:12px;font-weight:500">Despesas avulsas · mês atual</div>
+          <div style="font-size:11px;color:var(--ink2);margin-top:2px">Clique para ver e editar</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;font-size:11px">
+          <span>${avulsasAtivas.length} ${avulsasAtivas.length===1?'item':'itens'}</span>
+          ${pend>0?`<span style="color:var(--orange-dark)">${moeda(pend)} pend.</span>`:''}
+          ${aprov>0?`<span style="color:var(--mint-dark)">${moeda(aprov)} aprov.</span>`:''}
+        </div>
+      </div>
+    </div>`
+  }
+
+  // Busca categorias para mostrar nome
+  const{data:catsAgenda}=await sb.from('categorias').select('id,nome')
+  const catPorId={};(catsAgenda||[]).forEach(c=>catPorId[c.id]=c.nome)
+
+  if(!viagens||!viagens.length){
+    html+=`<div class="empty">Nenhuma viagem registrada.<br><br><button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-agenda'))">Criar primeira viagem</button></div>`
+  } else {
+    viagens.forEach(v=>{
+      const ds=despPorViagem[v.id]||[]
+      const dsValidasViagem=ds.filter(d=>d.status!=='rejeitado')
+      const total=dsValidasViagem.reduce((s,d)=>s+(d.valor||0),0)
+      const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0)
+      const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0)
+      const rejN=ds.filter(d=>d.status==='rejeitado').length
+      const quem=perfil.papel==='aprovador'&&nomePorId[v.usuario_id]?` · ${nomePorId[v.usuario_id]}`:''
+      const estadoLabel=v.estado?` · ${v.estado}`:''
+      const temResultado=v.fechou_negocio!==null
+      const fechouLabel=v.fechou_negocio===true?'<span class="badge b-mint" style="font-size:9px">Fechou!</span>':v.fechou_negocio===false?'<span class="badge b-red" style="font-size:9px">Não fechou</span>':''
+
+      // Lista expansível de despesas
+      let despesasHtml=''
+      if(ds.length){
+        const ehDono=perfil.papel==='aprovador'||(v.usuario_id===perfil.id)
+        const linhas=ds.map(d=>{
+          const dotCor=d.status==='aprovado'?'dot-mint':d.status==='rejeitado'?'dot-red':'dot-orange'
+          const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
+          const editBtn=(d.status==='pendente'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:perfil.papel==='aprovador'?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:''
+          return`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line)">
+            <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
+            <div style="flex:1;min-width:0">
+              <span style="font-size:11px;color:var(--ink)">${catPorId[d.categoria_id]||'?'}${d.descricao?' · <span style="color:var(--ink2)">'+d.descricao+'</span>':''} · ${dataFmt(d.data_despesa)}</span>
+              ${rejNote}
+            </div>
+            <span style="font-size:11px;font-weight:500;color:var(--ink);flex-shrink:0">${moeda(d.valor)}</span>
+            ${editBtn}
+          </div>`
+        }).join('')
+        despesasHtml=`
+          <div id="desp-${v.id}" style="display:none">${linhas}</div>
+          <div style="padding:6px 12px;font-size:11px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:10px;cursor:pointer" onclick="toggleDespesas('${v.id}')">
+            <span id="toggle-lbl-${v.id}">▶ ${ds.length} despesa${ds.length>1?'s':''}</span>
+            <span>Total: <strong style="color:var(--ink)">${moeda(total)}</strong></span>
+            ${aprov>0?`<span style="color:var(--mint-dark)">Aprov: ${moeda(aprov)}</span>`:''}
+            ${pend>0?`<span style="color:var(--orange-dark)">Pend: ${moeda(pend)}</span>`:''}
+            ${rejN>0?`<span style="color:#991B1B">${rejN} rejeitado(s)</span>`:''}
+          </div>`
+      } else {
+        despesasHtml=`<div style="padding:8px 12px;font-size:11px;color:var(--ink2)">Nenhuma despesa lançada.</div>`
+      }
+
+      html+=`<div class="card">
+        <div class="card-header">
+          <div style="flex:1;min-width:0">
+            <div class="card-title">${v.destino}${estadoLabel} · ${v.cliente}</div>
+            <div class="card-meta">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}${quem} · ${v.motivo}</div>
+          </div>
+          ${statusBadge(v.status)}
+        </div>
+        ${despesasHtml}
+        ${temResultado?`<div style="padding:6px 12px;font-size:11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px">${fechouLabel}<span style="color:var(--ink2)">Resultado registrado</span></div>`:''}
+        <div class="card-footer">
+          <span></span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            ${v.status!=='cancelada'?`<button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button>`:''}
+            ${v.status!=='cancelada'?`<button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button>`:''}
+            ${v.status!=='cancelada'?`<button class="btn" style="font-size:11px;padding:5px 10px" onclick="cancelarViagem('${v.id}')">Cancelar viagem</button>`:''}
+            <button class="btn btn-reject" style="font-size:11px;padding:5px 10px" onclick="excluirViagem('${v.id}')">Excluir</button>
+          </div>
+        </div>
+      </div>`
+    })
+  }
+  document.getElementById('agenda-lista').innerHTML=html
+}
+
+
+async function cancelarViagem(id){
+  if(!confirm('Cancelar esta viagem? Ela ficará no histórico como cancelada.')) return
+  const{error}=await sb.from('viagens').update({status:'cancelada'}).eq('id',id)
+  if(error){alert('Erro ao cancelar viagem: '+error.message);return}
+  await carregarAgenda()
+  await carregarDashboard()
+}
+
+async function excluirViagem(id){
+  const{data:desps}=await sb.from('despesas').select('id').eq('viagem_id',id).limit(1)
+  if(desps&&desps.length){
+    alert('Essa viagem tem despesas vinculadas. Exclua as despesas primeiro ou use Cancelar viagem para manter o histórico.')
+    return
+  }
+  if(!confirm('Excluir esta viagem definitivamente? Use isso só para testes ou lançamentos errados.')) return
+  const{error}=await sb.from('viagens').delete().eq('id',id)
+  if(error){alert('Erro ao excluir viagem: '+error.message);return}
+  await carregarAgenda()
+  await carregarDashboard()
+}
+
+function lancarParaViagem(vid){
+  showScreen('lancar',document.getElementById('nav-lancar'))
+  setTimeout(()=>{setTipo('viagem');const s=document.getElementById('d-viagem');if(s)s.value=vid},200)
+}
+
+async function carregarAvulsas(){
+  const mes=mesAtual()
+  let q=sb.from('despesas')
+    .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id')
+    .is('viagem_id',null)
+    .gte('data_despesa',`${mes}-01`)
+    .lte('data_despesa',fimMes(mes))
+    .order('data_despesa',{ascending:false})
+
+  if(perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
+  const{data:avulsas}=await q
+
+  const{data:catsA}=await sb.from('categorias').select('id,nome')
+  const catPorIdA={};(catsA||[]).forEach(c=>catPorIdA[c.id]=c.nome)
+
+  let nomePorIdA={}
+  if(perfil.papel==='aprovador'){
+    const{data:profs}=await sb.from('profiles').select('id,nome')
+    ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
+  }
+
+  const avulsasValidas=(avulsas||[]).filter(d=>d.status!=='rejeitado')
+  const total=avulsasValidas.reduce((s,d)=>s+(d.valor||0),0)
+  const pend=avulsasValidas.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0)
+  const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
+  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Aprovado + pendente: ${moeda(total)} · Pendente: ${moeda(pend)}${rejeitadas?` · ${rejeitadas} rejeitada${rejeitadas>1?'s':''} fora do total fora do total`:''}`
+
+  if(!avulsas||!avulsas.length){
+    document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
+    return
+  }
+
+  const linhas=avulsas.map(d=>{
+    const dotCor=d.status==='aprovado'?'dot-mint':d.status==='rejeitado'?'dot-red':'dot-orange'
+    const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
+      ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
+    const editBtn=(d.status==='pendente'||d.status==='rejeitado')
+      ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`
+      :perfil.papel==='aprovador'?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
+    const quemLabel=perfil.papel==='aprovador'?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
+    return`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)">
+      <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--ink);font-weight:500">${catPorIdA[d.categoria_id]||'?'}${d.descricao?' · <span style="font-weight:400;color:var(--ink2)">'+d.descricao+'</span>':''}${quemLabel}</div>
+        <div style="font-size:11px;color:var(--ink2);margin-top:1px">${dataFmt(d.data_despesa)} · ${statusBadge(d.status)}</div>
+        ${rejNote}
+      </div>
+      <span style="font-size:12px;font-weight:500;color:var(--ink);flex-shrink:0">${moeda(d.valor)}</span>
+      ${editBtn}
+    </div>`
+  }).join('')
+
+  document.getElementById('avulsas-lista').innerHTML=`<div class="card">${linhas}</div>`
+}
+
+function toggleDespesas(vid){
+  const el=document.getElementById('desp-'+vid)
+  const lbl=document.getElementById('toggle-lbl-'+vid)
+  if(!el)return
+  const aberto=el.style.display!=='none'
+  el.style.display=aberto?'none':'block'
+  if(lbl)lbl.textContent=(aberto?'▶':'▼')+lbl.textContent.slice(1)
+}
+
+async function salvarViagem(){
+  const destino=document.getElementById('v-destino').value.trim()
+  const estado=document.getElementById('v-estado').value
+  const cliente=document.getElementById('v-cliente').value.trim()
+  const inicio=document.getElementById('v-inicio').value
+  const fim=document.getElementById('v-fim').value
+  const motivo=document.getElementById('v-motivo').value.trim()
+  const err=document.getElementById('v-erro')
+  err.style.display='none'
+  if(!destino||!estado||!cliente||!inicio||!fim||!motivo){err.textContent='Preencha todos os campos.';err.style.display='block';return}
+  if(fim<inicio){err.textContent='Data fim não pode ser anterior à data início.';err.style.display='block';return}
+  const{error}=await sb.from('viagens').insert({usuario_id:perfil.id,destino,estado,cliente,data_inicio:inicio,data_fim:fim,motivo,status:'agendada'})
+  if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+  document.getElementById('v-destino').value=''
+  document.getElementById('v-estado').value=''
+  document.getElementById('v-cliente').value=''
+  document.getElementById('v-inicio').value=''
+  document.getElementById('v-fim').value=''
+  document.getElementById('v-motivo').value=''
+  showScreen('agenda',document.getElementById('nav-agenda'))
+}
+
+let despesaEditandoId = null
+let telaOrigemDespesa = 'agenda'
+
+async function prepararFormDespesa(){
+  despesaEditandoId = null
+  document.getElementById('d-titulo').textContent = 'Lançar despesa'
+  document.getElementById('d-subtitulo').textContent = 'Vinculada a uma viagem ou avulsa'
+  document.getElementById('d-btn-salvar').textContent = 'Salvar despesa'
+  document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
+  arquivoComprimido=null
+  resetUpload()
+  await prepararFormViagensSelect()
+}
+
+function resetUpload(){
+  document.getElementById('upload-preview').innerHTML=`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.5" style="display:block;margin:0 auto 4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg><div class="upload-info">Clique para anexar comprovante</div><div class="upload-sub">JPG · PNG · PDF · máx 10 MB · comprimido automaticamente</div>`
+}
+
+async function atualizarCategoriasDrop(){
+  const{data:cats}=await sb.from('categorias').select('*').eq('ativo',true).eq('tipo',tipoAtual).order('ordem')
+  const sel=document.getElementById('d-categoria')
+  sel.innerHTML='<option value="">Selecione</option>'
+  ;(cats||[]).forEach(c=>{sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`})
+}
+
+function setTipo(t){
+  tipoAtual=t
+  document.getElementById('tipo-viagem').classList.toggle('active',t==='viagem')
+  document.getElementById('tipo-avulso').classList.toggle('active',t==='avulso')
+  document.getElementById('campo-viagem').style.display=t==='viagem'?'flex':'none'
+  document.getElementById('ai-sugestao').style.display='none'
+  atualizarCategoriasDrop()
+}
+
+function setSugestaoManual(){document.getElementById('ai-sugestao').style.display='none'}
+
+async function sugerirCategoria(){
+  const valor=parseFloat(document.getElementById('d-valor').value)||0
+  const desc=document.getElementById('d-descricao').value.trim().toLowerCase()
+  if(!valor)return
+  const{data:cats}=await sb.from('categorias').select('id,nome').eq('ativo',true).eq('tipo',tipoAtual).order('ordem')
+  if(!cats||!cats.length)return
+  let sugerido=null
+  if(tipoAtual==='viagem'){
+    if(desc.includes('hotel')||desc.includes('hosped'))sugerido='Hospedagem'
+    else if(desc.includes('uber')||desc.includes('taxi')||desc.includes('táxi'))sugerido='Uber / Táxi'
+    else if(desc.includes('passagem')||desc.includes('voo'))sugerido='Passagem aérea'
+    else if(desc.includes('almoço')||desc.includes('jantar')||desc.includes('refeição'))sugerido='Refeição'
+    else if(valor>200&&!desc)sugerido='Hospedagem'
+    else if(valor<80&&!desc)sugerido='Refeição'
+  } else {
+    if(desc.includes('gasolina')||desc.includes('combustível'))sugerido='Gasolina'
+    else if(desc.includes('telefone')||desc.includes('celular')||desc.includes('plano'))sugerido='Plano de telefone'
+    else if(desc.includes('estacion'))sugerido='Estacionamento'
+  }
+  if(sugerido){
+    const cat=cats.find(c=>c.nome===sugerido)
+    if(cat&&!document.getElementById('d-categoria').value){
+      document.getElementById('d-categoria').value=cat.id
+      document.getElementById('ai-sugestao').style.display='inline-flex'
+    }
+  }
+}
+
+async function handleArquivo(input){
+  const file=input.files[0]
+  if(!file)return
+  const origKB=Math.round(file.size/1024)
+  if(file.type==='application/pdf'){
+    if(file.size>10*1024*1024){alert('PDF muito grande. Máximo 10 MB.');input.value='';return}
+    arquivoComprimido=file
+    document.getElementById('upload-preview').innerHTML=`<div class="upload-info">📄 ${file.name}</div><div class="upload-sub">${origKB} KB · PDF</div>`
+    return
+  }
+  const img=new Image()
+  const url=URL.createObjectURL(file)
+  img.onload=()=>{
+    URL.revokeObjectURL(url)
+    let{width,height}=img
+    if(width>1600){height=Math.round(height*1600/width);width=1600}
+    const canvas=document.createElement('canvas')
+    canvas.width=width;canvas.height=height
+    canvas.getContext('2d').drawImage(img,0,0,width,height)
+    canvas.toBlob(blob=>{
+      arquivoComprimido=new File([blob],file.name.replace(/\.[^.]+$/,'.jpg'),{type:'image/jpeg'})
+      const compKB=Math.round(arquivoComprimido.size/1024)
+      const info=origKB!==compKB?`${origKB} KB → ${compKB} KB (comprimido)`:`${compKB} KB`
+      document.getElementById('upload-preview').innerHTML=`<div class="upload-info">🖼️ ${arquivoComprimido.name}</div><div class="upload-sub">${info}</div>`
+    },'image/jpeg',0.8)
+  }
+  img.src=url
+}
+
+async function editarDespesa(id, origem='agenda'){
+  telaOrigemDespesa = origem
+
+  let busca = sb.from('despesas').select('*').eq('id',id)
+  if(perfil?.papel !== 'aprovador'){
+    busca = busca.eq('usuario_id',perfil.id)
+  }
+
+  const {data:d,error} = await busca.single()
+  if(error || !d){
+    alert('Despesa não encontrada ou sem permissão.')
+    return
+  }
+  if(d.status==='aprovado'){
+    alert('Despesas aprovadas não podem ser editadas.')
+    return
+  }
+
+  despesaEditandoId=id
+  document.getElementById('d-titulo').textContent='Editar despesa'
+  document.getElementById('d-subtitulo').textContent=d.status==='rejeitado'?'⚠️ Rejeitada — corrija e reenvie para aprovação':'Pendente de aprovação'
+  document.getElementById('d-btn-salvar').textContent=d.status==='rejeitado'?'Corrigir e reenviar':'Salvar alterações'
+
+  await prepararFormViagensSelect()
+  setTipo(d.viagem_id?'viagem':'avulso')
+  if(d.viagem_id){
+    setTimeout(()=>{document.getElementById('d-viagem').value=d.viagem_id},100)
+  }
+  document.getElementById('d-data').value=d.data_despesa
+  document.getElementById('d-valor').value=d.valor
+  document.getElementById('d-descricao').value=d.descricao||''
+  document.getElementById('ai-sugestao').style.display='none'
+
+  await atualizarCategoriasDrop()
+  setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id},150)
+
+  if(d.comprovante_url){
+    document.getElementById('upload-preview').innerHTML=`<div class="upload-info">📎 ${escapeHtml(d.comprovante_nome||'comprovante')}</div><div class="upload-sub">já anexado · clique para substituir</div>`
+  } else {
+    resetUpload()
+  }
+  arquivoComprimido=null
+
+  showScreen('lancar',document.getElementById('nav-lancar'))
+}
+
+async function excluirDespesa(id, origem='agenda'){
+  if(!confirm('Tem certeza que quer excluir essa despesa? Essa ação não pode ser desfeita.')) return
+
+  let q = sb.from('despesas').delete().eq('id',id)
+  if(perfil?.papel !== 'aprovador'){
+    q = q.eq('usuario_id',perfil.id).in('status',['pendente','rejeitado'])
+  }
+
+  const {error}=await q
+  if(error){
+    alert('Erro ao excluir. Verifique se você tem permissão ou se a despesa já foi aprovada.')
+    return
+  }
+
+  await contarPendentes()
+  if(origem==='avulsas') await carregarAvulsas()
+  else await carregarAgenda()
+  await carregarDashboard()
+}
+
+async function prepararFormViagensSelect(){
+  document.getElementById('d-arquivo').value=''
+  resetUpload()
+  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
+  const sel=document.getElementById('d-viagem')
+  sel.innerHTML='<option value="">Selecione a viagem</option>'
+  ;(viagens||[]).forEach(v=>{sel.innerHTML+=`<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>`})
+  await atualizarCategoriasDrop()
+}
+
+async function salvarDespesa(){
+  const catId=document.getElementById('d-categoria').value
+  const data=document.getElementById('d-data').value
+  const valor=parseFloat(document.getElementById('d-valor').value)
+  const desc=document.getElementById('d-descricao').value.trim()
+  const viagId=tipoAtual==='viagem'?document.getElementById('d-viagem').value:null
+  const err=document.getElementById('d-erro')
+  err.style.display='none'
+  if(!catId){err.textContent='Selecione uma categoria.';err.style.display='block';return}
+  if(tipoAtual==='viagem'&&!viagId){err.textContent='Selecione a viagem.';err.style.display='block';return}
+  if(!valor||valor<=0){err.textContent='Informe um valor válido.';err.style.display='block';return}
+  if(!data){err.textContent='Informe a data.';err.style.display='block';return}
+
+  let comprovante_url=null,comprovante_nome=null,comprovante_tamanho_kb=null
+
+  // Se estiver editando, mantém comprovante existente se não subiu novo
+  if(despesaEditandoId&&!arquivoComprimido){
+    let buscaComp = sb.from('despesas').select('comprovante_url,comprovante_nome,comprovante_tamanho_kb,status,usuario_id').eq('id',despesaEditandoId)
+    if(perfil?.papel !== 'aprovador'){
+      buscaComp = buscaComp.eq('usuario_id',perfil.id).in('status',['pendente','rejeitado'])
+    }
+    const{data:d,error:compErr}=await buscaComp.single()
+    if(compErr || !d){err.textContent='Despesa não encontrada ou sem permissão para editar.';err.style.display='block';return}
+    comprovante_url=d?.comprovante_url||null
+    comprovante_nome=d?.comprovante_nome||null
+    comprovante_tamanho_kb=d?.comprovante_tamanho_kb||null
+  }
+
+  if(arquivoComprimido){
+    const path=`${perfil.id}/${Date.now()}_${arquivoComprimido.name}`
+    const{error:upErr}=await sb.storage.from('comprovantes').upload(path,arquivoComprimido,{contentType:arquivoComprimido.type})
+    if(upErr){err.textContent='Erro ao enviar comprovante.';err.style.display='block';return}
+    const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
+    comprovante_url=publicUrl;comprovante_nome=arquivoComprimido.name;comprovante_tamanho_kb=Math.round(arquivoComprimido.size/1024)
+  }
+
+  let estado_despesa=null
+  if(tipoAtual==='viagem'&&viagId){
+    const{data:viag}=await sb.from('viagens').select('estado').eq('id',viagId).single()
+    estado_despesa=viag?.estado||null
+  } else {
+    estado_despesa=perfil.estado_base||null
+  }
+
+  if(despesaEditandoId){
+    const payload={
+      viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,
+      valor,data_despesa:data,status:'pendente',
+      motivo_rejeicao:null,aprovado_por:null,aprovado_em:null,
+      comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
+    }
+
+    let up = sb.from('despesas').update(payload).eq('id',despesaEditandoId)
+    if(perfil?.papel !== 'aprovador'){
+      up = up.eq('usuario_id',perfil.id).in('status',['pendente','rejeitado'])
+    }
+
+    const{error}=await up
+    if(error){err.textContent='Erro ao salvar alteração. Verifique permissão ou status da despesa.';err.style.display='block';return}
+  } else {
+    const{error}=await sb.from('despesas').insert({
+      usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,
+      descricao:desc||null,valor,data_despesa:data,status:'pendente',
+      comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
+    })
+    if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+  }
+
+  limparFormDespesa()
+  await contarPendentes()
+  if(telaOrigemDespesa==='avulsas'){
+    showScreen('avulsas',document.getElementById('nav-agenda'))
+  } else {
+    showScreen('agenda',document.getElementById('nav-agenda'))
+  }
+}
+
+function limparFormDespesa(){
+  despesaEditandoId=null
+  document.getElementById('d-titulo').textContent='Lançar despesa'
+  document.getElementById('d-subtitulo').textContent='Vinculada a uma viagem ou avulsa'
+  document.getElementById('d-btn-salvar').textContent='Salvar despesa'
+  document.getElementById('d-categoria').value=''
+  document.getElementById('d-valor').value=''
+  document.getElementById('d-descricao').value=''
+  document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
+  document.getElementById('d-viagem').value=''
+  document.getElementById('ai-sugestao').style.display='none'
+  arquivoComprimido=null
+  document.getElementById('d-arquivo').value=''
+  resetUpload()
+}
+
+async function contarPendentes(){
+  if(perfil?.papel!=='aprovador')return
+  const{count}=await sb.from('despesas').select('*',{count:'exact',head:true}).eq('status','pendente')
+  const badge=document.getElementById('badge-pendentes')
+  if(count>0){badge.textContent=count;badge.style.display='inline-block'}
+  else badge.style.display='none'
+}
+
+async function carregarAprovacoes(){
+  // Busca despesas pendentes
+  const{data:despesas}=await sb.from('despesas').select('*').eq('status','pendente').order('data_despesa')
+  if(!despesas||!despesas.length){
+    document.getElementById('aprovar-sub').textContent='Nenhum item pendente'
+    document.getElementById('aprovar-lista').innerHTML='<div class="empty">Nenhuma despesa pendente.</div>'
+    return
+  }
+
+  // Busca perfis, categorias e viagens separadamente
+  const{data:profs}=await sb.from('profiles').select('id,nome')
+  const{data:cats}=await sb.from('categorias').select('id,nome,tipo')
+  const viagIds=despesas.filter(d=>d.viagem_id).map(d=>d.viagem_id)
+  let viagens=[]
+  if(viagIds.length){
+    const{data:vs}=await sb.from('viagens').select('id,destino,cliente').in('id',viagIds)
+    viagens=vs||[]
+  }
+
+  const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+  const catPorId={};(cats||[]).forEach(c=>catPorId[c.id]=c)
+  const viagPorId={};viagens.forEach(v=>viagPorId[v.id]=v)
+
+  document.getElementById('aprovar-sub').textContent=`${despesas.length} ${despesas.length===1?'item':'itens'} aguardando revisão`
+
+  const por={}
+  despesas.forEach(d=>{
+    if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',items:[]}
+    por[d.usuario_id].items.push(d)
+  })
+
+  let html=''
+  Object.entries(por).forEach(([uid,g])=>{
+    const total=g.items.reduce((s,d)=>s+d.valor,0)
+    const rows=g.items.map(d=>{
+      const cat=catPorId[d.categoria_id]
+      const viag=d.viagem_id?viagPorId[d.viagem_id]:null
+      return`<div class="approve-row" id="row-${d.id}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:500">${cat?.nome||'?'}${d.descricao?` · <span style="font-weight:400;color:var(--ink2)">${d.descricao}</span>`:''}</div>
+          <div style="font-size:11px;color:var(--ink2);margin-top:2px">
+            ${dataFmt(d.data_despesa)}
+            ${viag?` · ${viag.destino} – ${viag.cliente}`:' · avulso'}
+            ${d.comprovante_url?` · <a href="${d.comprovante_url}" target="_blank" style="color:var(--purple)">comprovante</a>`:' · <span style="color:var(--orange-dark)">sem comprovante</span>'}
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">Aprovar</button>
+          <button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button>
+        </div>
+      </div>
+      <div id="rej-form-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="rej-motivo-${d.id}" class="form-input" placeholder="Motivo da rejeição *" style="flex:1;font-size:11px;padding:5px 8px">
+          <button class="btn btn-sm btn-reject" onclick="rejeitar('${d.id}')">Confirmar</button>
+          <button class="btn btn-sm" onclick="document.getElementById('rej-form-${d.id}').style.display='none'">Cancelar</button>
+        </div>
+      </div>`
+    }).join('')
+    html+=`<div class="card" style="margin-bottom:10px">
+      <div class="card-header"><div class="card-title">${g.nome}</div><span class="badge b-orange">${g.items.length} pendente${g.items.length>1?'s':''}</span></div>
+      ${rows}
+      <div class="card-footer"><span>Total pendente</span><strong>${moeda(total)}</strong></div>
+    </div>`
+  })
+  document.getElementById('aprovar-lista').innerHTML=html
+}
+
+async function aprovar(id){
+  if(perfil?.papel !== 'aprovador'){
+    alert('Sem permissão para aprovar.')
+    return
+  }
+
+  const {error}=await sb.from('despesas')
+    .update({status:'aprovado',aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .eq('id',id)
+    .eq('status','pendente')
+
+  if(error){
+    alert('Erro ao aprovar: '+error.message)
+    return
+  }
+
+  await contarPendentes()
+  await carregarAprovacoes()
+  await carregarDashboard()
+}
+
+function mostrarRejeitar(id){
+  document.getElementById('rej-form-'+id).style.display='block'
+  document.getElementById('rej-motivo-'+id).focus()
+}
+
+async function rejeitar(id){
+  if(perfil?.papel !== 'aprovador'){
+    alert('Sem permissão para rejeitar.')
+    return
+  }
+
+  const motivo=document.getElementById('rej-motivo-'+id).value.trim()
+  if(!motivo){alert('Informe o motivo da rejeição.');return}
+
+  const {error}=await sb.from('despesas')
+    .update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .eq('id',id)
+    .eq('status','pendente')
+
+  if(error){
+    alert('Erro ao rejeitar: '+error.message)
+    return
+  }
+
+  await contarPendentes()
+  await carregarAprovacoes()
+  await carregarDashboard()
+}
+
+async function carregarInsights(){
+  const ini=new Date();ini.setDate(ini.getDate()-90)
+  const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').gte('data_despesa',ini.toISOString().slice(0,10))
+  const{data:profs}=await sb.from('profiles').select('id,nome')
+  const{data:cats}=await sb.from('categorias').select('id,nome')
+  const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+  const catPorId={};(cats||[]).forEach(c=>catPorId[c.id]=c.nome)
+
+  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
+  if(!despesasValidas||despesasValidas.length<5){
+    document.getElementById('insights-lista').innerHTML=`<div class="insight-card" style="background:var(--purple-light);border-color:#C4B5FD"><div class="insight-icon" style="background:white;border:1.5px solid #C4B5FD;font-size:16px">💡</div><div><div style="font-size:12px">Dados insuficientes. Continue lançando despesas.</div><div style="font-size:11px;color:var(--ink2);margin-top:4px">Mínimo: 5 lançamentos nos últimos 90 dias</div></div></div>`
+    return
+  }
+
+  const porPessoa={};const porCat={}
+  despesasValidas.forEach(d=>{
+    const nome=nomePorId[d.usuario_id]||'?'
+    const cat=catPorId[d.categoria_id]||'?'
+    if(!porPessoa[nome])porPessoa[nome]={total:0,count:0}
+    porPessoa[nome].total+=d.valor;porPessoa[nome].count++
+    if(!porCat[cat])porCat[cat]=0
+    porCat[cat]+=d.valor
+  })
+
+  const insights=[]
+  const topP=Object.entries(porPessoa).sort((a,b)=>b[1].total-a[1].total)[0]
+  if(topP)insights.push({icon:'⚠️',bg:'var(--orange-light)',border:'#FCD34D',texto:`${topP[0]} tem o maior volume nos últimos 90 dias: ${moeda(topP[1].total)} em ${topP[1].count} lançamentos.`,sub:'Análise dos últimos 90 dias'})
+  const topC=Object.entries(porCat).sort((a,b)=>b[1]-a[1])[0]
+  if(topC)insights.push({icon:'📊',bg:'var(--purple-light)',border:'#C4B5FD',texto:`Categoria com maior gasto: "${topC[0]}" — ${moeda(topC[1])} no período.`,sub:'Categoria mais representativa'})
+  const pend=despesas.filter(d=>d.status==='pendente')
+  if(pend.length)insights.push({icon:'⏳',bg:'var(--orange-light)',border:'#FCD34D',texto:`${pend.length} despesa${pend.length>1?'s':''} pendente${pend.length>1?'s':''} de aprovação — ${moeda(pend.reduce((s,d)=>s+d.valor,0))}.`,sub:'Requer atenção do aprovador'})
+
+  document.getElementById('insights-lista').innerHTML=insights.map(i=>`<div class="insight-card" style="background:${i.bg};border-color:${i.border}"><div class="insight-icon" style="background:white;border:1.5px solid ${i.border}">${i.icon}</div><div><div style="font-size:12px;line-height:1.5">${i.texto}</div><div style="font-size:11px;color:var(--ink2);margin-top:3px">${i.sub}</div></div></div>`).join('')
+}
+
+// ── Resultado pós-visita ──────────────────────
+let viagemResultadoId=null
+let fechouNegocio=null
+
+function setFechou(v){
+  fechouNegocio=v
+  document.getElementById('res-sim').classList.toggle('active',v===true)
+  document.getElementById('res-nao').classList.toggle('active',v===false)
+}
+
+async function abrirResultado(vid){
+  viagemResultadoId=vid
+  fechouNegocio=null
+  document.getElementById('res-sim').classList.remove('active')
+  document.getElementById('res-nao').classList.remove('active')
+  document.getElementById('res-obs').value=''
+  document.getElementById('res-erro').style.display='none'
+
+  // Busca viagem atual pra preencher se já tem resultado
+  const{data:viag}=await sb.from('viagens').select('*').eq('id',vid).single()
+  if(viag){
+    document.getElementById('res-sub').textContent=`${viag.destino} · ${viag.cliente}`
+    if(viag.fechou_negocio!==null){setFechou(viag.fechou_negocio)}
+    if(viag.observacao)document.getElementById('res-obs').value=viag.observacao
+  }
+
+  // Carrega SKUs e preenche campos
+  const{data:skus}=await sb.from('skus').select('*').eq('ativo',true).order('ordem')
+  let resultados={}
+  if(viag?.resultados_sku)resultados=viag.resultados_sku
+
+  let html=''
+  ;(skus||[]).forEach(s=>{
+    html+=`<div class="form-row" style="margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:500;color:var(--ink);min-width:100px">${s.sigla} – ${s.nome}</span>
+        <input type="number" min="0" id="sku-qtd-${s.id}" class="form-input" placeholder="0" value="${resultados[s.id]||''}" style="width:100px">
+        <span style="font-size:11px;color:var(--ink2)">caixas</span>
+      </div>
+    </div>`
+  })
+  document.getElementById('res-skus-campos').innerHTML=html||(skus?.length===0?'<div style="font-size:11px;color:var(--ink2)">Nenhum SKU cadastrado. Vá em Admin → SKUs para adicionar.</div>':'')
+  showScreen('resultado',document.getElementById('nav-agenda'))
+}
+
+async function salvarResultado(){
+  const err=document.getElementById('res-erro')
+  err.style.display='none'
+  if(fechouNegocio===null){err.textContent='Informe se fechou negócio.';err.style.display='block';return}
+
+  const{data:skus}=await sb.from('skus').select('id').eq('ativo',true)
+  const resultados_sku={}
+  ;(skus||[]).forEach(s=>{
+    const v=parseInt(document.getElementById('sku-qtd-'+s.id)?.value)||0
+    if(v>0)resultados_sku[s.id]=v
+  })
+
+  const obs=document.getElementById('res-obs').value.trim()
+  const{error}=await sb.from('viagens').update({
+    fechou_negocio:fechouNegocio,
+    resultados_sku,
+    observacao:obs||null,
+    status:'concluida'
+  }).eq('id',viagemResultadoId)
+
+  if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+  showScreen('agenda',document.getElementById('nav-agenda'))
+}
+
+// ── SKUs ──────────────────────────────────────
+async function carregarSkus(){
+  const box=document.getElementById('sku-lista')
+  box.innerHTML='<div class="loading">Carregando SKUs...</div>'
+
+  const {data:skus,error}=await sb.from('skus').select('*').order('ordem')
+  if(error){
+    box.innerHTML=`<div class="login-err" style="display:block">Erro ao carregar SKUs: ${error.message}</div>`
+    return
+  }
+
+  box.innerHTML=(skus||[]).length
+    ?(skus||[]).map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+        <span style="font-size:11px;font-weight:500;color:var(--purple);min-width:36px">${s.sigla}</span>
+        <span style="flex:1;font-size:12px;${!s.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${s.nome}</span>
+        <span class="badge ${s.ativo?'b-mint':'b-gray'}" style="font-size:9px">${s.ativo?'Ativo':'Inativo'}</span>
+        <button class="btn btn-sm" onclick="editarSku('${s.id}')" style="font-size:10px">Editar</button>
+        <button class="btn btn-sm" onclick="toggleSku('${s.id}',${s.ativo})" style="font-size:10px">${s.ativo?'Desativar':'Ativar'}</button>
+        <button class="btn btn-sm btn-reject" onclick="excluirSku('${s.id}')" style="font-size:10px">Excluir</button>
+      </div>`).join('')
+    :'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhum SKU. Adicione acima.</div>'
+}
+
+async function adicionarSku(){
+  const nome=document.getElementById('sku-nome').value.trim()
+  const sigla=document.getElementById('sku-sigla').value.trim().toUpperCase()
+  const box=document.getElementById('sku-lista')
+
+  if(!nome||!sigla){
+    box.innerHTML='<div class="login-err" style="display:block">Informe nome e sigla do SKU.</div>'
+    return
+  }
+
+  const {data:last,error:erroOrdem}=await sb.from('skus').select('ordem').order('ordem',{ascending:false}).limit(1)
+  if(erroOrdem){
+    box.innerHTML=`<div class="login-err" style="display:block">Erro ao consultar ordem dos SKUs: ${erroOrdem.message}</div>`
+    return
+  }
+
+  const maxOrdem=last?.[0]?.ordem||0
+  const {error}=await sb.from('skus').insert({nome,sigla,ordem:maxOrdem+1,ativo:true})
+  if(error){
+    box.innerHTML=`<div class="login-err" style="display:block">Erro ao adicionar SKU: ${error.message}</div>`
+    return
+  }
+
+  document.getElementById('sku-nome').value=''
+  document.getElementById('sku-sigla').value=''
+  await carregarSkus()
+}
+
+
+async function editarSku(id){
+  const {data:s,error}=await sb.from('skus').select('*').eq('id',id).single()
+  if(error||!s){alert('Não foi possível carregar o SKU.');return}
+  const nome=prompt('Nome do SKU:', s.nome||'')
+  if(nome===null)return
+  const sigla=prompt('Sigla do SKU:', s.sigla||'')
+  if(sigla===null)return
+  if(!nome.trim()||!sigla.trim()){alert('Nome e sigla são obrigatórios.');return}
+  const {error:upErr}=await sb.from('skus').update({nome:nome.trim(),sigla:sigla.trim().toUpperCase()}).eq('id',id)
+  if(upErr){alert('Erro ao editar SKU: '+upErr.message);return}
+  carregarSkus()
+}
+
+async function excluirSku(id){
+  if(!confirm('Excluir definitivamente este SKU? Se ele já foi usado em visitas, prefira desativar.'))return
+  const {error}=await sb.from('skus').delete().eq('id',id)
+  if(error){
+    const {error:fallback}=await sb.from('skus').update({ativo:false}).eq('id',id)
+    if(fallback){alert('Erro ao excluir SKU: '+error.message);return}
+    alert('Não foi possível excluir definitivamente; o SKU foi desativado para preservar histórico.')
+  }
+  carregarSkus()
+}
+
+async function toggleSku(id,ativo){
+  const {error}=await sb.from('skus').update({ativo:!ativo}).eq('id',id)
+  if(error){
+    document.getElementById('sku-lista').innerHTML=`<div class="login-err" style="display:block">Erro ao alterar SKU: ${error.message}</div>`
+    return
+  }
+  carregarSkus()
+}
+
+// ── Equipe ────────────────────────────────────
+const ESTADOS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+
+async function carregarEquipe(){
+  const{data:profs,error}=await sb.from('profiles').select('*').order('nome')
+  if(error){document.getElementById('equipe-lista').innerHTML=`<div class="login-err" style="display:block">Erro ao carregar equipe: ${error.message}</div>`;return}
+  if(!profs||!profs.length){document.getElementById('equipe-lista').innerHTML='<div class="empty">Nenhum usuário.</div>';return}
+
+  const rows=profs.map(p=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)">
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:500;color:var(--ink)">${p.nome}</div>
+        <div style="font-size:11px;color:var(--ink2)">${p.email} · <span class="badge ${p.papel==='aprovador'?'b-purple':'b-gray'}" style="font-size:9px">${p.papel}</span></div>
+        <div id="eq-status-${p.id}" style="font-size:10px;color:var(--ink2);margin-top:3px">Estado atual: ${p.estado_base||'não definido'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--ink2)">Estado base:</label>
+        <select id="eq-estado-${p.id}" class="form-select" style="width:80px;padding:4px 6px;font-size:11px">
+          <option value="">—</option>
+          ${ESTADOS.map(e=>`<option value="${e}" ${p.estado_base===e?'selected':''}>${e}</option>`).join('')}
+        </select>
+        <button class="btn btn-sm btn-primary" style="font-size:10px;padding:3px 9px" onclick="salvarEstadoBase('${p.id}')">Salvar</button>
+      </div>
+    </div>`).join('')
+
+  document.getElementById('equipe-lista').innerHTML=`<div class="card">${rows}</div>`
+}
+
+async function salvarEstadoBase(uid){
+  const select=document.getElementById('eq-estado-'+uid)
+  const status=document.getElementById('eq-status-'+uid)
+  const estado=select?select.value:null
+  if(status){status.textContent='Salvando...';status.style.color='var(--ink2)'}
+  const {error}=await sb.from('profiles').update({estado_base:estado||null}).eq('id',uid)
+  if(error){
+    if(status){status.textContent='Erro ao salvar: '+error.message;status.style.color='#991B1B'}
+    return
+  }
+  if(uid===perfil.id)perfil.estado_base=estado||null
+  if(status){status.textContent='Salvo: '+(estado||'não definido');status.style.color='var(--mint-dark)'}
+}
+
+// ── Tabela gastos por estado ──────────────────
+async function carregarConsolidadoAnual(profs){
+  const ano=new Date().getFullYear()
+  const {data:despesas}=await sb.from('despesas')
+    .select('usuario_id,valor,status,data_despesa')
+    .gte('data_despesa',`${ano}-01-01`)
+    .lte('data_despesa',`${ano}-12-31`)
+
+  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
+  if(!despesasValidas.length) return ''
+
+  const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+  const nomePorId={}
+  ;(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
+
+  // Monta estrutura: por pessoa, por mês
+  const dados={}
+  despesasValidas.forEach(d=>{
+    const mes=new Date(d.data_despesa+'T00:00:00').getMonth() // 0-11
+    const uid=d.usuario_id
+    if(!dados[uid])dados[uid]=Array(12).fill(0)
+    dados[uid][mes]+=d.valor
+  })
+
+  // Total por mês (linha de rodapé)
+  const totaisMes=Array(12).fill(0)
+  Object.values(dados).forEach(mesesArr=>{
+    mesesArr.forEach((v,i)=>totaisMes[i]+=v)
+  })
+  const totalGeral=totaisMes.reduce((s,v)=>s+v,0)
+
+  // Descobre quais meses têm dados
+  const mesesComDados=meses.map((_,i)=>i).filter(i=>totaisMes[i]>0)
+  if(!mesesComDados.length) return ''
+
+  // Cabeçalho
+  let thead=`<tr><th style="text-align:left;min-width:90px">Nome</th>`
+  mesesComDados.forEach(i=>thead+=`<th style="text-align:right">${meses[i]}</th>`)
+  thead+=`<th style="text-align:right;color:var(--purple-dark)">Total</th></tr>`
+
+  // Linhas por pessoa
+  const rows=Object.entries(dados).map(([uid,mesesArr])=>{
+    const nome=nomePorId[uid]||'?'
+    const totalPessoa=mesesArr.reduce((s,v)=>s+v,0)
+    let cells=mesesComDados.map(i=>`<td style="text-align:right">${mesesArr[i]>0?moeda(mesesArr[i]):'—'}</td>`).join('')
+    return`<tr>
+      <td style="font-weight:500">${nome}</td>
+      ${cells}
+      <td style="text-align:right;font-weight:500;color:var(--purple-dark)">${moeda(totalPessoa)}</td>
+    </tr>`
+  }).join('')
+
+  // Linha de total geral
+  let rodape=`<tr style="background:var(--cream);border-top:1.5px solid var(--line)">
+    <td style="font-weight:500;color:var(--ink)">Total</td>`
+  mesesComDados.forEach(i=>rodape+=`<td style="text-align:right;font-weight:500">${moeda(totaisMes[i])}</td>`)
+  rodape+=`<td style="text-align:right;font-weight:500;color:var(--purple-dark)">${moeda(totalGeral)}</td></tr>`
+
+  return`<div class="sec-header" style="margin-top:16px">
+    <div class="sec-title">Consolidado anual ${ano}</div>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <table class="tbl" style="min-width:500px">
+      <thead>${thead}</thead>
+      <tbody>${rows}${rodape}</tbody>
+    </table>
+  </div>`
+}
+
+async function carregarGastosPorEstado(){
+  const mes=mesAtual()
+  const{data:despesas}=await sb.from('despesas')
+    .select('valor,status,estado,viagem_id')
+    .gte('data_despesa',`${mes}-01`)
+    .lte('data_despesa',fimMes(mes))
+
+  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
+  if(!despesasValidas.length)return''
+
+  const porEstado={}
+  despesasValidas.forEach(d=>{
+    const est=d.estado||'N/D'
+    if(!porEstado[est])porEstado[est]={viagem:0,local:0,total:0}
+    const v=d.valor||0
+    if(d.viagem_id)porEstado[est].viagem+=v
+    else porEstado[est].local+=v
+    porEstado[est].total+=v
+  })
+
+  const sorted=Object.entries(porEstado).sort((a,b)=>b[1].total-a[1].total)
+  if(!sorted.length)return''
+
+  const rows=sorted.map(([est,v])=>`
+    <tr>
+      <td style="font-weight:500">${est}</td>
+      <td style="color:var(--purple-dark)">${moeda(v.viagem)}</td>
+      <td style="color:var(--ink2)">${moeda(v.local)}</td>
+      <td style="font-weight:500">${moeda(v.total)}</td>
+    </tr>`).join('')
+
+  return`<div class="sec-header" style="margin-top:12px"><div><div class="sec-title">Gastos por estado · mês atual</div><div class="page-sub" style="margin-bottom:0">Rejeitadas não entram nos totais.</div></div></div>
+    <div class="card"><table class="tbl">
+      <thead><tr><th>Estado</th><th>Viagens</th><th>Local</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`
+}
+
+async function carregarCategorias(){
+  const{data:cats}=await sb.from('categorias').select('*').order('tipo').order('ordem')
+  const lista=(cats||[]).filter(c=>c.tipo===catTipoAtual)
+  document.getElementById('cat-lista').innerHTML=lista.length?lista.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:12px;${!c.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${c.nome}</span><span class="badge ${c.tipo==='viagem'?'b-purple':'b-gray'}">${c.tipo}</span><button class="btn btn-sm" onclick="editarCategoria('${c.id}')" style="font-size:10px">Editar</button><button class="btn btn-sm" onclick="toggleCategoria('${c.id}',${c.ativo})" style="font-size:10px">${c.ativo?'Desativar':'Ativar'}</button><button class="btn btn-sm btn-reject" onclick="excluirCategoria('${c.id}')" style="font-size:10px">Excluir</button></div>`).join(''):'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhuma categoria.</div>'
+}
+
+function setCatTipo(t){
+  catTipoAtual=t
+  document.getElementById('cat-tipo-viagem').classList.toggle('active',t==='viagem')
+  document.getElementById('cat-tipo-avulso').classList.toggle('active',t==='avulso')
+  carregarCategorias()
+}
+
+async function adicionarCategoria(){
+  const nome=document.getElementById('cat-nome').value.trim()
+  if(!nome)return
+  const{data:cats,error:ordErr}=await sb.from('categorias').select('ordem').eq('tipo',catTipoAtual).order('ordem',{ascending:false}).limit(1)
+  if(ordErr){alert('Erro ao consultar categorias: '+ordErr.message);return}
+  const maxOrdem=cats?.[0]?.ordem||0
+  const {error}=await sb.from('categorias').insert({nome,tipo:catTipoAtual,ordem:maxOrdem+1,ativo:true})
+  if(error){alert('Erro ao adicionar categoria: '+error.message);return}
+  document.getElementById('cat-nome').value=''
+  carregarCategorias()
+}
+
+
+async function editarCategoria(id){
+  const {data:c,error}=await sb.from('categorias').select('*').eq('id',id).single()
+  if(error||!c){alert('Não foi possível carregar a categoria.');return}
+  const nome=prompt('Nome da categoria:', c.nome||'')
+  if(nome===null)return
+  if(!nome.trim()){alert('Nome é obrigatório.');return}
+  const {error:upErr}=await sb.from('categorias').update({nome:nome.trim()}).eq('id',id)
+  if(upErr){alert('Erro ao editar categoria: '+upErr.message);return}
+  carregarCategorias()
+}
+
+async function excluirCategoria(id){
+  if(!confirm('Excluir definitivamente esta categoria? Se ela já foi usada em despesas, prefira desativar.'))return
+  const {error}=await sb.from('categorias').delete().eq('id',id)
+  if(error){
+    const {error:fallback}=await sb.from('categorias').update({ativo:false}).eq('id',id)
+    if(fallback){alert('Erro ao excluir categoria: '+error.message);return}
+    alert('Não foi possível excluir definitivamente; a categoria foi desativada para preservar histórico.')
+  }
+  carregarCategorias()
+}
+
+async function toggleCategoria(id,ativo){
+  await sb.from('categorias').update({ativo:!ativo}).eq('id',id)
+  carregarCategorias()
+}
+
+;(async()=>{
+  const{data:{session}}=await sb.auth.getSession()
+  if(session)await iniciarApp()
+})()
+</script>
+</body>
+</html>
