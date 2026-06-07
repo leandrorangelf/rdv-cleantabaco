@@ -197,7 +197,7 @@
         <div class="page-title">Visão geral</div>
         <div class="page-sub" id="dash-sub">Carregando...</div>
         <div class="metrics" style="grid-template-columns: repeat(3, 1fr);">
-          <div class="metric m-purple"><div class="metric-label">Total válido</div><div class="metric-value" id="m-total">—</div></div>
+          <div class="metric m-purple"><div class="metric-label">Aprovado + pendente</div><div class="metric-value" id="m-total">—</div></div>
           <div class="metric m-mint"><div class="metric-label">Aprovado</div><div class="metric-value" id="m-aprov">—</div></div>
           <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
         </div>
@@ -517,15 +517,29 @@ async function iniciarApp() {
 }
 
 function showScreen(nome,navEl) {
+  const telasAdmin = ['aprovar','insights','categorias','skus','equipe']
+
+  if(telasAdmin.includes(nome) && perfil?.papel !== 'aprovador'){
+    alert('Acesso restrito ao aprovador.')
+    return
+  }
+
+  const tela = document.getElementById('screen-'+nome)
+  if(!tela){
+    alert('Tela não encontrada.')
+    return
+  }
+
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'))
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
-  document.getElementById('screen-'+nome).classList.add('active')
+  tela.classList.add('active')
   if(navEl)navEl.classList.add('active')
+
   const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas}
   if(loaders[nome])loaders[nome]()
 }
 
-// ── Calendário ────────────────────────────────
+// ── Calendário// ── Calendário ────────────────────────────────
 let calAno=new Date().getFullYear()
 let calMes=new Date().getMonth()
 let todasViagens=[]
@@ -939,7 +953,7 @@ async function carregarDashboard() {
       const st=r.pend>0?'pendente':'aprovado'
       return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
     }).join('')
-    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total válido</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
+    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Aprovado + pendente</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
 
     // Tabela por estado
     const tabelaEstado=await carregarGastosPorEstado()
@@ -986,7 +1000,7 @@ async function carregarAgenda() {
     const pend=avulsasAtivas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
     const aprov=avulsasAtivas.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
     const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
-    const rejLabel=rejeitadas>0?` · <span style="color:#991B1B">${rejeitadas} rejeitada${rejeitadas>1?'s':''}</span>`:''
+    const rejLabel=rejeitadas>0?` · <span style="color:#991B1B">${rejeitadas} rejeitada${rejeitadas>1?'s':''} fora do total fora do total</span>`:''
     html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-agenda'))">
       <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
         <div>
@@ -1129,7 +1143,7 @@ async function carregarAvulsas(){
   const total=avulsasValidas.reduce((s,d)=>s+(d.valor||0),0)
   const pend=avulsasValidas.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0)
   const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
-  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total válido: ${moeda(total)} · Pendente: ${moeda(pend)}${rejeitadas?` · ${rejeitadas} rejeitada${rejeitadas>1?'s':''}`:''}`
+  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Aprovado + pendente: ${moeda(total)} · Pendente: ${moeda(pend)}${rejeitadas?` · ${rejeitadas} rejeitada${rejeitadas>1?'s':''} fora do total fora do total`:''}`
 
   if(!avulsas||!avulsas.length){
     document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
@@ -1285,17 +1299,27 @@ async function handleArquivo(input){
 
 async function editarDespesa(id, origem='agenda'){
   telaOrigemDespesa = origem
-  // Busca despesa
-  const{data:d}=await sb.from('despesas').select('*').eq('id',id).single()
-  if(!d)return
-  if(d.status==='aprovado'){alert('Despesas aprovadas não podem ser editadas.');return}
+
+  let busca = sb.from('despesas').select('*').eq('id',id)
+  if(perfil?.papel !== 'aprovador'){
+    busca = busca.eq('usuario_id',perfil.id)
+  }
+
+  const {data:d,error} = await busca.single()
+  if(error || !d){
+    alert('Despesa não encontrada ou sem permissão.')
+    return
+  }
+  if(d.status==='aprovado'){
+    alert('Despesas aprovadas não podem ser editadas.')
+    return
+  }
 
   despesaEditandoId=id
   document.getElementById('d-titulo').textContent='Editar despesa'
   document.getElementById('d-subtitulo').textContent=d.status==='rejeitado'?'⚠️ Rejeitada — corrija e reenvie para aprovação':'Pendente de aprovação'
   document.getElementById('d-btn-salvar').textContent=d.status==='rejeitado'?'Corrigir e reenviar':'Salvar alterações'
 
-  // Preenche o form
   await prepararFormViagensSelect()
   setTipo(d.viagem_id?'viagem':'avulso')
   if(d.viagem_id){
@@ -1309,9 +1333,8 @@ async function editarDespesa(id, origem='agenda'){
   await atualizarCategoriasDrop()
   setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id},150)
 
-  // Comprovante existente
   if(d.comprovante_url){
-    document.getElementById('upload-preview').innerHTML=`<div class="upload-info">📎 ${d.comprovante_nome||'comprovante'}</div><div class="upload-sub">já anexado · clique para substituir</div>`
+    document.getElementById('upload-preview').innerHTML=`<div class="upload-info">📎 ${escapeHtml(d.comprovante_nome||'comprovante')}</div><div class="upload-sub">já anexado · clique para substituir</div>`
   } else {
     resetUpload()
   }
@@ -1320,17 +1343,27 @@ async function editarDespesa(id, origem='agenda'){
   showScreen('lancar',document.getElementById('nav-lancar'))
 }
 
-async function excluirDespesa(id, origem='agenda'){
+async function excluirDespesaasync function excluirDespesa(id, origem='agenda'){
   if(!confirm('Tem certeza que quer excluir essa despesa? Essa ação não pode ser desfeita.')) return
-  const{error}=await sb.from('despesas').delete().eq('id',id)
-  if(error){alert('Erro ao excluir. Tente novamente.');return}
+
+  let q = sb.from('despesas').delete().eq('id',id)
+  if(perfil?.papel !== 'aprovador'){
+    q = q.eq('usuario_id',perfil.id).in('status',['pendente','rejeitado'])
+  }
+
+  const {error}=await q
+  if(error){
+    alert('Erro ao excluir. Verifique se você tem permissão ou se a despesa já foi aprovada.')
+    return
+  }
+
   await contarPendentes()
   if(origem==='avulsas') await carregarAvulsas()
   else await carregarAgenda()
   await carregarDashboard()
 }
 
-async function prepararFormViagensSelect(){
+async function prepararFormViagensSelectasync function prepararFormViagensSelect(){
   document.getElementById('d-arquivo').value=''
   resetUpload()
   const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
@@ -1355,9 +1388,14 @@ async function salvarDespesa(){
 
   let comprovante_url=null,comprovante_nome=null,comprovante_tamanho_kb=null
 
-  // Se editando, mantém comprovante existente se não subiu novo
+  // Se estiver editando, mantém comprovante existente se não subiu novo
   if(despesaEditandoId&&!arquivoComprimido){
-    const{data:d}=await sb.from('despesas').select('comprovante_url,comprovante_nome,comprovante_tamanho_kb').eq('id',despesaEditandoId).single()
+    let buscaComp = sb.from('despesas').select('comprovante_url,comprovante_nome,comprovante_tamanho_kb,status,usuario_id').eq('id',despesaEditandoId)
+    if(perfil?.papel !== 'aprovador'){
+      buscaComp = buscaComp.eq('usuario_id',perfil.id).in('status',['pendente','rejeitado'])
+    }
+    const{data:d,error:compErr}=await buscaComp.single()
+    if(compErr || !d){err.textContent='Despesa não encontrada ou sem permissão para editar.';err.style.display='block';return}
     comprovante_url=d?.comprovante_url||null
     comprovante_nome=d?.comprovante_nome||null
     comprovante_tamanho_kb=d?.comprovante_tamanho_kb||null
@@ -1371,7 +1409,6 @@ async function salvarDespesa(){
     comprovante_url=publicUrl;comprovante_nome=arquivoComprimido.name;comprovante_tamanho_kb=Math.round(arquivoComprimido.size/1024)
   }
 
-  // Estado
   let estado_despesa=null
   if(tipoAtual==='viagem'&&viagId){
     const{data:viag}=await sb.from('viagens').select('estado').eq('id',viagId).single()
@@ -1381,16 +1418,21 @@ async function salvarDespesa(){
   }
 
   if(despesaEditandoId){
-    // EDIÇÃO — atualiza e volta pra pendente
-    const{error}=await sb.from('despesas').update({
+    const payload={
       viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,
       valor,data_despesa:data,status:'pendente',
       motivo_rejeicao:null,aprovado_por:null,aprovado_em:null,
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
-    }).eq('id',despesaEditandoId)
-    if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+    }
+
+    let up = sb.from('despesas').update(payload).eq('id',despesaEditandoId)
+    if(perfil?.papel !== 'aprovador'){
+      up = up.eq('usuario_id',perfil.id).in('status',['pendente','rejeitado'])
+    }
+
+    const{error}=await up
+    if(error){err.textContent='Erro ao salvar alteração. Verifique permissão ou status da despesa.';err.style.display='block';return}
   } else {
-    // NOVO
     const{error}=await sb.from('despesas').insert({
       usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,
       descricao:desc||null,valor,data_despesa:data,status:'pendente',
@@ -1408,7 +1450,7 @@ async function salvarDespesa(){
   }
 }
 
-function limparFormDespesa(){
+function limparFormDespesafunction limparFormDespesa(){
   despesaEditandoId=null
   document.getElementById('d-titulo').textContent='Lançar despesa'
   document.getElementById('d-subtitulo').textContent='Vinculada a uma viagem ou avulsa'
@@ -1502,27 +1544,56 @@ async function carregarAprovacoes(){
 }
 
 async function aprovar(id){
-  await sb.from('despesas').update({status:'aprovado',aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
+  if(perfil?.papel !== 'aprovador'){
+    alert('Sem permissão para aprovar.')
+    return
+  }
+
+  const {error}=await sb.from('despesas')
+    .update({status:'aprovado',aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .eq('id',id)
+    .eq('status','pendente')
+
+  if(error){
+    alert('Erro ao aprovar: '+error.message)
+    return
+  }
+
   await contarPendentes()
   await carregarAprovacoes()
   await carregarDashboard()
 }
 
-function mostrarRejeitar(id){
+function mostrarRejeitarfunction mostrarRejeitar(id){
   document.getElementById('rej-form-'+id).style.display='block'
   document.getElementById('rej-motivo-'+id).focus()
 }
 
 async function rejeitar(id){
+  if(perfil?.papel !== 'aprovador'){
+    alert('Sem permissão para rejeitar.')
+    return
+  }
+
   const motivo=document.getElementById('rej-motivo-'+id).value.trim()
   if(!motivo){alert('Informe o motivo da rejeição.');return}
-  await sb.from('despesas').update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
+
+  const {error}=await sb.from('despesas')
+    .update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .eq('id',id)
+    .eq('status','pendente')
+
+  if(error){
+    alert('Erro ao rejeitar: '+error.message)
+    return
+  }
+
   await contarPendentes()
   await carregarAprovacoes()
   await carregarDashboard()
 }
 
-async function carregarInsights(){
+async function carregarInsightsasync function carregarInsights(){
   const ini=new Date();ini.setDate(ini.getDate()-90)
   const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').gte('data_despesa',ini.toISOString().slice(0,10))
   const{data:profs}=await sb.from('profiles').select('id,nome')
