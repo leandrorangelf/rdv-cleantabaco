@@ -222,7 +222,7 @@
   }
 
 
-  /* Controle de menu por perfil */
+  /* Permissões visuais do menu */
   .aprovador-only { display: none !important; }
   body.usuario-aprovador .aprovador-only.nav-item { display: flex !important; }
   body.usuario-aprovador .aprovador-only.nav-label { display: block !important; }
@@ -591,7 +591,9 @@ const { createClient } = supabase
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON)
 
 let perfil = null
-let tipoAtual = 'viagem'
+
+  document.body.classList.remove('usuario-aprovador','usuario-coordenador')
+  let tipoAtual = 'viagem'
 let catTipoAtual = 'viagem'
 let arquivoComprimido = null
 
@@ -621,24 +623,11 @@ document.getElementById('login-senha').addEventListener('keydown',e=>{if(e.key==
 async function doLogout() {
   await sb.auth.signOut()
   perfil=null
-  document.body.classList.remove('app-authenticated','usuario-aprovador','usuario-coordenador')
+  document.body.classList.remove('app-authenticated')
   document.body.classList.add('app-logged-out')
-  const loginScreen=document.getElementById('login-screen')
-  const app=document.getElementById('app')
-  if(loginScreen){
-    loginScreen.classList.remove('hide')
-    loginScreen.style.display='flex'
-  }
-  if(app){
-    app.classList.remove('show')
-    app.style.display='none'
-  }
-  const email=document.getElementById('login-email')
-  const senha=document.getElementById('login-senha')
-  const err=document.getElementById('login-err')
-  if(senha) senha.value=''
-  if(err) err.style.display='none'
-  if(email) setTimeout(()=>email.focus(),50)
+  document.getElementById('login-screen').classList.remove('hide')
+  document.getElementById('login-screen').style.display='flex'
+  document.getElementById('app').classList.remove('show')
 }
 
 async function iniciarApp() {
@@ -652,8 +641,6 @@ async function iniciarApp() {
     return
   }
   perfil=data
-  document.body.classList.remove('app-logged-out')
-  document.body.classList.add('app-authenticated')
   document.body.classList.toggle('usuario-aprovador', perfil.papel==='aprovador')
   document.body.classList.toggle('usuario-coordenador', perfil.papel!=='aprovador')
   document.getElementById('topbar-nome').textContent=perfil.nome
@@ -661,16 +648,8 @@ async function iniciarApp() {
   document.body.classList.remove('app-logged-out')
   document.body.classList.add('app-authenticated')
   document.getElementById('login-screen').classList.add('hide')
-  const loginScreen=document.getElementById('login-screen')
-  const app=document.getElementById('app')
-  if(loginScreen){
-    loginScreen.classList.add('hide')
-    loginScreen.style.display='none'
-  }
-  if(app){
-    app.style.display='flex'
-    app.classList.add('show')
-  }
+  document.getElementById('login-screen').style.display='none'
+  document.getElementById('app').classList.add('show')
   if(perfil.papel==='aprovador'){
     document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='flex')
     document.getElementById('nav-label-admin').style.display='block'
