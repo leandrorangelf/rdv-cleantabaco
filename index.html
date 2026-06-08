@@ -430,10 +430,24 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Categoria *</label>
-              <select id="d-categoria" class="form-select" onchange="setSugestaoManual()"><option value="">Selecione</option></select>
+              <select id="d-categoria" class="form-select" onchange="setSugestaoManual();atualizarCampoSemana()"><option value="">Selecione</option></select>
               <div id="ai-sugestao" class="ai-pill" style="display:none">✦ IA sugeriu esta categoria</div>
             </div>
-            <div class="form-group"><label class="form-label">Data *</label><input id="d-data" type="date" class="form-input"></div>
+            <div class="form-group" id="campo-data-dia"><label class="form-label">Data *</label><input id="d-data" type="date" class="form-input"></div>
+          </div>
+          <div class="form-row" id="campo-periodo-combustivel" style="display:none">
+            <div class="form-group">
+              <label class="form-label">Período para Gasolina / KM</label>
+              <select id="d-periodo-tipo" class="form-select" onchange="atualizarModoPeriodo()">
+                <option value="dia">Lançar por dia</option>
+                <option value="semana">Lançar por semana</option>
+              </select>
+            </div>
+            <div class="form-group" id="campo-semana-despesa" style="display:none">
+              <label class="form-label">Semana *</label>
+              <input id="d-semana" type="week" class="form-input">
+              <div style="font-size:10px;color:var(--ink2);margin-top:2px">Será salvo como um único lançamento semanal, sem misturar o mês inteiro.</div>
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Valor (R$) *</label><input id="d-valor" type="number" step="0.01" class="form-input" placeholder="0,00" onblur="sugerirCategoria()"></div>
@@ -1292,7 +1306,13 @@ async function prepararFormDespesa(){
   document.getElementById('d-titulo').textContent = 'Lançar despesa'
   document.getElementById('d-subtitulo').textContent = 'Vinculada a uma viagem ou avulsa'
   document.getElementById('d-btn-salvar').textContent = 'Salvar despesa'
+  document.getElementById('d-data').disabled=false
   document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
+  const periodoTipo=document.getElementById('d-periodo-tipo')
+  const semanaInput=document.getElementById('d-semana')
+  if(periodoTipo)periodoTipo.value='dia'
+  if(semanaInput)semanaInput.value=''
+  atualizarCampoSemana()
   arquivoComprimido=null
   resetUpload()
   await prepararFormViagensSelect()
@@ -1307,6 +1327,7 @@ async function atualizarCategoriasDrop(){
   const sel=document.getElementById('d-categoria')
   sel.innerHTML='<option value="">Selecione</option>'
   ;(cats||[]).forEach(c=>{sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`})
+  atualizarCampoSemana()
 }
 
 function setTipo(t){
@@ -1316,6 +1337,60 @@ function setTipo(t){
   document.getElementById('campo-viagem').style.display=t==='viagem'?'flex':'none'
   document.getElementById('ai-sugestao').style.display='none'
   atualizarCategoriasDrop()
+}
+
+
+function textoSemAcento(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+}
+
+function categoriaPermiteSemana(){
+  const sel=document.getElementById('d-categoria')
+  if(!sel)return false
+  const nome=textoSemAcento(sel.options[sel.selectedIndex]?.text||'')
+  return nome.includes('gasolina') || nome.includes('combust') || nome.includes('km') || nome.includes('quilometr') || nome.includes('quilomet') || nome.includes('rodado')
+}
+
+function atualizarCampoSemana(){
+  const wrap=document.getElementById('campo-periodo-combustivel')
+  const tipo=document.getElementById('d-periodo-tipo')
+  if(!wrap||!tipo)return
+  const usar=categoriaPermiteSemana()
+  wrap.style.display=usar?'grid':'none'
+  if(!usar){
+    tipo.value='dia'
+    const semana=document.getElementById('d-semana')
+    if(semana)semana.value=''
+  }
+  atualizarModoPeriodo()
+}
+
+function atualizarModoPeriodo(){
+  const tipo=document.getElementById('d-periodo-tipo')
+  const semanaWrap=document.getElementById('campo-semana-despesa')
+  const dataWrap=document.getElementById('campo-data-dia')
+  const data=document.getElementById('d-data')
+  if(!tipo||!semanaWrap||!dataWrap)return
+  const semanal=categoriaPermiteSemana()&&tipo.value==='semana'
+  semanaWrap.style.display=semanal?'flex':'none'
+  dataWrap.style.display=semanal?'none':'flex'
+  if(data)data.disabled=semanal
+}
+
+function periodoDaSemanaInput(valor){
+  // valor vem como YYYY-Www. Retorna segunda a domingo em ISO e label BR.
+  const m=/^(\d{4})-W(\d{2})$/.exec(valor||'')
+  if(!m)return null
+  const ano=Number(m[1]), semana=Number(m[2])
+  const jan4=new Date(Date.UTC(ano,0,4))
+  const jan4Day=jan4.getUTCDay()||7
+  const monday=new Date(jan4)
+  monday.setUTCDate(jan4.getUTCDate()-jan4Day+1+(semana-1)*7)
+  const sunday=new Date(monday)
+  sunday.setUTCDate(monday.getUTCDate()+6)
+  const iso=d=>d.toISOString().slice(0,10)
+  const br=d=>dataFmt(iso(d))
+  return {inicio:iso(monday),fim:iso(sunday),label:`${br(monday)} a ${br(sunday)}`}
 }
 
 function setSugestaoManual(){document.getElementById('ai-sugestao').style.display='none'}
@@ -1401,7 +1476,7 @@ async function editarDespesa(id, origem='agenda'){
   document.getElementById('ai-sugestao').style.display='none'
 
   await atualizarCategoriasDrop()
-  setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id},150)
+  setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id;atualizarCampoSemana()},150)
 
   // Comprovante existente
   if(d.comprovante_url){
@@ -1436,14 +1511,22 @@ async function prepararFormViagensSelect(){
 
 async function salvarDespesa(){
   const catId=document.getElementById('d-categoria').value
-  const data=document.getElementById('d-data').value
+  let data=document.getElementById('d-data').value
   const valor=parseFloat(document.getElementById('d-valor').value)
-  const desc=document.getElementById('d-descricao').value.trim()
+  let desc=document.getElementById('d-descricao').value.trim()
   const viagId=tipoAtual==='viagem'?document.getElementById('d-viagem').value:null
   const err=document.getElementById('d-erro')
   err.style.display='none'
   if(!catId){err.textContent='Selecione uma categoria.';err.style.display='block';return}
   if(tipoAtual==='viagem'&&!viagId){err.textContent='Selecione a viagem.';err.style.display='block';return}
+  if(categoriaPermiteSemana()&&document.getElementById('d-periodo-tipo')?.value==='semana'){
+    const semana=document.getElementById('d-semana')?.value
+    const periodo=periodoDaSemanaInput(semana)
+    if(!periodo){err.textContent='Selecione a semana da despesa.';err.style.display='block';return}
+    data=periodo.inicio
+    const marcador=`Semana ${periodo.label}`
+    if(!desc.includes(marcador)) desc=desc?`${marcador} · ${desc}`:marcador
+  }
   if(!valor||valor<=0){err.textContent='Informe um valor válido.';err.style.display='block';return}
   if(!data){err.textContent='Informe a data.';err.style.display='block';return}
 
@@ -1510,7 +1593,13 @@ function limparFormDespesa(){
   document.getElementById('d-categoria').value=''
   document.getElementById('d-valor').value=''
   document.getElementById('d-descricao').value=''
+  document.getElementById('d-data').disabled=false
   document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
+  const periodoTipo=document.getElementById('d-periodo-tipo')
+  const semanaInput=document.getElementById('d-semana')
+  if(periodoTipo)periodoTipo.value='dia'
+  if(semanaInput)semanaInput.value=''
+  atualizarCampoSemana()
   document.getElementById('d-viagem').value=''
   document.getElementById('ai-sugestao').style.display='none'
   arquivoComprimido=null
