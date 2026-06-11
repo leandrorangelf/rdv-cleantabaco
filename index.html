@@ -1063,7 +1063,10 @@ async function excluirDespesa(id, origem='agenda'){
   await contarPendentes()
   if(origem==='avulsas') await carregarAvulsas()
   else await carregarAgenda()
+  await carregarDashboard()
 }
+
+async function prepararFormViagensSelect(){
   document.getElementById('d-arquivo').value=''
   resetUpload()
   const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
@@ -1138,7 +1141,6 @@ async function salvarDespesa(){
     if(arquivosComprimidos.length > 1 && novaDespesa?.id){
       await uploadComprovantes(novaDespesa.id, arquivosComprimidos.slice(1))
     }
-  }
   }
 
   limparFormDespesa()
