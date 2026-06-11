@@ -1614,27 +1614,50 @@ async function prepararFormMulti(){
   multiTipoAtual = 'viagem'
   multiContador = 0
   multiArquivos = {}
-  document.getElementById('multi-tipo-viagem').classList.add('active')
-  document.getElementById('multi-tipo-avulso').classList.remove('active')
-  document.getElementById('multi-campo-viagem').style.display = 'flex'
-  document.getElementById('multi-erro').style.display = 'none'
-  document.getElementById('multi-progresso').style.display = 'none'
+
+  // Mostra loading imediatamente
+  const wrap = document.getElementById('multi-blocos')
+  if(wrap) wrap.innerHTML = '<div class="loading">Carregando categorias...</div>'
+
+  const tipoViagem = document.getElementById('multi-tipo-viagem')
+  const tipoAvulso = document.getElementById('multi-tipo-avulso')
+  const campoViagem = document.getElementById('multi-campo-viagem')
+  const erroEl = document.getElementById('multi-erro')
+  const progEl = document.getElementById('multi-progresso')
+
+  if(tipoViagem) tipoViagem.classList.add('active')
+  if(tipoAvulso) tipoAvulso.classList.remove('active')
+  if(campoViagem) campoViagem.style.display = 'flex'
+  if(erroEl) erroEl.style.display = 'none'
+  if(progEl) progEl.style.display = 'none'
   atualizarTotalGeral()
 
-  const [viagRes, catsRes] = await Promise.all([
-    sb.from('viagens').select('id,destino,cliente,data_inicio')
-      .eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false}),
-    sb.from('categorias').select('*').eq('ativo',true).order('tipo').order('ordem')
-  ])
+  try {
+    const [viagRes, catsRes] = await Promise.all([
+      sb.from('viagens').select('id,destino,cliente,data_inicio')
+        .eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false}),
+      sb.from('categorias').select('*').eq('ativo',true).order('tipo').order('ordem')
+    ])
 
-  const sel = document.getElementById('multi-viagem')
-  sel.innerHTML = '<option value="">Selecione a viagem</option>'
-  ;(viagRes.data||[]).forEach(v=>{
-    sel.innerHTML += `<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>`
-  })
+    const sel = document.getElementById('multi-viagem')
+    if(sel){
+      sel.innerHTML = '<option value="">Selecione a viagem</option>'
+      ;(viagRes.data||[]).forEach(v=>{
+        sel.innerHTML += `<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>`
+      })
+    }
 
-  multiCats = catsRes.data||[]
-  renderBlocos()
+    multiCats = catsRes.data||[]
+
+    if(!multiCats.length){
+      if(wrap) wrap.innerHTML = '<div class="empty">Nenhuma categoria ativa encontrada.<br>Vá em Admin → Categorias e verifique se há categorias ativas.</div>'
+      return
+    }
+
+    renderBlocos()
+  } catch(e) {
+    if(wrap) wrap.innerHTML = `<div class="empty" style="color:#991B1B">Erro ao carregar categorias: ${e.message}</div>`
+  }
 }
 
 function setMultiTipo(t){
