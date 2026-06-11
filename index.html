@@ -6,149 +6,99 @@
 <title>RDV · Cleantabaco</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-
   :root {
-    --purple: #1f3a5f; --purple-light: #eaf0f6; --purple-dark: #16304f;
-    --mint: #2f6b66; --mint-light: #e8f3f1; --mint-dark: #295b57;
-    --orange: #b7791f; --orange-light: #fff7e8; --orange-dark: #9a6700;
-    --red: #b42318; --red-light: #fef3f2;
-    --cream: #f4f6f8; --ink: #17212f; --ink2: #667085; --line: #d9e1ea;
-    --surface: #ffffff; --surface-alt: #f8fafc; --shadow-sm: 0 1px 2px rgba(16,24,40,.04); --shadow-md: 0 8px 24px rgba(16,24,40,.06);
+    --purple: #7C3AED; --purple-light: #EDE9FE; --purple-dark: #4C1D95;
+    --mint: #10B981; --mint-light: #D1FAE5; --mint-dark: #065F46;
+    --orange: #F97316; --orange-light: #FEF3C7; --orange-dark: #92400E;
+    --red: #EF4444; --red-light: #FEE2E2;
+    --cream: #FAF7F0; --ink: #1C1917; --ink2: #57534E; --line: #E7E5E4;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 100%; max-width: 100%; }
-  body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--cream); color: var(--ink); font-size: 14px; line-height: 1.45; }
+  body { font-family: system-ui, sans-serif; background: var(--cream); color: var(--ink); font-size: 14px; }
   #app { display: none; min-height: 100vh; flex-direction: column; }
   #app.show { display: flex; }
-  #login-screen.hide { display: none !important; }
-  body.app-authenticated #login-screen { display: none !important; }
-  body.app-authenticated #app { display: flex !important; }
-  body.app-logged-out #app { display: none !important; }
-  .aprovador-only { display: none !important; }
-  body.usuario-aprovador .aprovador-only.nav-item { display: flex !important; }
-  body.usuario-aprovador .aprovador-only.nav-label { display: block !important; }
-  body.usuario-aprovador .aprovador-only.form-card { display: block !important; }
-
-  .topbar { background: linear-gradient(180deg, #213b60 0%, #1b3252 100%); padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm); position: relative; z-index: 10; }
-  .topbar-logo { color: white; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; letter-spacing: .1px; }
-  .topbar-user { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 5px 12px; }
-  .topbar-user span { font-size: 11px; color: rgba(255,255,255,.92); }
-  .avatar { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--purple); }
-  .layout { display: flex; flex: 1; min-height: 0; }
-  .sidebar { width: 220px; border-right: 1px solid var(--line); background: var(--surface); padding: 16px 10px; flex-shrink: 0; box-shadow: var(--shadow-sm); }
-  .nav-label { font-size: 10px; color: var(--ink2); text-transform: uppercase; letter-spacing: .08em; padding: 0 10px; margin-bottom: 8px; margin-top: 14px; font-weight: 700; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; font-size: 12px; color: #344054; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; transition: .18s ease; font-weight: 500; }
-  .nav-item:hover { background: var(--surface-alt); color: var(--ink); border-color: #e4e7ec; }
-  .nav-item.active { background: var(--purple-light); color: var(--purple); font-weight: 700; border-color: #cbd5e1; }
-  .nav-item .badge-pill { margin-left: auto; background: var(--orange); color: white; font-size: 10px; padding: 2px 7px; border-radius: 999px; font-weight: 700; }
-  .main { flex: 1; padding: 22px; overflow-y: auto; max-height: calc(100vh - 52px); min-width: 0; }
+  .topbar { background: var(--purple); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-logo { color: white; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .topbar-user { display: flex; align-items: center; gap: 8px; background: var(--purple-dark); border-radius: 20px; padding: 4px 12px; }
+  .topbar-user span { font-size: 11px; color: #EDE9FE; }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--mint); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--mint-dark); }
+  .layout { display: flex; flex: 1; }
+  .sidebar { width: 168px; border-right: 1.5px solid var(--line); background: var(--cream); padding: 12px 8px; flex-shrink: 0; }
+  .nav-label { font-size: 10px; color: var(--ink2); text-transform: uppercase; letter-spacing: .6px; padding: 0 6px; margin-bottom: 4px; margin-top: 10px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; font-size: 12px; color: var(--ink2); cursor: pointer; margin-bottom: 2px; border: 1.5px solid transparent; }
+  .nav-item:hover { background: white; color: var(--ink); }
+  .nav-item.active { background: white; color: var(--purple); font-weight: 500; border-color: var(--purple); }
+  .nav-item .badge-pill { margin-left: auto; background: var(--orange); color: white; font-size: 10px; padding: 1px 6px; border-radius: 20px; font-weight: 600; }
+  .main { flex: 1; padding: 20px; overflow-y: auto; max-height: calc(100vh - 44px); }
   .screen { display: none; }
   .screen.active { display: block; }
-  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; letter-spacing: -.01em; }
-  .page-sub { font-size: 12px; color: var(--ink2); margin-bottom: 18px; }
-  .card, .form-card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); margin-bottom: 12px; box-shadow: var(--shadow-sm); }
-  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface-alt); border-bottom: 1px solid var(--line); }
-  .card-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+  .page-title { font-size: 15px; font-weight: 500; margin-bottom: 2px; }
+  .page-sub { font-size: 11px; color: var(--ink2); margin-bottom: 16px; }
+  .card { border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; background: white; margin-bottom: 10px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--cream); border-bottom: 1.5px solid var(--line); }
+  .card-title { font-size: 12px; font-weight: 500; }
   .card-meta { font-size: 11px; color: var(--ink2); margin-top: 2px; }
-  .card-footer { padding: 10px 14px; background: var(--surface-alt); border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--ink2); }
-  .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
-  .metric { border-radius: 14px; padding: 14px 16px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-sm); }
-  .metric-label { font-size: 11px; color: var(--ink2); margin-bottom: 6px; font-weight: 600; }
-  .metric-value { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
-  .m-purple { background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%); border-color: #d5dee8; }
-  .m-purple .metric-value { color: var(--purple); }
-  .m-mint { background: linear-gradient(180deg, #f6fbfa 0%, #edf7f5 100%); border-color: #cfe5df; }
-  .m-mint .metric-value { color: #166534; }
-  .m-orange { background: linear-gradient(180deg, #fffaf2 0%, #fff3df 100%); border-color: #eed7ad; }
-  .m-orange .metric-value { color: #9a6700; }
-  .m-red { background: linear-gradient(180deg, #fff7f6 0%, #feeeec 100%); border-color: #f3c5bf; }
-  .m-red .metric-value { color: var(--red); }
-  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; border: 1px solid; white-space: nowrap; }
-  .b-purple { background: var(--purple-light); color: var(--purple); border-color: #cfd8e4; }
-  .b-mint { background: #ecfdf3; color: #166534; border-color: #b7e0c1; }
-  .b-orange { background: var(--orange-light); color: #9a6700; border-color: #efcf95; }
-  .b-red { background: var(--red-light); color: var(--red); border-color: #f0b7ae; }
-  .b-gray { background: #f2f4f7; color: #475467; border-color: #d0d5dd; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; transition: .18s ease; box-shadow: var(--shadow-sm); }
-  .btn:hover { transform: translateY(-1px); filter: brightness(.99); }
+  .card-footer { padding: 8px 12px; background: var(--cream); border-top: 1.5px solid var(--line); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--ink2); }
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
+  .metric { border-radius: 10px; padding: 10px 12px; border: 1.5px solid; }
+  .metric-label { font-size: 10px; color: var(--ink2); margin-bottom: 4px; }
+  .metric-value { font-size: 17px; font-weight: 500; }
+  .m-purple { background: var(--purple-light); border-color: var(--purple); }
+  .m-purple .metric-value { color: var(--purple-dark); }
+  .m-mint { background: var(--mint-light); border-color: var(--mint); }
+  .m-mint .metric-value { color: var(--mint-dark); }
+  .m-orange { background: var(--orange-light); border-color: var(--orange); }
+  .m-orange .metric-value { color: var(--orange-dark); }
+  .m-red { background: var(--red-light); border-color: var(--red); }
+  .m-red .metric-value { color: #991B1B; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 500; border: 1px solid; }
+  .b-purple { background: var(--purple-light); color: var(--purple-dark); border-color: #C4B5FD; }
+  .b-mint { background: var(--mint-light); color: var(--mint-dark); border-color: #6EE7B7; }
+  .b-orange { background: var(--orange-light); color: var(--orange-dark); border-color: #FCD34D; }
+  .b-red { background: var(--red-light); color: #991B1B; border-color: #FCA5A5; }
+  .b-gray { background: #F5F5F4; color: var(--ink2); border-color: var(--line); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 12px; border: 1.5px solid var(--line); background: white; color: var(--ink); cursor: pointer; }
+  .btn:hover { opacity: .85; }
   .btn-primary { background: var(--purple); color: white; border-color: var(--purple-dark); }
   .btn-mint { background: var(--mint); color: white; border-color: var(--mint-dark); }
-  .btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 999px; }
-  .btn-approve { background: #ecfdf3; color: #166534; border-color: #b7e0c1; }
-  .btn-reject { background: var(--red-light); color: var(--red); border-color: #f0b7ae; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  .form-group { display: flex; flex-direction: column; gap: 5px; }
-  .form-label { font-size: 11px; font-weight: 700; color: #344054; }
-  .form-input, .form-select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; color: var(--ink); background: var(--surface); outline: none; transition: border-color .18s ease, box-shadow .18s ease; }
-  .form-input:focus, .form-select:focus { border-color: #98a9c0; box-shadow: 0 0 0 4px rgba(31,58,95,.08); }
-  .form-card { padding: 16px; }
-  .upload-area { border: 1.5px dashed #9db0c7; border-radius: 12px; padding: 20px; text-align: center; background: #f8fbfd; cursor: pointer; transition: .18s ease; }
-  .upload-area:hover { background: #f3f7fb; }
-  .upload-info { font-size: 12px; color: var(--purple); font-weight: 600; }
+  .btn-sm { padding: 3px 10px; font-size: 11px; border-radius: 20px; }
+  .btn-approve { background: var(--mint-light); color: var(--mint-dark); border-color: #6EE7B7; }
+  .btn-reject { background: var(--red-light); color: #991B1B; border-color: #FCA5A5; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 11px; font-weight: 500; color: var(--ink2); }
+  .form-input, .form-select { width: 100%; padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--ink); background: white; outline: none; }
+  .form-input:focus, .form-select:focus { border-color: var(--purple); }
+  .form-card { border: 1.5px solid var(--line); border-radius: 10px; padding: 14px; background: white; margin-bottom: 12px; }
+  .upload-area { border: 1.5px dashed var(--purple); border-radius: 10px; padding: 16px; text-align: center; background: var(--purple-light); cursor: pointer; }
+  .upload-area:hover { opacity: .85; }
+  .upload-info { font-size: 11px; color: var(--purple-dark); }
   .upload-sub { font-size: 10px; color: var(--ink2); margin-top: 4px; }
-  .tbl { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--surface); }
-  .tbl th { padding: 10px 12px; text-align: left; font-weight: 700; color: var(--ink2); background: var(--surface-alt); border-bottom: 1px solid var(--line); }
-  .tbl td { padding: 11px 12px; border-bottom: 1px solid #edf2f7; color: var(--ink); vertical-align: top; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .tbl th { padding: 6px 10px; text-align: left; font-weight: 500; color: var(--ink2); background: var(--cream); border-bottom: 1.5px solid var(--line); }
+  .tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); color: var(--ink); }
   .tbl tr:last-child td { border-bottom: none; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-  .dot-mint { background: #12b76a; } .dot-orange { background: #f79009; } .dot-red { background: #f04438; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .dot-mint { background: var(--mint); } .dot-orange { background: var(--orange); } .dot-red { background: var(--red); }
   .tipo-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
-  .tipo-btn { flex: 1; padding: 9px 12px; border-radius: 10px; font-size: 12px; font-weight: 700; border: 1px solid var(--line); background: var(--surface); color: var(--ink2); cursor: pointer; text-align: center; }
+  .tipo-btn { flex: 1; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 500; border: 2px solid var(--line); background: white; color: var(--ink2); cursor: pointer; text-align: center; }
   .tipo-btn.active { background: var(--purple); border-color: var(--purple-dark); color: white; }
-  .reject-note { font-size: 10px; color: var(--red); background: var(--red-light); border: 1px solid #f0b7ae; border-radius: 7px; padding: 5px 8px; margin-top: 4px; }
-  .ai-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--purple); background: var(--purple-light); padding: 3px 8px; border-radius: 999px; border: 1px solid #d1dae7; margin-top: 3px; }
-  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(180deg, #f4f6f8 0%, #eef2f6 100%); }
-  .login-box { width: 100%; max-width: 380px; padding: 0 16px; }
+  .reject-note { font-size: 10px; color: #991B1B; background: var(--red-light); border: 1px solid #FCA5A5; border-radius: 6px; padding: 3px 8px; margin-top: 4px; }
+  .ai-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: var(--purple-dark); background: var(--purple-light); padding: 2px 7px; border-radius: 20px; border: 1px solid #C4B5FD; margin-top: 3px; }
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--cream); }
+  .login-box { width: 100%; max-width: 340px; padding: 0 16px; }
   .login-logo { text-align: center; margin-bottom: 24px; }
-  .login-icon { width: 60px; height: 60px; border-radius: 18px; background: linear-gradient(180deg, #27476f 0%, #1f3a5f 100%); border: 0; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: var(--shadow-md); }
-  .login-card { background: white; border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: var(--shadow-md); }
-  .login-err { background: var(--red-light); color: var(--red); border: 1px solid #f0b7ae; border-radius: 10px; padding: 8px 10px; font-size: 11px; margin-bottom: 10px; }
-  .insight-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 10px; background: var(--surface); box-shadow: var(--shadow-sm); }
-  .insight-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; background: var(--surface-alt); }
-  .empty { text-align: center; padding: 34px; color: var(--ink2); font-size: 12px; }
-  .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
-  .sec-title { font-size: 13px; font-weight: 700; }
-  .approve-row { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #edf2f7; }
+  .login-icon { width: 56px; height: 56px; border-radius: 16px; background: var(--purple); border: 2px solid var(--purple-dark); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+  .login-card { background: white; border: 1.5px solid var(--line); border-radius: 12px; padding: 20px; }
+  .login-err { background: var(--red-light); color: #991B1B; border-radius: 8px; padding: 8px 10px; font-size: 11px; margin-bottom: 10px; }
+  .insight-card { border: 1.5px solid; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; display: flex; align-items: flex-start; gap: 10px; }
+  .insight-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+  .empty { text-align: center; padding: 32px; color: var(--ink2); font-size: 12px; }
+  .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .sec-title { font-size: 12px; font-weight: 500; }
+  .approve-row { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
   .approve-row:last-child { border-bottom: none; }
   .loading { text-align: center; padding: 24px; color: var(--ink2); font-size: 12px; }
-  @media (max-width: 1100px) { .metrics { grid-template-columns: 1fr; } }
-  @media (max-width: 900px) {
-    html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
-    body { font-size: 13px; }
-    .topbar { position: sticky; top: 0; z-index: 20; padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
-    .topbar-logo { font-size: 12px; min-width: 0; }
-    .topbar-user { padding: 4px 8px; max-width: 190px; }
-    .topbar-user span { max-width: 130px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .layout { display: flex; flex-direction: column; min-width: 0; }
-    .sidebar { width: 100%; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 8px; border-right: 0; border-bottom: 1px solid var(--line); position: sticky; top: 52px; z-index: 15; -webkit-overflow-scrolling: touch; background: var(--surface); }
-    .sidebar::-webkit-scrollbar { height: 4px; }
-    .nav-label { display: none !important; }
-    .nav-item { flex: 0 0 auto; white-space: nowrap; margin-bottom: 0; padding: 8px 10px; font-size: 11px; background: white; }
-    .nav-item svg { flex-shrink: 0; }
-    .main { width: 100%; max-width: 100%; max-height: none; overflow-y: visible; padding: 14px 12px 24px; min-width: 0; }
-    .page-title { font-size: 18px; }
-    .page-sub { margin-bottom: 10px; }
-    .metrics, .metrics[style] { grid-template-columns: 1fr !important; gap: 8px; margin-bottom: 12px; }
-    .metric { padding: 12px; }
-    .metric-value { font-size: 22px; }
-    .form-row { grid-template-columns: 1fr !important; gap: 8px; }
-    .form-card { padding: 12px; }
-    .tipo-toggle { flex-direction: column; }
-    .sec-header { align-items: flex-start; gap: 8px; flex-direction: column; }
-    .sec-header > div:last-child, .sec-header > button, .sec-header .btn { width: 100%; justify-content: center; }
-    .card { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .card-header, .card-footer { gap: 8px; flex-wrap: wrap; align-items: flex-start; }
-    .card-footer > div { flex-wrap: wrap; justify-content: flex-end; }
-    .tbl { min-width: 620px; }
-    .tbl th, .tbl td { padding: 8px; }
-    .btn { min-height: 36px; }
-    .btn-sm { min-height: 28px; }
-    input, select, textarea { font-size: 16px !important; }
-    #login-screen { min-height: 100dvh; padding: 20px 0; }
-    .login-box { max-width: 100%; padding: 0 14px; }
-    .login-card { padding: 18px; }
-  }
-
 </style>
 </head>
 <body>
@@ -209,14 +159,13 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Agenda
       </div>
-      <div class="nav-item" onclick="showScreen('demandas',this)" id="nav-demandas">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        Demandas
-        <span class="badge-pill" id="badge-demandas" style="display:none">0</span>
-      </div>
       <div class="nav-item" onclick="showScreen('lancar',this)" id="nav-lancar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Lançar despesa
+      </div>
+      <div class="nav-item" onclick="showScreen('lancarmultiplo',this)" id="nav-lancarmultiplo">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="18" height="4" rx="1"/></svg>
+        Lançar múltiplo
       </div>
       <div class="nav-item aprovador-only" onclick="showScreen('aprovar',this)" id="nav-aprovar" style="display:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -246,17 +195,12 @@
       <div class="screen active" id="screen-dashboard">
         <div class="page-title">Visão geral</div>
         <div class="page-sub" id="dash-sub">Carregando...</div>
-        <div class="metrics" style="grid-template-columns: repeat(3, 1fr);">
-          <div class="metric m-purple"><div class="metric-label">Total válido</div><div class="metric-value" id="m-total">—</div></div>
+        <div class="metrics">
+          <div class="metric m-purple"><div class="metric-label">Total solicitado</div><div class="metric-value" id="m-total">—</div></div>
           <div class="metric m-mint"><div class="metric-label">Aprovado</div><div class="metric-value" id="m-aprov">—</div></div>
           <div class="metric m-orange"><div class="metric-label">Pendente</div><div class="metric-value" id="m-pend">—</div></div>
+          <div class="metric m-red"><div class="metric-label">Rejeitado</div><div class="metric-value" id="m-rej">—</div></div>
         </div>
-
-        <!-- Quadro geral -->
-        <div id="dash-avisos"></div>
-
-        <!-- Demandas de viagem -->
-        <div id="dash-demandas-resumo"></div>
 
         <!-- Alerta RDV -->
         <div id="dash-alerta-rdv"></div>
@@ -284,12 +228,6 @@
 
         <!-- Tabela por coordenador -->
         <div id="dash-tabela"></div>
-
-        <!-- Valores para financeiro -->
-        <div id="dash-financeiro"></div>
-
-        <!-- Mapa operacional -->
-        <div id="dash-mapa-viagens"></div>
       </div>
 
       <div class="screen" id="screen-agenda">
@@ -298,45 +236,6 @@
           <button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-agenda'))">+ Nova viagem</button>
         </div>
         <div id="agenda-lista"><div class="loading">Carregando...</div></div>
-      </div>
-
-      <div class="screen" id="screen-demandas">
-        <div class="sec-header">
-          <div>
-            <div class="page-title">Demandas de viagem</div>
-            <div class="page-sub">Solicitações da diretoria e acompanhamento de agendamento</div>
-          </div>
-        </div>
-
-        <div class="form-card aprovador-only" id="demanda-admin-box" style="display:none">
-          <div class="sec-title" style="margin-bottom:10px">Nova demanda de viagem</div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Coordenador *</label><select id="dem-usuario" class="form-select"></select></div>
-            <div class="form-group"><label class="form-label">Estado *</label><select id="dem-estado" class="form-select"><option value="">Selecione</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Destino / cidade *</label><input id="dem-destino" class="form-input" placeholder="ex: Recife"></div>
-            <div class="form-group"><label class="form-label">Cliente / reunião *</label><input id="dem-cliente" class="form-input" placeholder="ex: Reunião diretoria / Cliente XPTO"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Data sugerida</label><input id="dem-data" type="date" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Motivo</label><input id="dem-motivo" class="form-input" placeholder="ex: abertura de cliente, reunião, auditoria"></div>
-          </div>
-          <div class="form-group" style="margin-bottom:10px"><label class="form-label">Observação</label><textarea id="dem-obs" class="form-input" rows="2" placeholder="Orientações para o coordenador"></textarea></div>
-          <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="criarDemandaViagem()">Criar demanda</button></div>
-        </div>
-
-        <div class="form-card aprovador-only" id="aviso-admin-box" style="display:none">
-          <div class="sec-title" style="margin-bottom:10px">Novo aviso geral</div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Título *</label><input id="av-titulo" class="form-input" placeholder="ex: Fechamento do RDV"></div>
-            <div class="form-group"><label class="form-label">Válido até</label><input id="av-validade" type="date" class="form-input"></div>
-          </div>
-          <div class="form-group" style="margin-bottom:10px"><label class="form-label">Mensagem *</label><textarea id="av-texto" class="form-input" rows="2" placeholder="Mensagem para todos os usuários"></textarea></div>
-          <div style="display:flex;justify-content:flex-end"><button class="btn btn-mint" onclick="criarAvisoGeral()">Publicar aviso</button></div>
-        </div>
-
-        <div id="demandas-lista"><div class="loading">Carregando...</div></div>
       </div>
 
       <div class="screen" id="screen-novaviagem">
@@ -430,45 +329,72 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Categoria *</label>
-              <select id="d-categoria" class="form-select" onchange="setSugestaoManual();atualizarCampoSemana()"><option value="">Selecione</option></select>
+              <select id="d-categoria" class="form-select" onchange="setSugestaoManual()"><option value="">Selecione</option></select>
               <div id="ai-sugestao" class="ai-pill" style="display:none">✦ IA sugeriu esta categoria</div>
             </div>
-            <div class="form-group" id="campo-data-dia"><label class="form-label">Data *</label><input id="d-data" type="date" class="form-input"></div>
-          </div>
-          <div class="form-row" id="campo-periodo-combustivel" style="display:none">
-            <div class="form-group">
-              <label class="form-label">Período para Gasolina / KM</label>
-              <select id="d-periodo-tipo" class="form-select" onchange="atualizarModoPeriodo()">
-                <option value="dia">Lançar por dia</option>
-                <option value="semana">Lançar por semana</option>
-              </select>
-            </div>
-            <div class="form-group" id="campo-semana-despesa" style="display:none">
-              <label class="form-label">Semana *</label>
-              <input id="d-semana" type="week" class="form-input">
-              <div style="font-size:10px;color:var(--ink2);margin-top:2px">Será salvo como um único lançamento semanal, sem misturar o mês inteiro.</div>
-            </div>
+            <div class="form-group"><label class="form-label">Data *</label><input id="d-data" type="date" class="form-input"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Valor (R$) *</label><input id="d-valor" type="number" step="0.01" class="form-input" placeholder="0,00" onblur="sugerirCategoria()"></div>
             <div class="form-group"><label class="form-label">Descrição</label><input id="d-descricao" class="form-input" placeholder="Opcional" onblur="sugerirCategoria()"></div>
           </div>
           <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Comprovante</label>
+            <label class="form-label">Comprovantes (pode anexar vários)</label>
             <div class="upload-area" onclick="document.getElementById('d-arquivo').click()">
               <div id="upload-preview">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.5" style="display:block;margin:0 auto 4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                <div class="upload-info">Clique para anexar comprovante</div>
-                <div class="upload-sub">JPG · PNG · PDF · máx 10 MB · comprimido automaticamente</div>
+                <div class="upload-info">Clique para anexar comprovantes</div>
+                <div class="upload-sub">JPG · PNG · PDF · vários arquivos · imagens comprimidas automaticamente</div>
               </div>
             </div>
-            <input id="d-arquivo" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none" onchange="handleArquivo(this)">
+            <div id="upload-lista-arquivos" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px"></div>
+            <input id="d-arquivo" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="display:none" onchange="handleArquivos(this)">
           </div>
           <div id="d-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn" onclick="limparFormDespesa()">Limpar</button>
             <button class="btn btn-mint" id="d-btn-salvar" onclick="salvarDespesa()">Salvar despesa</button>
           </div>
+        </div>
+      </div>
+
+      <!-- LANÇAMENTO MÚLTIPLO -->
+      <div class="screen" id="screen-lancarmultiplo">
+        <div class="page-title">Lançar múltiplas despesas</div>
+        <div class="page-sub">Adicione várias linhas e salve todas de uma vez</div>
+
+        <div class="form-card" style="margin-bottom:10px">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Tipo de despesa</label>
+              <div class="tipo-toggle" style="margin-bottom:0">
+                <div class="tipo-btn active" id="multi-tipo-viagem" onclick="setMultiTipo('viagem')">Viagem</div>
+                <div class="tipo-btn" id="multi-tipo-avulso" onclick="setMultiTipo('avulso')">Avulsa</div>
+              </div>
+            </div>
+            <div class="form-group" id="multi-campo-viagem">
+              <label class="form-label">Viagem vinculada *</label>
+              <select id="multi-viagem" class="form-select"><option value="">Selecione</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div id="multi-linhas"></div>
+
+        <button class="btn" style="width:100%;justify-content:center;margin-bottom:12px;border-style:dashed" onclick="adicionarLinhaMulti()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Adicionar linha
+        </button>
+
+        <div id="multi-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+        <div id="multi-progresso" style="display:none;background:var(--purple-light);color:var(--purple);padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" onclick="limparMulti()">Limpar tudo</button>
+          <button class="btn btn-mint" id="multi-btn-salvar" onclick="salvarMulti()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Salvar todas
+          </button>
         </div>
       </div>
 
@@ -502,8 +428,6 @@
         <div class="page-sub">Configure o estado base de cada coordenador</div>
         <div id="equipe-lista" style="max-width:500px"><div class="loading">Carregando...</div></div>
       </div>
-
-      <div class="screen" id="screen-categorias">
         <div class="page-title">Categorias</div>
         <div class="page-sub">Dropdown que os coordenadores veem ao lançar</div>
         <div class="form-card" style="max-width:440px">
@@ -529,7 +453,6 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON)
 let perfil = null
 let tipoAtual = 'viagem'
 let catTipoAtual = 'viagem'
-let arquivoComprimido = null
 
 function moeda(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0) }
 function dataFmt(s) { if(!s)return''; const[y,m,d]=s.split('-'); return`${d}/${m}/${y}` }
@@ -557,71 +480,26 @@ document.getElementById('login-senha').addEventListener('keydown',e=>{if(e.key==
 async function doLogout() {
   await sb.auth.signOut()
   perfil=null
-  document.body.classList.remove('app-authenticated','usuario-aprovador','usuario-coordenador')
-  document.body.classList.add('app-logged-out')
-  const loginScreen=document.getElementById('login-screen')
-  const app=document.getElementById('app')
-  if(loginScreen){
-    loginScreen.classList.remove('hide')
-    loginScreen.style.display='flex'
-  }
-  if(app){
-    app.classList.remove('show')
-    app.style.display='none'
-  }
-  const senha=document.getElementById('login-senha')
-  const err=document.getElementById('login-err')
-  if(senha)senha.value=''
-  if(err)err.style.display='none'
+  document.getElementById('login-screen').style.display='flex'
+  document.getElementById('app').classList.remove('show')
 }
 
 async function iniciarApp() {
   const {data:{user}}=await sb.auth.getUser()
-  if(!user){
-    document.body.classList.remove('app-authenticated','usuario-aprovador','usuario-coordenador')
-    document.body.classList.add('app-logged-out')
-    document.getElementById('login-screen').classList.remove('hide')
-    document.getElementById('login-screen').style.display='flex'
-    document.getElementById('app').classList.remove('show')
-    document.getElementById('app').style.display='none'
-    return
-  }
-  const {data,error}=await sb.from('profiles').select('*').eq('id',user.id).single()
-  if(error||!data){
-    document.body.classList.remove('app-authenticated','usuario-aprovador','usuario-coordenador')
-    document.body.classList.add('app-logged-out')
-    const err=document.getElementById('login-err')
-    if(err){
-      err.textContent='Login feito, mas seu perfil não foi encontrado na tabela profiles.'
-      err.style.display='block'
-    }
-    document.getElementById('login-screen').classList.remove('hide')
-    document.getElementById('login-screen').style.display='flex'
-    document.getElementById('app').classList.remove('show')
-    document.getElementById('app').style.display='none'
-    return
-  }
+  if(!user)return
+  const {data}=await sb.from('profiles').select('*').eq('id',user.id).single()
+  if(!data)return
   perfil=data
-  document.body.classList.remove('app-logged-out')
-  document.body.classList.add('app-authenticated')
-  document.body.classList.toggle('usuario-aprovador', perfil.papel==='aprovador')
-  document.body.classList.toggle('usuario-coordenador', perfil.papel!=='aprovador')
   document.getElementById('topbar-nome').textContent=perfil.nome
   document.getElementById('topbar-avatar').textContent=iniciais(perfil.nome)
-  document.getElementById('login-screen').classList.add('hide')
   document.getElementById('login-screen').style.display='none'
-  document.getElementById('app').style.display='flex'
   document.getElementById('app').classList.add('show')
-
-  document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
   if(perfil.papel==='aprovador'){
-    document.querySelectorAll('.aprovador-only').forEach(el=>{
-      el.style.display = el.classList.contains('nav-item') ? 'flex' : 'block'
-    })
+    document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='flex')
+    document.getElementById('nav-label-admin').style.display='block'
   }
   await carregarDashboard()
   await contarPendentes()
-  await contarDemandasAbertas()
 }
 
 function showScreen(nome,navEl) {
@@ -629,7 +507,7 @@ function showScreen(nome,navEl) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas}
   if(loaders[nome])loaders[nome]()
 }
 
@@ -716,289 +594,18 @@ function renderViagensDash(){
   document.getElementById('dash-viagens-lista').innerHTML=`<div class="card">${html}</div>`
 }
 
-
-function renderFinanceiroPagar(despesas, perfis){
-  const wrap=document.getElementById('dash-financeiro')
-  if(!wrap)return
-  const nomePorId={}
-  ;(perfis||[]).forEach(p=>nomePorId[p.id]=p.nome)
-  const por={}
-  ;(despesas||[]).forEach(d=>{
-    // Financeiro só enxerga valores aprovados ou pendentes. Rejeitado fica fora do painel de pagamento.
-    if(d.status!=='aprovado' && d.status!=='pendente') return
-    if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',aprovado:0,pendente:0,total:0}
-    por[d.usuario_id].total+=(d.valor||0)
-    if(d.status==='aprovado')por[d.usuario_id].aprovado+=(d.valor||0)
-    if(d.status==='pendente')por[d.usuario_id].pendente+=(d.valor||0)
-  })
-  const linhas=Object.values(por).filter(r=>r.aprovado>0||r.pendente>0).sort((a,b)=>b.aprovado-a.aprovado)
-  const totalAprov=linhas.reduce((s,r)=>s+r.aprovado,0)
-  const totalPend=linhas.reduce((s,r)=>s+r.pendente,0)
-  if(!linhas.length){wrap.innerHTML='';return}
-  const rows=linhas.map(r=>`<tr>
-    <td style="font-weight:500">${r.nome}</td>
-    <td style="color:var(--mint-dark);font-weight:600">${moeda(r.aprovado)}</td>
-    <td style="color:var(--orange-dark)">${moeda(r.pendente)}</td>
-  </tr>`).join('')
-  wrap.innerHTML=`<div class="sec-header" style="margin-top:12px">
-    <div><div class="sec-title">Valores para o financeiro pagar</div><div class="page-sub" style="margin-bottom:0">Base: somente despesas aprovadas. Pendentes aparecem só para conferência. Rejeitadas ficam fora deste quadro.</div></div>
-  </div>
-  <div class="metrics" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
-    <div class="metric m-mint"><div class="metric-label">Total aprovado a pagar</div><div class="metric-value">${moeda(totalAprov)}</div></div>
-    <div class="metric m-orange"><div class="metric-label">Ainda pendente de aprovação</div><div class="metric-value">${moeda(totalPend)}</div></div>
-  </div>
-  <div class="card"><table class="tbl"><thead><tr><th>Pessoa</th><th>A pagar</th><th>Pendente</th></tr></thead><tbody>${rows}</tbody></table></div>`
-}
-
-
-function escapeHtml(v){
-  return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
-}
-function demandaBadge(s){
-  const cls={solicitada:'b-orange',agendada:'b-purple',concluida:'b-mint',cancelada:'b-gray'}[s]||'b-gray'
-  const txt={solicitada:'Pendente de agenda',agendada:'Agendada',concluida:'Concluída',cancelada:'Cancelada'}[s]||s
-  return `<span class="badge ${cls}">${txt}</span>`
-}
-
-async function carregarAvisosDashboard(){
-  const wrap=document.getElementById('dash-avisos')
-  if(!wrap)return
-  const hoje=new Date().toISOString().slice(0,10)
-  const {data,error}=await sb.from('avisos').select('*').eq('ativo',true).order('created_at',{ascending:false}).limit(4)
-  if(error){wrap.innerHTML='';return}
-  const avisos=(data||[]).filter(a=>!a.validade||a.validade>=hoje)
-  if(!avisos.length){wrap.innerHTML='';return}
-  wrap.innerHTML=`<div class="card" style="border-color:var(--purple);margin-bottom:12px">
-    <div class="card-header"><div><div class="card-title">Quadro de avisos</div><div class="card-meta">Comunicados gerais para todos</div></div><button class="btn btn-sm" onclick="showScreen('demandas',document.getElementById('nav-demandas'))">Ver tudo</button></div>
-    <div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div></div>`).join('')}</div>
-  </div>`
-}
-
-async function carregarDemandasResumo(){
-  const wrap=document.getElementById('dash-demandas-resumo')
-  if(!wrap)return
-  let q=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false}).limit(20)
-  if(perfil&&perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
-  const {data,error}=await q
-  if(error){wrap.innerHTML='';return}
-  const demandas=(data||[]).filter(d=>d.status!=='cancelada'&&d.status!=='concluida')
-  if(!demandas.length){wrap.innerHTML='';return}
-  const solicitadas=demandas.filter(d=>d.status==='solicitada')
-  const agendadas=demandas.filter(d=>d.status==='agendada')
-  const ids=[...new Set(demandas.map(d=>d.usuario_id).filter(Boolean))]
-  let nomes={}
-  if(ids.length){const {data:ps}=await sb.from('profiles').select('id,nome').in('id',ids);(ps||[]).forEach(p=>nomes[p.id]=p.nome)}
-  const linhas=demandas.slice(0,6).map(d=>`<tr><td style="font-weight:500">${escapeHtml(nomes[d.usuario_id]||'—')}</td><td>${escapeHtml(d.destino)}/${escapeHtml(d.estado)}</td><td>${escapeHtml(d.cliente||'—')}</td><td>${d.data_sugerida?dataFmt(d.data_sugerida):'—'}</td><td>${demandaBadge(d.status)}</td></tr>`).join('')
-  wrap.innerHTML=`<div class="sec-header"><div><div class="sec-title">Demandas de viagem</div><div class="page-sub" style="margin-bottom:0">Solicitações abertas da diretoria.</div></div><button class="btn btn-sm" onclick="showScreen('demandas',document.getElementById('nav-demandas'))">Abrir</button></div>
-  <div class="card">
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;border-bottom:1.5px solid var(--line);background:var(--cream)">
-      <div class="metric m-orange" style="margin:0"><div class="metric-label">Pendente de agenda</div><div class="metric-value">${solicitadas.length}</div></div>
-      <div class="metric m-purple" style="margin:0"><div class="metric-label">Já agendadas</div><div class="metric-value">${agendadas.length}</div></div>
-    </div>
-    <table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Data sugerida</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>
-  </div>`
-}
-
-async function contarDemandasAbertas(){
-  const badge=document.getElementById('badge-demandas')
-  if(!badge||!perfil)return
-  let q=sb.from('demandas_viagem').select('id,status').in('status',['solicitada','agendada'])
-  if(perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
-  const {data,error}=await q
-  if(error||!data||!data.length){badge.style.display='none';return}
-  badge.textContent=data.length
-  badge.style.display='inline-flex'
-}
-
-async function carregarDemandas(){
-  const lista=document.getElementById('demandas-lista')
-  if(!lista)return
-  lista.innerHTML='<div class="loading">Carregando...</div>'
-  const isAprovador=perfil&&perfil.papel==='aprovador'
-  if(isAprovador){
-    document.getElementById('demanda-admin-box').style.display='block'
-    document.getElementById('aviso-admin-box').style.display='block'
-    const {data:profs}=await sb.from('profiles').select('id,nome').order('nome',{ascending:true})
-    const sel=document.getElementById('dem-usuario')
-    sel.innerHTML='<option value="">Selecione</option>'+(profs||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('')
-  }
-  let q=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false})
-  if(!isAprovador) q=q.eq('usuario_id',perfil.id)
-  const {data:demandas,error}=await q
-  const {data:avisos}=await sb.from('avisos').select('*').eq('ativo',true).order('created_at',{ascending:false}).limit(10)
-  if(error){lista.innerHTML='<div class="empty">Não foi possível carregar demandas. Verifique se a tabela demandas_viagem foi criada no Supabase.</div>';return}
-  const ids=[...new Set((demandas||[]).map(d=>d.usuario_id).filter(Boolean))]
-  let nomes={}
-  if(ids.length){const {data:ps}=await sb.from('profiles').select('id,nome').in('id',ids);(ps||[]).forEach(p=>nomes[p.id]=p.nome)}
-
-  const avisoHtml=(avisos&&avisos.length)?`<div class="card"><div class="card-header"><div class="card-title">Quadro de avisos geral</div></div>${avisos.map(a=>`<div style="padding:9px 12px;border-bottom:1px solid var(--line)"><div style="font-size:12px;font-weight:500">${escapeHtml(a.titulo)}</div><div style="font-size:11px;color:var(--ink2);margin-top:2px">${escapeHtml(a.texto)}</div>${isAprovador?`<div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-sm" onclick="editarAviso('${a.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="excluirAviso('${a.id}')">Excluir</button></div>`:''}</div>`).join('')}</div>`:''
-
-  const linhas=(demandas||[]).map(d=>{
-    const podeAgendar=d.status==='solicitada' || d.status==='agendada'
-    return `<tr>
-      <td style="font-weight:500">${escapeHtml(nomes[d.usuario_id]||'—')}</td>
-      <td>${escapeHtml(d.destino)}/${escapeHtml(d.estado)}</td>
-      <td>${escapeHtml(d.cliente||'—')}</td>
-      <td>${d.data_sugerida?dataFmt(d.data_sugerida):'—'}</td>
-      <td>${demandaBadge(d.status)}</td>
-      <td style="font-size:10px;color:var(--ink2)">${escapeHtml(d.motivo||'')}${d.observacao?' · '+escapeHtml(d.observacao):''}</td>
-      <td style="white-space:nowrap">
-        ${podeAgendar?`<button class="btn btn-sm" onclick="atualizarStatusDemanda('${d.id}','agendada')">Marcar agendada</button>`:''}
-        ${d.status!=='concluida'?`<button class="btn btn-sm btn-approve" onclick="atualizarStatusDemanda('${d.id}','concluida')">Concluir</button>`:''}
-        ${isAprovador?`<button class="btn btn-sm" onclick="editarDemanda('${d.id}')">Editar</button>`:''}
-        ${isAprovador&&d.status!=='cancelada'?`<button class="btn btn-sm btn-reject" onclick="atualizarStatusDemanda('${d.id}','cancelada')">Cancelar</button>`:''}
-        ${isAprovador?`<button class="btn btn-sm btn-reject" onclick="excluirDemanda('${d.id}')">Excluir</button>`:''}
-      </td>
-    </tr>`
-  }).join('')
-  const demandasHtml=linhas?`<div class="card"><table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Data sugerida</th><th>Status</th><th>Obs.</th><th>Ações</th></tr></thead><tbody>${linhas}</tbody></table></div>`:'<div class="empty">Nenhuma demanda de viagem cadastrada.</div>'
-  lista.innerHTML=avisoHtml+demandasHtml
-}
-
-async function criarDemandaViagem(){
-  const usuario_id=document.getElementById('dem-usuario').value
-  const estado=document.getElementById('dem-estado').value
-  const destino=document.getElementById('dem-destino').value.trim()
-  const cliente=document.getElementById('dem-cliente').value.trim()
-  const data_sugerida=document.getElementById('dem-data').value||null
-  const motivo=document.getElementById('dem-motivo').value.trim()
-  const observacao=document.getElementById('dem-obs').value.trim()
-  if(!usuario_id||!estado||!destino||!cliente){alert('Preencha coordenador, estado, destino e cliente/reunião.');return}
-  const {error}=await sb.from('demandas_viagem').insert({usuario_id,estado,destino,cliente,data_sugerida,motivo,observacao,status:'solicitada',created_by:perfil.id})
-  if(error){alert('Erro ao criar demanda: '+error.message);return}
-  ;['dem-usuario','dem-estado','dem-destino','dem-cliente','dem-data','dem-motivo','dem-obs'].forEach(id=>document.getElementById(id).value='')
-  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
-}
-
-async function atualizarStatusDemanda(id,status){
-  const payload={status}
-  if(status==='agendada') payload.agendada_em=new Date().toISOString()
-  const {error}=await sb.from('demandas_viagem').update(payload).eq('id',id)
-  if(error){alert('Erro ao atualizar demanda: '+error.message);return}
-  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
-}
-
-
-async function editarDemanda(id){
-  const {data:d,error}=await sb.from('demandas_viagem').select('*').eq('id',id).single()
-  if(error||!d){alert('Não foi possível carregar a demanda para edição.');return}
-  const destino=prompt('Destino / cidade:', d.destino||'')
-  if(destino===null)return
-  const estado=prompt('Estado (UF):', d.estado||'')
-  if(estado===null)return
-  const cliente=prompt('Cliente / reunião:', d.cliente||'')
-  if(cliente===null)return
-  const data_sugerida=prompt('Data sugerida (AAAA-MM-DD), deixe vazio se não tiver:', d.data_sugerida||'')
-  if(data_sugerida===null)return
-  const motivo=prompt('Motivo:', d.motivo||'')
-  if(motivo===null)return
-  const observacao=prompt('Observação:', d.observacao||'')
-  if(observacao===null)return
-  if(!destino.trim()||!estado.trim()||!cliente.trim()){alert('Destino, estado e cliente/reunião são obrigatórios.');return}
-  const payload={destino:destino.trim(),estado:estado.trim().toUpperCase(),cliente:cliente.trim(),data_sugerida:data_sugerida||null,motivo:motivo.trim(),observacao:observacao.trim()}
-  const {error:upErr}=await sb.from('demandas_viagem').update(payload).eq('id',id)
-  if(upErr){alert('Erro ao editar demanda: '+upErr.message);return}
-  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
-}
-
-async function excluirDemanda(id){
-  if(!confirm('Excluir definitivamente esta demanda de viagem?'))return
-  const {error}=await sb.from('demandas_viagem').delete().eq('id',id)
-  if(error){alert('Erro ao excluir demanda: '+error.message+'\nSe for permissão, rode a policy de DELETE no Supabase.');return}
-  await carregarDemandas(); await carregarDashboard(); await contarDemandasAbertas()
-}
-
-async function criarAvisoGeral(){
-  const titulo=document.getElementById('av-titulo').value.trim()
-  const texto=document.getElementById('av-texto').value.trim()
-  const validade=document.getElementById('av-validade').value||null
-  if(!titulo||!texto){alert('Preencha título e mensagem.');return}
-  const {error}=await sb.from('avisos').insert({titulo,texto,validade,ativo:true,created_by:perfil.id})
-  if(error){alert('Erro ao publicar aviso: '+error.message);return}
-  ;['av-titulo','av-texto','av-validade'].forEach(id=>document.getElementById(id).value='')
-  await carregarDemandas(); await carregarDashboard()
-}
-
-async function editarAviso(id){
-  const {data:a,error}=await sb.from('avisos').select('*').eq('id',id).single()
-  if(error||!a){alert('Não foi possível carregar o aviso para edição.');return}
-  const titulo=prompt('Título do aviso:', a.titulo||'')
-  if(titulo===null)return
-  const texto=prompt('Mensagem do aviso:', a.texto||'')
-  if(texto===null)return
-  const validade=prompt('Válido até (AAAA-MM-DD), deixe vazio se não tiver:', a.validade||'')
-  if(validade===null)return
-  if(!titulo.trim()||!texto.trim()){alert('Título e mensagem são obrigatórios.');return}
-  const {error:upErr}=await sb.from('avisos').update({titulo:titulo.trim(),texto:texto.trim(),validade:validade||null}).eq('id',id)
-  if(upErr){alert('Erro ao editar aviso: '+upErr.message);return}
-  await carregarDemandas(); await carregarDashboard()
-}
-
-async function excluirAviso(id){
-  if(!confirm('Excluir definitivamente este aviso?'))return
-  const {error}=await sb.from('avisos').delete().eq('id',id)
-  if(error){
-    const {error:fallback}=await sb.from('avisos').update({ativo:false}).eq('id',id)
-    if(fallback){alert('Erro ao excluir aviso: '+error.message);return}
-  }
-  await carregarDemandas(); await carregarDashboard()
-}
-
-async function desativarAviso(id){
-  return excluirAviso(id)
-}
-
-function renderMapaViagens(){
-  const wrap=document.getElementById('dash-mapa-viagens')
-  if(!wrap)return
-  const hoje=new Date().toISOString().slice(0,10)
-  const limite=new Date(); limite.setDate(limite.getDate()+30)
-  const limiteStr=limite.toISOString().slice(0,10)
-  const nomePorId={};(todosProfs||[]).forEach(p=>nomePorId[p.id]=p.nome)
-
-  const relevantes=(todasViagens||[]).filter(v=>v.status!=='cancelada' && v.estado && (
-    (v.data_inicio<=hoje && v.data_fim>=hoje) ||
-    (v.data_inicio>hoje && v.data_inicio<=limiteStr)
-  )).sort((a,b)=>a.data_inicio.localeCompare(b.data_inicio))
-  const atuais=relevantes.filter(v=>v.data_inicio<=hoje&&v.data_fim>=hoje)
-  const proximas=relevantes.filter(v=>v.data_inicio>hoje)
-
-  const linha=(v,atual)=>`<tr>
-    <td style="font-weight:500">${nomePorId[v.usuario_id]||'?'}</td>
-    <td>${v.destino}/${v.estado}</td>
-    <td>${v.cliente||'—'}</td>
-    <td>${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}</td>
-    <td>${atual?'<span class="badge b-purple">Em andamento</span>':'<span class="badge b-mint">Próxima</span>'}</td>
-  </tr>`
-
-  const linhas=[...atuais.map(v=>linha(v,true)),...proximas.slice(0,10).map(v=>linha(v,false))].join('')
-  wrap.innerHTML=`<div class="sec-header" style="margin-top:12px">
-    <div><div class="sec-title">Viagens em andamento e próximas</div><div class="page-sub" style="margin-bottom:0">Resumo operacional dos próximos 30 dias.</div></div>
-  </div>
-  <div class="card">
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;border-bottom:1.5px solid var(--line);background:var(--cream)">
-      <div class="metric m-purple" style="margin:0"><div class="metric-label">Em andamento</div><div class="metric-value">${atuais.length}</div></div>
-      <div class="metric m-mint" style="margin:0"><div class="metric-label">Próximas 30 dias</div><div class="metric-value">${proximas.length}</div></div>
-    </div>
-    ${relevantes.length?`<table class="tbl"><thead><tr><th>Coordenador</th><th>Destino</th><th>Cliente/reunião</th><th>Período</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>`:'<div class="empty">Nenhuma viagem em andamento ou próxima.</div>'}
-  </div>`
-}
-
 async function carregarDashboard() {
   const mes=mesAtual()
   let q=sb.from('despesas').select('valor,status,usuario_id').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
   if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
-  const dsValidas=ds.filter(d=>d.status!=='rejeitado')
 
   document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
-  document.getElementById('m-total').textContent=moeda(dsValidas.reduce((s,d)=>s+(d.valor||0),0))
-  document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0))
-  document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0))
-
-  await carregarAvisosDashboard()
-  await carregarDemandasResumo()
+  document.getElementById('m-total').textContent=moeda(ds.reduce((s,d)=>s+d.valor,0))
+  document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
+  document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
+  document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0))
 
   if(perfil.papel==='aprovador'){
     // Perfis
@@ -1006,7 +613,7 @@ async function carregarDashboard() {
     todosProfs=profs||[]
 
     // Alerta RDV — quem lançou e quem não lançou esse mês
-    const lançaramIds=new Set(dsValidas.map(d=>d.usuario_id))
+    const lançaramIds=new Set(ds.map(d=>d.usuario_id))
     const lançaram=todosProfs.filter(p=>lançaramIds.has(p.id)).map(p=>p.nome)
     const naoLancaram=todosProfs.filter(p=>!lançaramIds.has(p.id)).map(p=>p.nome)
     let alertaHtml=`<div class="card" style="margin-bottom:12px">
@@ -1030,7 +637,6 @@ async function carregarDashboard() {
     document.getElementById('dash-viagens-wrap').style.display='block'
     renderCalendario()
     renderViagensDash()
-    renderMapaViagens()
 
     // Tabela por coordenador
     const nomePorId={}
@@ -1038,16 +644,16 @@ async function carregarDashboard() {
     const por={}
     ds.forEach(d=>{
       if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',total:0,aprov:0,pend:0,rej:0}
-      if(d.status!=='rejeitado')por[d.usuario_id].total+=(d.valor||0)
-      if(d.status==='aprovado')por[d.usuario_id].aprov+=(d.valor||0)
-      if(d.status==='pendente')por[d.usuario_id].pend+=(d.valor||0)
-      if(d.status==='rejeitado')por[d.usuario_id].rej+=(d.valor||0)
+      por[d.usuario_id].total+=d.valor
+      if(d.status==='aprovado')por[d.usuario_id].aprov+=d.valor
+      if(d.status==='pendente')por[d.usuario_id].pend+=d.valor
+      if(d.status==='rejeitado')por[d.usuario_id].rej+=d.valor
     })
-    const rows=Object.values(por).filter(r=>r.total>0||r.aprov>0||r.pend>0).map(r=>{
-      const st=r.pend>0?'pendente':'aprovado'
+    const rows=Object.values(por).map(r=>{
+      const st=r.rej>0?'rejeitado':r.pend>0?'pendente':'aprovado'
       return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
     }).join('')
-    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total válido</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
+    document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
 
     // Tabela por estado
     const tabelaEstado=await carregarGastosPorEstado()
@@ -1056,8 +662,6 @@ async function carregarDashboard() {
     // Tabela anual
     const tabelaAnual=await carregarConsolidadoAnual(todosProfs)
     document.getElementById('dash-tabela').innerHTML+=(tabelaAnual||'')
-
-    renderFinanceiroPagar(ds,todosProfs)
   }
 }
 
@@ -1119,10 +723,9 @@ async function carregarAgenda() {
   } else {
     viagens.forEach(v=>{
       const ds=despPorViagem[v.id]||[]
-      const dsValidasViagem=ds.filter(d=>d.status!=='rejeitado')
-      const total=dsValidasViagem.reduce((s,d)=>s+(d.valor||0),0)
-      const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+(d.valor||0),0)
-      const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0)
+      const total=ds.reduce((s,d)=>s+d.valor,0)
+      const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
+      const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
       const rejN=ds.filter(d=>d.status==='rejeitado').length
       const quem=perfil.papel==='aprovador'&&nomePorId[v.usuario_id]?` · ${nomePorId[v.usuario_id]}`:''
       const estadoLabel=v.estado?` · ${v.estado}`:''
@@ -1172,39 +775,15 @@ async function carregarAgenda() {
         ${temResultado?`<div style="padding:6px 12px;font-size:11px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px">${fechouLabel}<span style="color:var(--ink2)">Resultado registrado</span></div>`:''}
         <div class="card-footer">
           <span></span>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-            ${v.status!=='cancelada'?`<button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button>`:''}
-            ${v.status!=='cancelada'?`<button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button>`:''}
-            ${v.status!=='cancelada'?`<button class="btn" style="font-size:11px;padding:5px 10px" onclick="cancelarViagem('${v.id}')">Cancelar viagem</button>`:''}
-            <button class="btn btn-reject" style="font-size:11px;padding:5px 10px" onclick="excluirViagem('${v.id}')">Excluir</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="abrirResultado('${v.id}')">${temResultado?'Editar resultado':'+ Resultado'}</button>
+            <button class="btn btn-primary" style="font-size:11px;padding:5px 10px" onclick="lancarParaViagem('${v.id}')">+ Despesa</button>
           </div>
         </div>
       </div>`
     })
   }
   document.getElementById('agenda-lista').innerHTML=html
-}
-
-
-async function cancelarViagem(id){
-  if(!confirm('Cancelar esta viagem? Ela ficará no histórico como cancelada.')) return
-  const{error}=await sb.from('viagens').update({status:'cancelada'}).eq('id',id)
-  if(error){alert('Erro ao cancelar viagem: '+error.message);return}
-  await carregarAgenda()
-  await carregarDashboard()
-}
-
-async function excluirViagem(id){
-  const{data:desps}=await sb.from('despesas').select('id').eq('viagem_id',id).limit(1)
-  if(desps&&desps.length){
-    alert('Essa viagem tem despesas vinculadas. Exclua as despesas primeiro ou use Cancelar viagem para manter o histórico.')
-    return
-  }
-  if(!confirm('Excluir esta viagem definitivamente? Use isso só para testes ou lançamentos errados.')) return
-  const{error}=await sb.from('viagens').delete().eq('id',id)
-  if(error){alert('Erro ao excluir viagem: '+error.message);return}
-  await carregarAgenda()
-  await carregarDashboard()
 }
 
 function lancarParaViagem(vid){
@@ -1233,11 +812,9 @@ async function carregarAvulsas(){
     ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
   }
 
-  const avulsasValidas=(avulsas||[]).filter(d=>d.status!=='rejeitado')
-  const total=avulsasValidas.reduce((s,d)=>s+(d.valor||0),0)
-  const pend=avulsasValidas.filter(d=>d.status==='pendente').reduce((s,d)=>s+(d.valor||0),0)
-  const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
-  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total válido: ${moeda(total)} · Pendente: ${moeda(pend)}${rejeitadas?` · ${rejeitadas} rejeitada${rejeitadas>1?'s':''}`:''}`
+  const total=(avulsas||[]).reduce((s,d)=>s+d.valor,0)
+  const pend=(avulsas||[]).filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
+  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total: ${moeda(total)} · Pendente: ${moeda(pend)}`
 
   if(!avulsas||!avulsas.length){
     document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
@@ -1306,20 +883,10 @@ async function prepararFormDespesa(){
   document.getElementById('d-titulo').textContent = 'Lançar despesa'
   document.getElementById('d-subtitulo').textContent = 'Vinculada a uma viagem ou avulsa'
   document.getElementById('d-btn-salvar').textContent = 'Salvar despesa'
-  document.getElementById('d-data').disabled=false
   document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
-  const periodoTipo=document.getElementById('d-periodo-tipo')
-  const semanaInput=document.getElementById('d-semana')
-  if(periodoTipo)periodoTipo.value='dia'
-  if(semanaInput)semanaInput.value=''
-  atualizarCampoSemana()
-  arquivoComprimido=null
+  arquivosComprimidos=[]
   resetUpload()
   await prepararFormViagensSelect()
-}
-
-function resetUpload(){
-  document.getElementById('upload-preview').innerHTML=`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.5" style="display:block;margin:0 auto 4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg><div class="upload-info">Clique para anexar comprovante</div><div class="upload-sub">JPG · PNG · PDF · máx 10 MB · comprimido automaticamente</div>`
 }
 
 async function atualizarCategoriasDrop(){
@@ -1327,7 +894,6 @@ async function atualizarCategoriasDrop(){
   const sel=document.getElementById('d-categoria')
   sel.innerHTML='<option value="">Selecione</option>'
   ;(cats||[]).forEach(c=>{sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`})
-  atualizarCampoSemana()
 }
 
 function setTipo(t){
@@ -1337,60 +903,6 @@ function setTipo(t){
   document.getElementById('campo-viagem').style.display=t==='viagem'?'flex':'none'
   document.getElementById('ai-sugestao').style.display='none'
   atualizarCategoriasDrop()
-}
-
-
-function textoSemAcento(s){
-  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
-}
-
-function categoriaPermiteSemana(){
-  const sel=document.getElementById('d-categoria')
-  if(!sel)return false
-  const nome=textoSemAcento(sel.options[sel.selectedIndex]?.text||'')
-  return nome.includes('gasolina') || nome.includes('combust') || nome.includes('km') || nome.includes('quilometr') || nome.includes('quilomet') || nome.includes('rodado')
-}
-
-function atualizarCampoSemana(){
-  const wrap=document.getElementById('campo-periodo-combustivel')
-  const tipo=document.getElementById('d-periodo-tipo')
-  if(!wrap||!tipo)return
-  const usar=categoriaPermiteSemana()
-  wrap.style.display=usar?'grid':'none'
-  if(!usar){
-    tipo.value='dia'
-    const semana=document.getElementById('d-semana')
-    if(semana)semana.value=''
-  }
-  atualizarModoPeriodo()
-}
-
-function atualizarModoPeriodo(){
-  const tipo=document.getElementById('d-periodo-tipo')
-  const semanaWrap=document.getElementById('campo-semana-despesa')
-  const dataWrap=document.getElementById('campo-data-dia')
-  const data=document.getElementById('d-data')
-  if(!tipo||!semanaWrap||!dataWrap)return
-  const semanal=categoriaPermiteSemana()&&tipo.value==='semana'
-  semanaWrap.style.display=semanal?'flex':'none'
-  dataWrap.style.display=semanal?'none':'flex'
-  if(data)data.disabled=semanal
-}
-
-function periodoDaSemanaInput(valor){
-  // valor vem como YYYY-Www. Retorna segunda a domingo em ISO e label BR.
-  const m=/^(\d{4})-W(\d{2})$/.exec(valor||'')
-  if(!m)return null
-  const ano=Number(m[1]), semana=Number(m[2])
-  const jan4=new Date(Date.UTC(ano,0,4))
-  const jan4Day=jan4.getUTCDay()||7
-  const monday=new Date(jan4)
-  monday.setUTCDate(jan4.getUTCDate()-jan4Day+1+(semana-1)*7)
-  const sunday=new Date(monday)
-  sunday.setUTCDate(monday.getUTCDate()+6)
-  const iso=d=>d.toISOString().slice(0,10)
-  const br=d=>dataFmt(iso(d))
-  return {inicio:iso(monday),fim:iso(sunday),label:`${br(monday)} a ${br(sunday)}`}
 }
 
 function setSugestaoManual(){document.getElementById('ai-sugestao').style.display='none'}
@@ -1423,33 +935,88 @@ async function sugerirCategoria(){
   }
 }
 
-async function handleArquivo(input){
-  const file=input.files[0]
-  if(!file)return
-  const origKB=Math.round(file.size/1024)
-  if(file.type==='application/pdf'){
-    if(file.size>10*1024*1024){alert('PDF muito grande. Máximo 10 MB.');input.value='';return}
-    arquivoComprimido=file
-    document.getElementById('upload-preview').innerHTML=`<div class="upload-info">📄 ${file.name}</div><div class="upload-sub">${origKB} KB · PDF</div>`
-    return
+let arquivosComprimidos = [] // agora é array
+
+function resetUpload(){
+  arquivosComprimidos = []
+  document.getElementById('upload-preview').innerHTML=`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.5" style="display:block;margin:0 auto 4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg><div class="upload-info">Clique para anexar comprovantes</div><div class="upload-sub">JPG · PNG · PDF · vários arquivos · imagens comprimidas automaticamente</div>`
+  const lista = document.getElementById('upload-lista-arquivos')
+  if(lista) lista.innerHTML = ''
+}
+
+function renderListaArquivos(){
+  const lista = document.getElementById('upload-lista-arquivos')
+  if(!lista) return
+  lista.innerHTML = arquivosComprimidos.map((f,i) => `
+    <div style="display:inline-flex;align-items:center;gap:6px;background:var(--purple-light);border:1px solid #C4B5FD;border-radius:8px;padding:4px 8px;font-size:11px;color:var(--purple-dark)">
+      <span>${f.type==='application/pdf'?'📄':'🖼️'} ${f.name}</span>
+      <span style="color:var(--ink2)">${Math.round(f.size/1024)} KB</span>
+      <button onclick="removerArquivo(${i})" style="background:none;border:none;cursor:pointer;color:#991B1B;font-size:13px;line-height:1;padding:0">×</button>
+    </div>`).join('')
+  // Atualiza preview principal
+  if(arquivosComprimidos.length > 0){
+    document.getElementById('upload-preview').innerHTML = `<div class="upload-info">${arquivosComprimidos.length} arquivo${arquivosComprimidos.length>1?'s':''} selecionado${arquivosComprimidos.length>1?'s':''}</div><div class="upload-sub">Clique para adicionar mais</div>`
+  } else {
+    document.getElementById('upload-preview').innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1.5" style="display:block;margin:0 auto 4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg><div class="upload-info">Clique para anexar comprovantes</div><div class="upload-sub">JPG · PNG · PDF · vários arquivos</div>`
   }
-  const img=new Image()
-  const url=URL.createObjectURL(file)
-  img.onload=()=>{
-    URL.revokeObjectURL(url)
-    let{width,height}=img
-    if(width>1600){height=Math.round(height*1600/width);width=1600}
-    const canvas=document.createElement('canvas')
-    canvas.width=width;canvas.height=height
-    canvas.getContext('2d').drawImage(img,0,0,width,height)
-    canvas.toBlob(blob=>{
-      arquivoComprimido=new File([blob],file.name.replace(/\.[^.]+$/,'.jpg'),{type:'image/jpeg'})
-      const compKB=Math.round(arquivoComprimido.size/1024)
-      const info=origKB!==compKB?`${origKB} KB → ${compKB} KB (comprimido)`:`${compKB} KB`
-      document.getElementById('upload-preview').innerHTML=`<div class="upload-info">🖼️ ${arquivoComprimido.name}</div><div class="upload-sub">${info}</div>`
-    },'image/jpeg',0.8)
+}
+
+function removerArquivo(i){
+  arquivosComprimidos.splice(i,1)
+  renderListaArquivos()
+}
+
+async function comprimirArquivo(file){
+  if(file.type === 'application/pdf'){
+    if(file.size > 10*1024*1024){ alert('PDF muito grande. Máximo 10 MB.'); return null }
+    return file
   }
-  img.src=url
+  return new Promise(resolve=>{
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let {width, height} = img
+      if(width > 1600){ height = Math.round(height*1600/width); width = 1600 }
+      const canvas = document.createElement('canvas')
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      canvas.toBlob(blob => {
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type:'image/jpeg'}))
+      }, 'image/jpeg', 0.8)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
+async function handleArquivos(input){
+  const files = Array.from(input.files)
+  if(!files.length) return
+  for(const file of files){
+    const comprimido = await comprimirArquivo(file)
+    if(comprimido) arquivosComprimidos.push(comprimido)
+  }
+  input.value = ''
+  renderListaArquivos()
+}
+
+// Mantém compatibilidade com handleArquivo singular (usado em edição)
+async function handleArquivo(input){ await handleArquivos(input) }
+
+async function uploadComprovantes(despesaId, arquivos){
+  const urls = []
+  for(const arquivo of arquivos){
+    const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${arquivo.name}`
+    const {error} = await sb.storage.from('comprovantes').upload(path, arquivo, {contentType: arquivo.type})
+    if(error){ console.error('Erro upload:', error); continue }
+    const {data:{publicUrl}} = sb.storage.from('comprovantes').getPublicUrl(path)
+    urls.push({url: publicUrl, nome: arquivo.name, tamanho_kb: Math.round(arquivo.size/1024), tipo: arquivo.type.startsWith('image/') ? 'image' : 'pdf'})
+  }
+  if(urls.length && despesaId){
+    await sb.from('comprovantes').insert(urls.map(u => ({despesa_id: despesaId, ...u})))
+  }
+  return urls
 }
 
 async function editarDespesa(id, origem='agenda'){
@@ -1476,7 +1043,7 @@ async function editarDespesa(id, origem='agenda'){
   document.getElementById('ai-sugestao').style.display='none'
 
   await atualizarCategoriasDrop()
-  setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id;atualizarCampoSemana()},150)
+  setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id},150)
 
   // Comprovante existente
   if(d.comprovante_url){
@@ -1484,7 +1051,7 @@ async function editarDespesa(id, origem='agenda'){
   } else {
     resetUpload()
   }
-  arquivoComprimido=null
+  arquivosComprimidos=[]
 
   showScreen('lancar',document.getElementById('nav-lancar'))
 }
@@ -1496,10 +1063,7 @@ async function excluirDespesa(id, origem='agenda'){
   await contarPendentes()
   if(origem==='avulsas') await carregarAvulsas()
   else await carregarAgenda()
-  await carregarDashboard()
 }
-
-async function prepararFormViagensSelect(){
   document.getElementById('d-arquivo').value=''
   resetUpload()
   const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
@@ -1511,42 +1075,16 @@ async function prepararFormViagensSelect(){
 
 async function salvarDespesa(){
   const catId=document.getElementById('d-categoria').value
-  let data=document.getElementById('d-data').value
+  const data=document.getElementById('d-data').value
   const valor=parseFloat(document.getElementById('d-valor').value)
-  let desc=document.getElementById('d-descricao').value.trim()
+  const desc=document.getElementById('d-descricao').value.trim()
   const viagId=tipoAtual==='viagem'?document.getElementById('d-viagem').value:null
   const err=document.getElementById('d-erro')
   err.style.display='none'
   if(!catId){err.textContent='Selecione uma categoria.';err.style.display='block';return}
   if(tipoAtual==='viagem'&&!viagId){err.textContent='Selecione a viagem.';err.style.display='block';return}
-  if(categoriaPermiteSemana()&&document.getElementById('d-periodo-tipo')?.value==='semana'){
-    const semana=document.getElementById('d-semana')?.value
-    const periodo=periodoDaSemanaInput(semana)
-    if(!periodo){err.textContent='Selecione a semana da despesa.';err.style.display='block';return}
-    data=periodo.inicio
-    const marcador=`Semana ${periodo.label}`
-    if(!desc.includes(marcador)) desc=desc?`${marcador} · ${desc}`:marcador
-  }
   if(!valor||valor<=0){err.textContent='Informe um valor válido.';err.style.display='block';return}
   if(!data){err.textContent='Informe a data.';err.style.display='block';return}
-
-  let comprovante_url=null,comprovante_nome=null,comprovante_tamanho_kb=null
-
-  // Se editando, mantém comprovante existente se não subiu novo
-  if(despesaEditandoId&&!arquivoComprimido){
-    const{data:d}=await sb.from('despesas').select('comprovante_url,comprovante_nome,comprovante_tamanho_kb').eq('id',despesaEditandoId).single()
-    comprovante_url=d?.comprovante_url||null
-    comprovante_nome=d?.comprovante_nome||null
-    comprovante_tamanho_kb=d?.comprovante_tamanho_kb||null
-  }
-
-  if(arquivoComprimido){
-    const path=`${perfil.id}/${Date.now()}_${arquivoComprimido.name}`
-    const{error:upErr}=await sb.storage.from('comprovantes').upload(path,arquivoComprimido,{contentType:arquivoComprimido.type})
-    if(upErr){err.textContent='Erro ao enviar comprovante.';err.style.display='block';return}
-    const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
-    comprovante_url=publicUrl;comprovante_nome=arquivoComprimido.name;comprovante_tamanho_kb=Math.round(arquivoComprimido.size/1024)
-  }
 
   // Estado
   let estado_despesa=null
@@ -1557,8 +1095,27 @@ async function salvarDespesa(){
     estado_despesa=perfil.estado_base||null
   }
 
+  // Compatibilidade: primeiro comprovante vai no campo legado, restantes na tabela comprovantes
+  const primeiroArquivo = arquivosComprimidos[0] || null
+  let comprovante_url=null, comprovante_nome=null, comprovante_tamanho_kb=null
+
+  if(despesaEditandoId && !primeiroArquivo){
+    // Editando sem novo arquivo — mantém o existente
+    const{data:d}=await sb.from('despesas').select('comprovante_url,comprovante_nome,comprovante_tamanho_kb').eq('id',despesaEditandoId).single()
+    comprovante_url=d?.comprovante_url||null
+    comprovante_nome=d?.comprovante_nome||null
+    comprovante_tamanho_kb=d?.comprovante_tamanho_kb||null
+  }
+
+  if(primeiroArquivo){
+    const path=`${perfil.id}/${Date.now()}_${primeiroArquivo.name}`
+    const{error:upErr}=await sb.storage.from('comprovantes').upload(path,primeiroArquivo,{contentType:primeiroArquivo.type})
+    if(upErr){err.textContent='Erro ao enviar comprovante.';err.style.display='block';return}
+    const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
+    comprovante_url=publicUrl;comprovante_nome=primeiroArquivo.name;comprovante_tamanho_kb=Math.round(primeiroArquivo.size/1024)
+  }
+
   if(despesaEditandoId){
-    // EDIÇÃO — atualiza e volta pra pendente
     const{error}=await sb.from('despesas').update({
       viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,
       valor,data_despesa:data,status:'pendente',
@@ -1566,14 +1123,22 @@ async function salvarDespesa(){
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
     }).eq('id',despesaEditandoId)
     if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+    // Upload dos comprovantes extras (2o em diante)
+    if(arquivosComprimidos.length > 1){
+      await uploadComprovantes(despesaEditandoId, arquivosComprimidos.slice(1))
+    }
   } else {
-    // NOVO
-    const{error}=await sb.from('despesas').insert({
+    const{data:novaDespesa,error}=await sb.from('despesas').insert({
       usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,
       descricao:desc||null,valor,data_despesa:data,status:'pendente',
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
-    })
+    }).select('id').single()
     if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
+    // Upload dos comprovantes extras (2o em diante)
+    if(arquivosComprimidos.length > 1 && novaDespesa?.id){
+      await uploadComprovantes(novaDespesa.id, arquivosComprimidos.slice(1))
+    }
+  }
   }
 
   limparFormDespesa()
@@ -1593,16 +1158,10 @@ function limparFormDespesa(){
   document.getElementById('d-categoria').value=''
   document.getElementById('d-valor').value=''
   document.getElementById('d-descricao').value=''
-  document.getElementById('d-data').disabled=false
   document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
-  const periodoTipo=document.getElementById('d-periodo-tipo')
-  const semanaInput=document.getElementById('d-semana')
-  if(periodoTipo)periodoTipo.value='dia'
-  if(semanaInput)semanaInput.value=''
-  atualizarCampoSemana()
   document.getElementById('d-viagem').value=''
   document.getElementById('ai-sugestao').style.display='none'
-  arquivoComprimido=null
+  arquivosComprimidos=[]
   document.getElementById('d-arquivo').value=''
   resetUpload()
 }
@@ -1688,7 +1247,6 @@ async function aprovar(id){
   await sb.from('despesas').update({status:'aprovado',aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
   await contarPendentes()
   await carregarAprovacoes()
-  await carregarDashboard()
 }
 
 function mostrarRejeitar(id){
@@ -1702,7 +1260,6 @@ async function rejeitar(id){
   await sb.from('despesas').update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
   await contarPendentes()
   await carregarAprovacoes()
-  await carregarDashboard()
 }
 
 async function carregarInsights(){
@@ -1713,14 +1270,13 @@ async function carregarInsights(){
   const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
   const catPorId={};(cats||[]).forEach(c=>catPorId[c.id]=c.nome)
 
-  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
-  if(!despesasValidas||despesasValidas.length<5){
+  if(!despesas||despesas.length<5){
     document.getElementById('insights-lista').innerHTML=`<div class="insight-card" style="background:var(--purple-light);border-color:#C4B5FD"><div class="insight-icon" style="background:white;border:1.5px solid #C4B5FD;font-size:16px">💡</div><div><div style="font-size:12px">Dados insuficientes. Continue lançando despesas.</div><div style="font-size:11px;color:var(--ink2);margin-top:4px">Mínimo: 5 lançamentos nos últimos 90 dias</div></div></div>`
     return
   }
 
   const porPessoa={};const porCat={}
-  despesasValidas.forEach(d=>{
+  despesas.forEach(d=>{
     const nome=nomePorId[d.usuario_id]||'?'
     const cat=catPorId[d.categoria_id]||'?'
     if(!porPessoa[nome])porPessoa[nome]={total:0,count:0}
@@ -1811,23 +1367,12 @@ async function salvarResultado(){
 
 // ── SKUs ──────────────────────────────────────
 async function carregarSkus(){
-  const box=document.getElementById('sku-lista')
-  box.innerHTML='<div class="loading">Carregando SKUs...</div>'
-
-  const {data:skus,error}=await sb.from('skus').select('*').order('ordem')
-  if(error){
-    box.innerHTML=`<div class="login-err" style="display:block">Erro ao carregar SKUs: ${error.message}</div>`
-    return
-  }
-
-  box.innerHTML=(skus||[]).length
+  const{data:skus}=await sb.from('skus').select('*').order('ordem')
+  document.getElementById('sku-lista').innerHTML=(skus||[]).length
     ?(skus||[]).map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
         <span style="font-size:11px;font-weight:500;color:var(--purple);min-width:36px">${s.sigla}</span>
         <span style="flex:1;font-size:12px;${!s.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${s.nome}</span>
-        <span class="badge ${s.ativo?'b-mint':'b-gray'}" style="font-size:9px">${s.ativo?'Ativo':'Inativo'}</span>
-        <button class="btn btn-sm" onclick="editarSku('${s.id}')" style="font-size:10px">Editar</button>
         <button class="btn btn-sm" onclick="toggleSku('${s.id}',${s.ativo})" style="font-size:10px">${s.ativo?'Desativar':'Ativar'}</button>
-        <button class="btn btn-sm btn-reject" onclick="excluirSku('${s.id}')" style="font-size:10px">Excluir</button>
       </div>`).join('')
     :'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhum SKU. Adicione acima.</div>'
 }
@@ -1835,62 +1380,17 @@ async function carregarSkus(){
 async function adicionarSku(){
   const nome=document.getElementById('sku-nome').value.trim()
   const sigla=document.getElementById('sku-sigla').value.trim().toUpperCase()
-  const box=document.getElementById('sku-lista')
-
-  if(!nome||!sigla){
-    box.innerHTML='<div class="login-err" style="display:block">Informe nome e sigla do SKU.</div>'
-    return
-  }
-
-  const {data:last,error:erroOrdem}=await sb.from('skus').select('ordem').order('ordem',{ascending:false}).limit(1)
-  if(erroOrdem){
-    box.innerHTML=`<div class="login-err" style="display:block">Erro ao consultar ordem dos SKUs: ${erroOrdem.message}</div>`
-    return
-  }
-
+  if(!nome||!sigla)return
+  const{data:last}=await sb.from('skus').select('ordem').order('ordem',{ascending:false}).limit(1)
   const maxOrdem=last?.[0]?.ordem||0
-  const {error}=await sb.from('skus').insert({nome,sigla,ordem:maxOrdem+1,ativo:true})
-  if(error){
-    box.innerHTML=`<div class="login-err" style="display:block">Erro ao adicionar SKU: ${error.message}</div>`
-    return
-  }
-
+  await sb.from('skus').insert({nome,sigla,ordem:maxOrdem+1})
   document.getElementById('sku-nome').value=''
   document.getElementById('sku-sigla').value=''
-  await carregarSkus()
-}
-
-
-async function editarSku(id){
-  const {data:s,error}=await sb.from('skus').select('*').eq('id',id).single()
-  if(error||!s){alert('Não foi possível carregar o SKU.');return}
-  const nome=prompt('Nome do SKU:', s.nome||'')
-  if(nome===null)return
-  const sigla=prompt('Sigla do SKU:', s.sigla||'')
-  if(sigla===null)return
-  if(!nome.trim()||!sigla.trim()){alert('Nome e sigla são obrigatórios.');return}
-  const {error:upErr}=await sb.from('skus').update({nome:nome.trim(),sigla:sigla.trim().toUpperCase()}).eq('id',id)
-  if(upErr){alert('Erro ao editar SKU: '+upErr.message);return}
-  carregarSkus()
-}
-
-async function excluirSku(id){
-  if(!confirm('Excluir definitivamente este SKU? Se ele já foi usado em visitas, prefira desativar.'))return
-  const {error}=await sb.from('skus').delete().eq('id',id)
-  if(error){
-    const {error:fallback}=await sb.from('skus').update({ativo:false}).eq('id',id)
-    if(fallback){alert('Erro ao excluir SKU: '+error.message);return}
-    alert('Não foi possível excluir definitivamente; o SKU foi desativado para preservar histórico.')
-  }
   carregarSkus()
 }
 
 async function toggleSku(id,ativo){
-  const {error}=await sb.from('skus').update({ativo:!ativo}).eq('id',id)
-  if(error){
-    document.getElementById('sku-lista').innerHTML=`<div class="login-err" style="display:block">Erro ao alterar SKU: ${error.message}</div>`
-    return
-  }
+  await sb.from('skus').update({ativo:!ativo}).eq('id',id)
   carregarSkus()
 }
 
@@ -1898,8 +1398,7 @@ async function toggleSku(id,ativo){
 const ESTADOS=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
 
 async function carregarEquipe(){
-  const{data:profs,error}=await sb.from('profiles').select('*').order('nome')
-  if(error){document.getElementById('equipe-lista').innerHTML=`<div class="login-err" style="display:block">Erro ao carregar equipe: ${error.message}</div>`;return}
+  const{data:profs}=await sb.from('profiles').select('*').order('nome')
   if(!profs||!profs.length){document.getElementById('equipe-lista').innerHTML='<div class="empty">Nenhum usuário.</div>';return}
 
   const rows=profs.map(p=>`
@@ -1907,33 +1406,23 @@ async function carregarEquipe(){
       <div style="flex:1">
         <div style="font-size:12px;font-weight:500;color:var(--ink)">${p.nome}</div>
         <div style="font-size:11px;color:var(--ink2)">${p.email} · <span class="badge ${p.papel==='aprovador'?'b-purple':'b-gray'}" style="font-size:9px">${p.papel}</span></div>
-        <div id="eq-status-${p.id}" style="font-size:10px;color:var(--ink2);margin-top:3px">Estado atual: ${p.estado_base||'não definido'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <label style="font-size:11px;color:var(--ink2)">Estado base:</label>
-        <select id="eq-estado-${p.id}" class="form-select" style="width:80px;padding:4px 6px;font-size:11px">
+        <select onchange="salvarEstadoBase('${p.id}',this.value)" class="form-select" style="width:80px;padding:4px 6px;font-size:11px">
           <option value="">—</option>
           ${ESTADOS.map(e=>`<option value="${e}" ${p.estado_base===e?'selected':''}>${e}</option>`).join('')}
         </select>
-        <button class="btn btn-sm btn-primary" style="font-size:10px;padding:3px 9px" onclick="salvarEstadoBase('${p.id}')">Salvar</button>
       </div>
     </div>`).join('')
 
   document.getElementById('equipe-lista').innerHTML=`<div class="card">${rows}</div>`
 }
 
-async function salvarEstadoBase(uid){
-  const select=document.getElementById('eq-estado-'+uid)
-  const status=document.getElementById('eq-status-'+uid)
-  const estado=select?select.value:null
-  if(status){status.textContent='Salvando...';status.style.color='var(--ink2)'}
-  const {error}=await sb.from('profiles').update({estado_base:estado||null}).eq('id',uid)
-  if(error){
-    if(status){status.textContent='Erro ao salvar: '+error.message;status.style.color='#991B1B'}
-    return
-  }
+async function salvarEstadoBase(uid, estado){
+  await sb.from('profiles').update({estado_base:estado||null}).eq('id',uid)
+  // Atualiza perfil local se for o próprio
   if(uid===perfil.id)perfil.estado_base=estado||null
-  if(status){status.textContent='Salvo: '+(estado||'não definido');status.style.color='var(--mint-dark)'}
 }
 
 // ── Tabela gastos por estado ──────────────────
@@ -1944,8 +1433,7 @@ async function carregarConsolidadoAnual(profs){
     .gte('data_despesa',`${ano}-01-01`)
     .lte('data_despesa',`${ano}-12-31`)
 
-  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
-  if(!despesasValidas.length) return ''
+  if(!despesas||!despesas.length) return ''
 
   const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
   const nomePorId={}
@@ -1953,7 +1441,7 @@ async function carregarConsolidadoAnual(profs){
 
   // Monta estrutura: por pessoa, por mês
   const dados={}
-  despesasValidas.forEach(d=>{
+  despesas.forEach(d=>{
     const mes=new Date(d.data_despesa+'T00:00:00').getMonth() // 0-11
     const uid=d.usuario_id
     if(!dados[uid])dados[uid]=Array(12).fill(0)
@@ -2012,11 +1500,10 @@ async function carregarGastosPorEstado(){
     .gte('data_despesa',`${mes}-01`)
     .lte('data_despesa',fimMes(mes))
 
-  const despesasValidas=(despesas||[]).filter(d=>d.status!=='rejeitado')
-  if(!despesasValidas.length)return''
+  if(!despesas||!despesas.length)return''
 
   const porEstado={}
-  despesasValidas.forEach(d=>{
+  despesas.forEach(d=>{
     const est=d.estado||'N/D'
     if(!porEstado[est])porEstado[est]={viagem:0,local:0,total:0}
     const v=d.valor||0
@@ -2036,7 +1523,7 @@ async function carregarGastosPorEstado(){
       <td style="font-weight:500">${moeda(v.total)}</td>
     </tr>`).join('')
 
-  return`<div class="sec-header" style="margin-top:12px"><div><div class="sec-title">Gastos por estado · mês atual</div><div class="page-sub" style="margin-bottom:0">Rejeitadas não entram nos totais.</div></div></div>
+  return`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Gastos por estado · mês atual</div></div>
     <div class="card"><table class="tbl">
       <thead><tr><th>Estado</th><th>Viagens</th><th>Local</th><th>Total</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -2046,7 +1533,7 @@ async function carregarGastosPorEstado(){
 async function carregarCategorias(){
   const{data:cats}=await sb.from('categorias').select('*').order('tipo').order('ordem')
   const lista=(cats||[]).filter(c=>c.tipo===catTipoAtual)
-  document.getElementById('cat-lista').innerHTML=lista.length?lista.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:12px;${!c.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${c.nome}</span><span class="badge ${c.tipo==='viagem'?'b-purple':'b-gray'}">${c.tipo}</span><button class="btn btn-sm" onclick="editarCategoria('${c.id}')" style="font-size:10px">Editar</button><button class="btn btn-sm" onclick="toggleCategoria('${c.id}',${c.ativo})" style="font-size:10px">${c.ativo?'Desativar':'Ativar'}</button><button class="btn btn-sm btn-reject" onclick="excluirCategoria('${c.id}')" style="font-size:10px">Excluir</button></div>`).join(''):'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhuma categoria.</div>'
+  document.getElementById('cat-lista').innerHTML=lista.length?lista.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><span style="flex:1;font-size:12px;${!c.ativo?'text-decoration:line-through;color:var(--ink2)':''}">${c.nome}</span><span class="badge ${c.tipo==='viagem'?'b-purple':'b-gray'}">${c.tipo}</span><button class="btn btn-sm" onclick="toggleCategoria('${c.id}',${c.ativo})" style="font-size:10px">${c.ativo?'Desativar':'Ativar'}</button></div>`).join(''):'<div style="font-size:12px;color:var(--ink2);padding:8px 0">Nenhuma categoria.</div>'
 }
 
 function setCatTipo(t){
@@ -2059,35 +1546,10 @@ function setCatTipo(t){
 async function adicionarCategoria(){
   const nome=document.getElementById('cat-nome').value.trim()
   if(!nome)return
-  const{data:cats,error:ordErr}=await sb.from('categorias').select('ordem').eq('tipo',catTipoAtual).order('ordem',{ascending:false}).limit(1)
-  if(ordErr){alert('Erro ao consultar categorias: '+ordErr.message);return}
+  const{data:cats}=await sb.from('categorias').select('ordem').eq('tipo',catTipoAtual).order('ordem',{ascending:false}).limit(1)
   const maxOrdem=cats?.[0]?.ordem||0
-  const {error}=await sb.from('categorias').insert({nome,tipo:catTipoAtual,ordem:maxOrdem+1,ativo:true})
-  if(error){alert('Erro ao adicionar categoria: '+error.message);return}
+  await sb.from('categorias').insert({nome,tipo:catTipoAtual,ordem:maxOrdem+1})
   document.getElementById('cat-nome').value=''
-  carregarCategorias()
-}
-
-
-async function editarCategoria(id){
-  const {data:c,error}=await sb.from('categorias').select('*').eq('id',id).single()
-  if(error||!c){alert('Não foi possível carregar a categoria.');return}
-  const nome=prompt('Nome da categoria:', c.nome||'')
-  if(nome===null)return
-  if(!nome.trim()){alert('Nome é obrigatório.');return}
-  const {error:upErr}=await sb.from('categorias').update({nome:nome.trim()}).eq('id',id)
-  if(upErr){alert('Erro ao editar categoria: '+upErr.message);return}
-  carregarCategorias()
-}
-
-async function excluirCategoria(id){
-  if(!confirm('Excluir definitivamente esta categoria? Se ela já foi usada em despesas, prefira desativar.'))return
-  const {error}=await sb.from('categorias').delete().eq('id',id)
-  if(error){
-    const {error:fallback}=await sb.from('categorias').update({ativo:false}).eq('id',id)
-    if(fallback){alert('Erro ao excluir categoria: '+error.message);return}
-    alert('Não foi possível excluir definitivamente; a categoria foi desativada para preservar histórico.')
-  }
   carregarCategorias()
 }
 
@@ -2096,18 +1558,214 @@ async function toggleCategoria(id,ativo){
   carregarCategorias()
 }
 
+// ── Lançamento Múltiplo ───────────────────────
+let multiTipoAtual = 'viagem'
+let multiLinhas = [] // array de {id, categorias, arquivos}
+let multiCats = []
+let multiContador = 0
+
+async function prepararFormMulti(){
+  multiTipoAtual = 'viagem'
+  multiLinhas = []
+  multiContador = 0
+  document.getElementById('multi-tipo-viagem').classList.add('active')
+  document.getElementById('multi-tipo-avulso').classList.remove('active')
+  document.getElementById('multi-campo-viagem').style.display = 'flex'
+  document.getElementById('multi-erro').style.display = 'none'
+  document.getElementById('multi-progresso').style.display = 'none'
+
+  // Carrega viagens do usuário
+  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
+  const sel = document.getElementById('multi-viagem')
+  sel.innerHTML = '<option value="">Selecione a viagem</option>'
+  ;(viagens||[]).forEach(v=>{ sel.innerHTML += `<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>` })
+
+  // Carrega categorias
+  const{data:cats}=await sb.from('categorias').select('*').eq('ativo',true).order('tipo').order('ordem')
+  multiCats = cats||[]
+
+  // Inicia com 3 linhas
+  document.getElementById('multi-linhas').innerHTML = ''
+  adicionarLinhaMulti()
+  adicionarLinhaMulti()
+  adicionarLinhaMulti()
+}
+
+function setMultiTipo(t){
+  multiTipoAtual = t
+  document.getElementById('multi-tipo-viagem').classList.toggle('active', t==='viagem')
+  document.getElementById('multi-tipo-avulso').classList.toggle('active', t==='avulso')
+  document.getElementById('multi-campo-viagem').style.display = t==='viagem' ? 'flex' : 'none'
+  // Atualiza categorias em todas as linhas
+  document.querySelectorAll('.multi-cat-sel').forEach(sel => {
+    const val = sel.value
+    sel.innerHTML = '<option value="">Categoria *</option>'
+    multiCats.filter(c=>c.tipo===t).forEach(c=>{ sel.innerHTML += `<option value="${c.id}" ${c.id===val?'selected':''}>${c.nome}</option>` })
+  })
+}
+
+function adicionarLinhaMulti(){
+  const id = ++multiContador
+  const cats = multiCats.filter(c=>c.tipo===multiTipoAtual)
+  const hoje = new Date().toISOString().slice(0,10)
+  const wrap = document.getElementById('multi-linhas')
+
+  const div = document.createElement('div')
+  div.id = `multi-linha-${id}`
+  div.style.cssText = 'border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;background:var(--surface);position:relative'
+  div.innerHTML = `
+    <button onclick="removerLinhaMulti(${id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--ink2);font-size:16px;line-height:1" title="Remover linha">×</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr 100px;gap:8px;margin-bottom:8px">
+      <select id="multi-cat-${id}" class="form-select multi-cat-sel">
+        <option value="">Categoria *</option>
+        ${cats.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
+      </select>
+      <input id="multi-desc-${id}" class="form-input" placeholder="Descrição (opcional)">
+      <input id="multi-val-${id}" type="number" step="0.01" class="form-input" placeholder="R$ 0,00">
+    </div>
+    <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:start">
+      <input id="multi-data-${id}" type="date" class="form-input" value="${hoje}">
+      <div>
+        <div id="multi-upload-area-${id}" class="upload-area" style="padding:10px;text-align:center;cursor:pointer" onclick="document.getElementById('multi-file-${id}').click()">
+          <div id="multi-upload-label-${id}" style="font-size:11px;color:var(--purple)">📎 Anexar comprovantes</div>
+        </div>
+        <div id="multi-files-list-${id}" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px"></div>
+        <input id="multi-file-${id}" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="display:none" onchange="handleMultiArquivos(this,${id})">
+      </div>
+    </div>`
+  wrap.appendChild(div)
+  multiLinhas.push({id, arquivos:[]})
+}
+
+function removerLinhaMulti(id){
+  const el = document.getElementById(`multi-linha-${id}`)
+  if(el) el.remove()
+  multiLinhas = multiLinhas.filter(l=>l.id!==id)
+}
+
+async function handleMultiArquivos(input, id){
+  const files = Array.from(input.files)
+  const linha = multiLinhas.find(l=>l.id===id)
+  if(!linha) return
+  for(const file of files){
+    const comp = await comprimirArquivo(file)
+    if(comp) linha.arquivos.push(comp)
+  }
+  input.value = ''
+  // Atualiza preview
+  const listEl = document.getElementById(`multi-files-list-${id}`)
+  const labelEl = document.getElementById(`multi-upload-label-${id}`)
+  if(listEl) listEl.innerHTML = linha.arquivos.map((f,i)=>`
+    <div style="display:inline-flex;align-items:center;gap:4px;background:var(--purple-light);border:1px solid #C4B5FD;border-radius:6px;padding:2px 6px;font-size:10px;color:var(--purple-dark)">
+      ${f.type==='application/pdf'?'📄':'🖼️'} ${f.name.slice(0,15)}
+      <button onclick="removerArqMulti(${id},${i})" style="background:none;border:none;cursor:pointer;color:#991B1B;font-size:12px;padding:0">×</button>
+    </div>`).join('')
+  if(labelEl) labelEl.textContent = linha.arquivos.length > 0 ? `${linha.arquivos.length} arquivo${linha.arquivos.length>1?'s':''} · clique para mais` : '📎 Anexar comprovantes'
+}
+
+function removerArqMulti(linhaId, arqIdx){
+  const linha = multiLinhas.find(l=>l.id===linhaId)
+  if(!linha) return
+  linha.arquivos.splice(arqIdx,1)
+  // Re-renderiza
+  const fakeInput = {files:[]}
+  handleMultiArquivos(fakeInput, linhaId)
+}
+
+async function salvarMulti(){
+  const err = document.getElementById('multi-erro')
+  const prog = document.getElementById('multi-progresso')
+  err.style.display = 'none'
+  prog.style.display = 'none'
+
+  const viagId = multiTipoAtual==='viagem' ? document.getElementById('multi-viagem').value : null
+  if(multiTipoAtual==='viagem' && !viagId){ err.textContent='Selecione a viagem.'; err.style.display='block'; return }
+
+  // Coleta linhas preenchidas
+  const linhasValidas = []
+  const idsNoDOM = document.querySelectorAll('[id^="multi-linha-"]')
+  for(const el of idsNoDOM){
+    const id = parseInt(el.id.replace('multi-linha-',''))
+    const catId = document.getElementById(`multi-cat-${id}`)?.value
+    const val = parseFloat(document.getElementById(`multi-val-${id}`)?.value)
+    const data = document.getElementById(`multi-data-${id}`)?.value
+    const desc = document.getElementById(`multi-desc-${id}`)?.value.trim()
+    const linha = multiLinhas.find(l=>l.id===id)
+    if(!catId && !val) continue // linha vazia, pula
+    if(!catId){ err.textContent=`Linha ${linhasValidas.length+1}: selecione a categoria.`; err.style.display='block'; return }
+    if(!val||val<=0){ err.textContent=`Linha ${linhasValidas.length+1}: informe um valor válido.`; err.style.display='block'; return }
+    if(!data){ err.textContent=`Linha ${linhasValidas.length+1}: informe a data.`; err.style.display='block'; return }
+    linhasValidas.push({id, catId, val, data, desc, arquivos: linha?.arquivos||[]})
+  }
+
+  if(!linhasValidas.length){ err.textContent='Adicione pelo menos uma despesa.'; err.style.display='block'; return }
+
+  // Estado
+  let estado_despesa = null
+  if(multiTipoAtual==='viagem' && viagId){
+    const{data:viag}=await sb.from('viagens').select('estado').eq('id',viagId).single()
+    estado_despesa = viag?.estado||null
+  } else {
+    estado_despesa = perfil.estado_base||null
+  }
+
+  document.getElementById('multi-btn-salvar').disabled = true
+  prog.textContent = `Salvando 0 de ${linhasValidas.length}...`
+  prog.style.display = 'block'
+
+  let ok = 0
+  for(const linha of linhasValidas){
+    const primeiro = linha.arquivos[0]||null
+    let comprovante_url=null, comprovante_nome=null, comprovante_tamanho_kb=null
+
+    if(primeiro){
+      const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${primeiro.name}`
+      const{error:upErr}=await sb.storage.from('comprovantes').upload(path,primeiro,{contentType:primeiro.type})
+      if(!upErr){
+        const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
+        comprovante_url=publicUrl; comprovante_nome=primeiro.name; comprovante_tamanho_kb=Math.round(primeiro.size/1024)
+      }
+    }
+
+    const{data:nova,error}=await sb.from('despesas').insert({
+      usuario_id:perfil.id, viagem_id:viagId||null, categoria_id:linha.catId,
+      descricao:linha.desc||null, valor:linha.val, data_despesa:linha.data,
+      status:'pendente', comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
+    }).select('id').single()
+
+    if(!error && nova?.id && linha.arquivos.length > 1){
+      await uploadComprovantes(nova.id, linha.arquivos.slice(1))
+    }
+
+    ok++
+    prog.textContent = `Salvando ${ok} de ${linhasValidas.length}...`
+  }
+
+  document.getElementById('multi-btn-salvar').disabled = false
+  await contarPendentes()
+  prog.textContent = `✓ ${ok} despesa${ok>1?'s':''} salva${ok>1?'s':''}!`
+  setTimeout(()=>{
+    limparMulti()
+    showScreen('agenda', document.getElementById('nav-agenda'))
+  }, 1500)
+}
+
+function limparMulti(){
+  document.getElementById('multi-linhas').innerHTML = ''
+  document.getElementById('multi-viagem').value = ''
+  document.getElementById('multi-erro').style.display = 'none'
+  document.getElementById('multi-progresso').style.display = 'none'
+  multiLinhas = []
+  multiContador = 0
+  // Reinicia com 3 linhas
+  adicionarLinhaMulti()
+  adicionarLinhaMulti()
+  adicionarLinhaMulti()
+}
+
 ;(async()=>{
   const{data:{session}}=await sb.auth.getSession()
-  if(session){
-    await iniciarApp()
-  }else{
-    document.body.classList.remove('app-authenticated','usuario-aprovador','usuario-coordenador')
-    document.body.classList.add('app-logged-out')
-    document.getElementById('login-screen').classList.remove('hide')
-    document.getElementById('login-screen').style.display='flex'
-    document.getElementById('app').classList.remove('show')
-    document.getElementById('app').style.display='none'
-  }
+  if(session)await iniciarApp()
 })()
 </script>
 </body>
