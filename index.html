@@ -159,6 +159,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Agenda
       </div>
+      <div class="nav-item" onclick="showScreen('semanal',this)" id="nav-semanal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="18"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="16" y1="14" x2="16" y2="18"/></svg>
+        Minha semana
+      </div>
       <div class="nav-item" onclick="showScreen('lancarmultiplo',this)" id="nav-lancarmultiplo">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Lançar despesas
@@ -299,6 +303,40 @@
       </div>
 
       <!-- DESPESAS AVULSAS -->
+      <!-- MINHA SEMANA -->
+      <div class="screen" id="screen-semanal">
+        <div class="sec-header">
+          <div>
+            <div class="page-title">Minha semana</div>
+            <div class="page-sub" id="semanal-sub">Registre onde você está cada dia</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn" style="padding:5px 10px" onclick="navSemana(-1)">‹</button>
+            <span id="semanal-titulo" style="font-size:12px;font-weight:600;min-width:160px;text-align:center"></span>
+            <button class="btn" style="padding:5px 10px" onclick="navSemana(1)">›</button>
+            <button class="btn" style="padding:5px 10px" onclick="irSemanaAtual()">Hoje</button>
+          </div>
+        </div>
+
+        <!-- Seletor de pessoa (só aprovador) -->
+        <div class="aprovador-only" id="semanal-pessoa-wrap" style="display:none;margin-bottom:12px">
+          <div class="form-group" style="max-width:300px">
+            <label class="form-label">Ver semana de:</label>
+            <select id="semanal-pessoa" class="form-select" onchange="carregarSemanal()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="semanal-grid"></div>
+
+        <!-- Painel mensal (só aprovador) -->
+        <div class="aprovador-only" id="semanal-mensal-wrap" style="display:none;margin-top:20px">
+          <div class="sec-header"><div class="sec-title">Visão mensal de todos</div></div>
+          <div id="semanal-mensal"></div>
+        </div>
+      </div>
+
       <div class="screen" id="screen-avulsas">
         <div class="sec-header">
           <div>
@@ -508,7 +546,7 @@ function showScreen(nome,navEl) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas,semanal:carregarSemanal}
   if(loaders[nome])loaders[nome]()
 }
 
@@ -1604,20 +1642,22 @@ function setMultiTipo(t){
   document.getElementById('multi-tipo-viagem').classList.toggle('active', t==='viagem')
   document.getElementById('multi-tipo-avulso').classList.toggle('active', t==='avulso')
   document.getElementById('multi-campo-viagem').style.display = t==='viagem' ? 'flex' : 'none'
-  renderBlocos()
+  // Não re-renderiza blocos — categorias são as mesmas independente do tipo
 }
 
 function renderBlocos(){
-  // Guarda valores já preenchidos antes de re-renderizar
   const valoresSalvos = coletarValoresAtuais()
-
   multiContador = 0
   multiArquivos = {}
   const wrap = document.getElementById('multi-blocos')
-  const cats = multiCats.filter(c=>c.tipo===multiTipoAtual)
+  if(!wrap) return
+
+  // Mostra TODAS as categorias ativas, sem filtrar por tipo
+  // O tipo (viagem/avulso) afeta apenas a viagem vinculada, não quais categorias aparecem
+  const cats = multiCats.filter(c=>c.ativo!==false)
 
   if(!cats.length){
-    wrap.innerHTML = `<div class="empty">Nenhuma categoria cadastrada para o tipo selecionado.<br>Vá em Admin → Categorias para adicionar.</div>`
+    wrap.innerHTML = `<div class="empty">Nenhuma categoria cadastrada.<br>Vá em Admin → Categorias para adicionar.</div>`
     return
   }
 
@@ -1889,6 +1929,275 @@ function removerLinhaMulti(){}
 async function handleMultiArquivos(){}
 function removerArqMulti(){}
 function renderMultiFiles(){}
+
+// ── Agenda Semanal ────────────────────────────
+const TIPOS_DIA = {
+  escritorio: { label:'Escritório', cor:'#1f3a5f', bg:'#eaf0f6' },
+  viagem:     { label:'Viagem',     cor:'#7C3AED', bg:'#EDE9FE' },
+  home:       { label:'Home Office',cor:'#10B981', bg:'#D1FAE5' },
+  folga:      { label:'Folga',      cor:'#b7791f', bg:'#fff7e8' },
+  outro:      { label:'Outro',      cor:'#667085', bg:'#f2f4f7' },
+}
+const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+
+let semanalSegunda = null // Date da segunda-feira da semana atual
+
+function iniciarSemana(){
+  const hoje = new Date()
+  const dia = hoje.getDay() // 0=dom
+  const diff = dia === 0 ? -6 : 1 - dia
+  semanalSegunda = new Date(hoje)
+  semanalSegunda.setDate(hoje.getDate() + diff)
+  semanalSegunda.setHours(0,0,0,0)
+}
+
+function navSemana(d){
+  if(!semanalSegunda) iniciarSemana()
+  semanalSegunda.setDate(semanalSegunda.getDate() + d * 7)
+  carregarSemanal()
+}
+
+function irSemanaAtual(){
+  iniciarSemana()
+  carregarSemanal()
+}
+
+function isoDate(d){ return d.toISOString().slice(0,10) }
+
+async function carregarSemanal(){
+  if(!semanalSegunda) iniciarSemana()
+
+  const seg = new Date(semanalSegunda)
+  const sex = new Date(seg); sex.setDate(seg.getDate()+5) // Seg a Sab (6 dias úteis + sáb)
+  const dom = new Date(seg); dom.setDate(seg.getDate()-1) // Domingo antes
+
+  // Label da semana
+  const label = `${dataFmt(isoDate(seg))} – ${dataFmt(isoDate(sex))}`
+  document.getElementById('semanal-titulo').textContent = label
+
+  // Mostra seletor de pessoa pro aprovador
+  if(perfil.papel === 'aprovador'){
+    document.getElementById('semanal-pessoa-wrap').style.display = 'block'
+    document.getElementById('semanal-mensal-wrap').style.display = 'block'
+    const sel = document.getElementById('semanal-pessoa')
+    if(sel.options.length <= 1){
+      const{data:profs}=await sb.from('profiles').select('id,nome').order('nome')
+      sel.innerHTML = '<option value="">Todos</option>'
+      ;(profs||[]).forEach(p=>{ sel.innerHTML += `<option value="${p.id}">${p.nome}</option>` })
+    }
+  }
+
+  // Busca registros da semana
+  const pessoaId = perfil.papel==='aprovador'
+    ? (document.getElementById('semanal-pessoa')?.value || null)
+    : perfil.id
+
+  let q = sb.from('agenda_semanal').select('*, profiles(nome)')
+    .gte('data', isoDate(dom)).lte('data', isoDate(sex))
+  if(pessoaId) q = q.eq('usuario_id', pessoaId)
+  const{data:registros}=await q
+
+  const porPessoaDia = {}
+  ;(registros||[]).forEach(r=>{
+    const uid = r.usuario_id
+    if(!porPessoaDia[uid]) porPessoaDia[uid] = {nome: r.profiles?.nome||'?', dias:{}}
+    porPessoaDia[uid].dias[r.data] = r
+  })
+
+  // Monta grid
+  const pessoas = pessoaId
+    ? [{ uid: pessoaId, nome: porPessoaDia[pessoaId]?.nome || perfil.nome, dias: porPessoaDia[pessoaId]?.dias||{} }]
+    : Object.entries(porPessoaDia).map(([uid,v])=>({uid, nome:v.nome, dias:v.dias}))
+
+  // Se for coordenador e não tem registro ainda, mostra ele mesmo
+  if(perfil.papel !== 'aprovador' && !pessoas.length){
+    pessoas.push({uid: perfil.id, nome: perfil.nome, dias:{}})
+  }
+
+  // Dias da semana: Seg a Sáb
+  const diasSemana = []
+  for(let i=0;i<6;i++){
+    const d = new Date(seg); d.setDate(seg.getDate()+i)
+    diasSemana.push(isoDate(d))
+  }
+  const hoje = isoDate(new Date())
+
+  // Para o coordenador: grid editável da própria semana
+  if(perfil.papel !== 'aprovador' || pessoaId){
+    const uid = pessoaId || perfil.id
+    const dias = porPessoaDia[uid]?.dias || {}
+
+    const colunas = diasSemana.map(data => {
+      const r = dias[data]
+      const dObj = new Date(data+'T00:00:00')
+      const nomeDia = DIAS_SEMANA[dObj.getDay()]
+      const isHoje = data === hoje
+      const cfg = r ? TIPOS_DIA[r.tipo] : null
+      return `<div style="flex:1;min-width:120px">
+        <div style="text-align:center;font-size:11px;font-weight:700;color:${isHoje?'var(--purple)':'var(--ink2)'};padding:6px 4px;background:${isHoje?'var(--purple-light)':'var(--surface-alt)'};border-radius:8px 8px 0 0;border:1px solid var(--line);border-bottom:none">
+          ${nomeDia} ${dataFmt(data).slice(0,5)}
+        </div>
+        <div style="border:1px solid var(--line);border-radius:0 0 8px 8px;padding:8px;background:${cfg?cfg.bg:'white'};min-height:100px">
+          ${cfg ? `
+            <div style="font-size:11px;font-weight:700;color:${cfg.cor};margin-bottom:4px">${cfg.label}</div>
+            ${r.estado||r.cidade ? `<div style="font-size:10px;color:var(--ink2)">${[r.cidade,r.estado].filter(Boolean).join(' · ')}</div>`:''}
+            ${r.observacao ? `<div style="font-size:10px;color:var(--ink2);margin-top:3px">${r.observacao}</div>`:''}
+            <button onclick="editarDiaSemanal('${uid}','${data}')" style="font-size:10px;padding:3px 8px;border:1px solid ${cfg.cor};border-radius:6px;background:white;color:${cfg.cor};cursor:pointer;margin-top:6px">Editar</button>
+          ` : `
+            <button onclick="editarDiaSemanal('${uid}','${data}')" style="font-size:10px;padding:5px 10px;border:1.5px dashed #ccc;border-radius:8px;background:#fafafa;color:var(--ink2);cursor:pointer;width:100%">+ Marcar</button>
+          `}
+        </div>
+      </div>`
+    }).join('')
+
+    document.getElementById('semanal-grid').innerHTML = `
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${colunas}</div>`
+  }
+
+  // Visão mensal de todos (só aprovador)
+  if(perfil.papel === 'aprovador' && !pessoaId){
+    await renderMensalTodos()
+  } else if(perfil.papel === 'aprovador'){
+    document.getElementById('semanal-mensal').innerHTML = ''
+  }
+}
+
+async function renderMensalTodos(){
+  const mes = mesAtual()
+  const ini = `${mes}-01`
+  const fim = fimMes(mes)
+  const{data:registros}=await sb.from('agenda_semanal')
+    .select('*, profiles(nome)').gte('data',ini).lte('data',fim).order('data')
+  const{data:profs}=await sb.from('profiles').select('id,nome').order('nome')
+
+  const porPessoa = {}
+  ;(profs||[]).forEach(p=>{ porPessoa[p.id]={nome:p.nome, dias:{}} })
+  ;(registros||[]).forEach(r=>{ if(porPessoa[r.usuario_id]) porPessoa[r.usuario_id].dias[r.data]=r })
+
+  // Monta tabela: pessoas nas linhas, dias nas colunas
+  const diasMes = []
+  const d = new Date(ini+'T00:00:00')
+  const fimD = new Date(fim+'T00:00:00')
+  while(d <= fimD){ diasMes.push(isoDate(d)); d.setDate(d.getDate()+1) }
+
+  const hoje = isoDate(new Date())
+  const thead = `<tr>
+    <th style="padding:6px 8px;font-size:11px;text-align:left;position:sticky;left:0;background:var(--surface-alt)">Nome</th>
+    ${diasMes.map(dt=>{
+      const dObj=new Date(dt+'T00:00:00')
+      const isHoje=dt===hoje
+      return `<th style="padding:4px 3px;font-size:9px;text-align:center;min-width:28px;color:${isHoje?'var(--purple)':'var(--ink2)'};background:${isHoje?'var(--purple-light)':'var(--surface-alt)'}">
+        ${DIAS_SEMANA[dObj.getDay()][0]}<br>${dObj.getDate()}
+      </th>`
+    }).join('')}
+    <th style="padding:6px 4px;font-size:10px;text-align:center">Viagens</th>
+  </tr>`
+
+  const tbody = Object.values(porPessoa).map(p=>{
+    const cells = diasMes.map(dt=>{
+      const r = p.dias[dt]
+      if(!r) return `<td style="padding:2px 3px;text-align:center">—</td>`
+      const cfg = TIPOS_DIA[r.tipo]||TIPOS_DIA.outro
+      return `<td style="padding:2px 3px;text-align:center;background:${cfg.bg}" title="${cfg.label}${r.cidade?' · '+r.cidade:''}${r.estado?' · '+r.estado:''}">
+        <span style="font-size:9px;color:${cfg.cor};font-weight:700">${cfg.label[0]}</span>
+      </td>`
+    }).join('')
+    const totalViagens = Object.values(p.dias).filter(r=>r.tipo==='viagem').length
+    return `<tr style="border-bottom:1px solid var(--line)">
+      <td style="padding:6px 8px;font-size:11px;font-weight:600;white-space:nowrap;position:sticky;left:0;background:white">${p.nome}</td>
+      ${cells}
+      <td style="padding:6px 4px;text-align:center;font-size:11px;font-weight:700;color:var(--purple)">${totalViagens||'—'}</td>
+    </tr>`
+  }).join('')
+
+  document.getElementById('semanal-mensal').innerHTML = `
+    <div class="card" style="overflow-x:auto">
+      <table class="tbl" style="min-width:600px;font-size:11px">
+        <thead>${thead}</thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:10px">
+      ${Object.entries(TIPOS_DIA).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:4px"><span style="background:${v.bg};color:${v.cor};border-radius:4px;padding:1px 6px;font-weight:700">${v.label[0]}</span> ${v.label}</span>`).join('')}
+    </div>`
+}
+
+function editarDiaSemanal(uid, data){
+  const dFmt = dataFmt(data)
+  const tipos = Object.entries(TIPOS_DIA).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')
+  const modal = document.createElement('div')
+  modal.id = 'modal-semanal'
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:999'
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:20px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+      <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${dFmt}</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">Situação</label>
+        <select id="modal-tipo" class="form-select">${tipos}</select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cidade</label>
+          <input id="modal-cidade" class="form-input" placeholder="ex: São Paulo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estado</label>
+          <select id="modal-estado" class="form-select">
+            <option value="">—</option>
+            ${['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(e=>`<option>${e}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Observação</label>
+        <input id="modal-obs" class="form-input" placeholder="Opcional">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:space-between">
+        <button class="btn btn-reject" onclick="excluirDiaSemanal('${uid}','${data}')">Excluir</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="fecharModalSemanal()">Cancelar</button>
+          <button class="btn btn-mint" onclick="salvarDiaSemanal('${uid}','${data}')">Salvar</button>
+        </div>
+      </div>
+    </div>`
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e=>{ if(e.target===modal) fecharModalSemanal() })
+
+  // Preenche se já existe
+  sb.from('agenda_semanal').select('*').eq('usuario_id',uid).eq('data',data).single()
+    .then(({data:r})=>{
+      if(!r) return
+      document.getElementById('modal-tipo').value = r.tipo||'escritorio'
+      document.getElementById('modal-cidade').value = r.cidade||''
+      document.getElementById('modal-estado').value = r.estado||''
+      document.getElementById('modal-obs').value = r.observacao||''
+    })
+}
+
+function fecharModalSemanal(){
+  document.getElementById('modal-semanal')?.remove()
+}
+
+async function salvarDiaSemanal(uid, data){
+  const tipo = document.getElementById('modal-tipo').value
+  const cidade = document.getElementById('modal-cidade').value.trim()
+  const estado = document.getElementById('modal-estado').value
+  const observacao = document.getElementById('modal-obs').value.trim()
+  const{error}=await sb.from('agenda_semanal').upsert({
+    usuario_id:uid, data, tipo, cidade:cidade||null, estado:estado||null,
+    observacao:observacao||null, created_by:perfil.id
+  }, {onConflict:'usuario_id,data'})
+  if(error){ alert('Erro ao salvar: '+error.message); return }
+  fecharModalSemanal()
+  await carregarSemanal()
+}
+
+async function excluirDiaSemanal(uid, data){
+  if(!confirm('Excluir registro deste dia?')) return
+  await sb.from('agenda_semanal').delete().eq('usuario_id',uid).eq('data',data)
+  fecharModalSemanal()
+  await carregarSemanal()
+}
 
 ;(async()=>{
   const{data:{session}}=await sb.auth.getSession()
