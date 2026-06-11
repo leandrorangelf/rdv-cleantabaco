@@ -361,12 +361,13 @@
       <!-- LANÇAMENTO MÚLTIPLO -->
       <div class="screen" id="screen-lancarmultiplo">
         <div class="page-title">Lançar múltiplas despesas</div>
-        <div class="page-sub">Adicione várias linhas e salve todas de uma vez</div>
+        <div class="page-sub">Preencha linha por linha — estilo planilha</div>
 
+        <!-- Cabeçalho fixo: tipo + viagem -->
         <div class="form-card" style="margin-bottom:10px">
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Tipo de despesa</label>
+              <label class="form-label">Tipo</label>
               <div class="tipo-toggle" style="margin-bottom:0">
                 <div class="tipo-btn active" id="multi-tipo-viagem" onclick="setMultiTipo('viagem')">Viagem</div>
                 <div class="tipo-btn" id="multi-tipo-avulso" onclick="setMultiTipo('avulso')">Avulsa</div>
@@ -379,11 +380,25 @@
           </div>
         </div>
 
-        <div id="multi-linhas"></div>
+        <!-- Tabela de linhas -->
+        <div class="card" style="overflow-x:auto;margin-bottom:10px">
+          <table style="width:100%;border-collapse:collapse;min-width:700px">
+            <thead>
+              <tr style="background:var(--surface-alt);border-bottom:1px solid var(--line)">
+                <th style="padding:8px 10px;font-size:11px;font-weight:700;color:var(--ink2);text-align:left;width:24%">Categoria *</th>
+                <th style="padding:8px 10px;font-size:11px;font-weight:700;color:var(--ink2);text-align:left;width:18%">Data *</th>
+                <th style="padding:8px 10px;font-size:11px;font-weight:700;color:var(--ink2);text-align:left;width:14%">Valor (R$) *</th>
+                <th style="padding:8px 10px;font-size:11px;font-weight:700;color:var(--ink2);text-align:left;width:22%">Descrição</th>
+                <th style="padding:8px 10px;font-size:11px;font-weight:700;color:var(--ink2);text-align:left;width:18%">Comprovantes</th>
+                <th style="padding:8px 10px;width:4%"></th>
+              </tr>
+            </thead>
+            <tbody id="multi-tbody"></tbody>
+          </table>
+        </div>
 
-        <button class="btn" style="width:100%;justify-content:center;margin-bottom:12px;border-style:dashed" onclick="adicionarLinhaMulti()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          Adicionar linha
+        <button class="btn" style="width:100%;justify-content:center;margin-bottom:12px;border-style:dashed;font-size:12px" onclick="adicionarLinhaMulti()">
+          + Adicionar linha
         </button>
 
         <div id="multi-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
@@ -1562,37 +1577,34 @@ async function toggleCategoria(id,ativo){
   carregarCategorias()
 }
 
-// ── Lançamento Múltiplo ───────────────────────
+// ── Lançamento Múltiplo (estilo Excel) ──────────
 let multiTipoAtual = 'viagem'
-let multiLinhas = [] // array de {id, categorias, arquivos}
 let multiCats = []
 let multiContador = 0
+let multiArquivos = {} // {linhaId: [File, ...]}
 
 async function prepararFormMulti(){
   multiTipoAtual = 'viagem'
-  multiLinhas = []
   multiContador = 0
+  multiArquivos = {}
   document.getElementById('multi-tipo-viagem').classList.add('active')
   document.getElementById('multi-tipo-avulso').classList.remove('active')
   document.getElementById('multi-campo-viagem').style.display = 'flex'
   document.getElementById('multi-erro').style.display = 'none'
   document.getElementById('multi-progresso').style.display = 'none'
 
-  // Carrega viagens do usuário
-  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
+  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio')
+    .eq('usuario_id',perfil.id).in('status',['agendada','em_andamento']).order('data_inicio',{ascending:false})
   const sel = document.getElementById('multi-viagem')
   sel.innerHTML = '<option value="">Selecione a viagem</option>'
   ;(viagens||[]).forEach(v=>{ sel.innerHTML += `<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>` })
 
-  // Carrega categorias
   const{data:cats}=await sb.from('categorias').select('*').eq('ativo',true).order('tipo').order('ordem')
   multiCats = cats||[]
 
-  // Inicia com 3 linhas
-  document.getElementById('multi-linhas').innerHTML = ''
-  adicionarLinhaMulti()
-  adicionarLinhaMulti()
-  adicionarLinhaMulti()
+  // Inicia com 5 linhas vazias
+  document.getElementById('multi-tbody').innerHTML = ''
+  for(let i=0;i<5;i++) adicionarLinhaMulti()
 }
 
 function setMultiTipo(t){
@@ -1600,126 +1612,138 @@ function setMultiTipo(t){
   document.getElementById('multi-tipo-viagem').classList.toggle('active', t==='viagem')
   document.getElementById('multi-tipo-avulso').classList.toggle('active', t==='avulso')
   document.getElementById('multi-campo-viagem').style.display = t==='viagem' ? 'flex' : 'none'
-  // Atualiza categorias em todas as linhas
+  // Atualiza dropdowns de categoria em todas as linhas
   document.querySelectorAll('.multi-cat-sel').forEach(sel => {
     const val = sel.value
-    sel.innerHTML = '<option value="">Categoria *</option>'
-    multiCats.filter(c=>c.tipo===t).forEach(c=>{ sel.innerHTML += `<option value="${c.id}" ${c.id===val?'selected':''}>${c.nome}</option>` })
+    sel.innerHTML = '<option value="">Categoria</option>'
+    multiCats.filter(c=>c.tipo===t).forEach(c=>{
+      sel.innerHTML += `<option value="${c.id}" ${c.id===val?'selected':''}>${c.nome}</option>`
+    })
   })
 }
 
 function adicionarLinhaMulti(){
   const id = ++multiContador
-  const cats = multiCats.filter(c=>c.tipo===multiTipoAtual)
+  multiArquivos[id] = []
   const hoje = new Date().toISOString().slice(0,10)
-  const wrap = document.getElementById('multi-linhas')
-
-  const div = document.createElement('div')
-  div.id = `multi-linha-${id}`
-  div.style.cssText = 'border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;background:var(--surface);position:relative'
-  div.innerHTML = `
-    <button onclick="removerLinhaMulti(${id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--ink2);font-size:16px;line-height:1" title="Remover linha">×</button>
-    <div style="display:grid;grid-template-columns:1fr 1fr 100px;gap:8px;margin-bottom:8px">
-      <select id="multi-cat-${id}" class="form-select multi-cat-sel">
-        <option value="">Categoria *</option>
-        ${cats.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')}
+  const cats = multiCats.filter(c=>c.tipo===multiTipoAtual)
+  const opts = cats.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('')
+  const tr = document.createElement('tr')
+  tr.id = `multi-tr-${id}`
+  tr.style.borderBottom = '1px solid var(--line)'
+  tr.innerHTML = `
+    <td style="padding:6px 8px;vertical-align:top">
+      <select id="multi-cat-${id}" class="form-select multi-cat-sel" style="font-size:12px;padding:6px 8px">
+        <option value="">Categoria</option>${opts}
       </select>
-      <input id="multi-desc-${id}" class="form-input" placeholder="Descrição (opcional)">
-      <input id="multi-val-${id}" type="number" step="0.01" class="form-input" placeholder="R$ 0,00">
-    </div>
-    <div style="display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:start">
-      <input id="multi-data-${id}" type="date" class="form-input" value="${hoje}">
-      <div>
-        <div id="multi-upload-area-${id}" class="upload-area" style="padding:10px;text-align:center;cursor:pointer" onclick="document.getElementById('multi-file-${id}').click()">
-          <div id="multi-upload-label-${id}" style="font-size:11px;color:var(--purple)">📎 Anexar comprovantes</div>
-        </div>
-        <div id="multi-files-list-${id}" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px"></div>
+    </td>
+    <td style="padding:6px 8px;vertical-align:top">
+      <input id="multi-data-${id}" type="date" class="form-input" value="${hoje}" style="font-size:12px;padding:6px 8px">
+    </td>
+    <td style="padding:6px 8px;vertical-align:top">
+      <input id="multi-val-${id}" type="number" step="0.01" min="0" class="form-input" placeholder="0,00" style="font-size:12px;padding:6px 8px">
+    </td>
+    <td style="padding:6px 8px;vertical-align:top">
+      <input id="multi-desc-${id}" class="form-input" placeholder="Opcional" style="font-size:12px;padding:6px 8px">
+    </td>
+    <td style="padding:6px 8px;vertical-align:top">
+      <div id="multi-upload-wrap-${id}">
+        <button type="button" onclick="document.getElementById('multi-file-${id}').click()"
+          style="font-size:10px;padding:4px 8px;border:1px dashed #9db0c7;border-radius:8px;background:#f8fbfd;cursor:pointer;color:var(--purple);width:100%">
+          <span id="multi-upload-lbl-${id}">📎 Anexar</span>
+        </button>
+        <div id="multi-files-${id}" style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px"></div>
         <input id="multi-file-${id}" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple style="display:none" onchange="handleMultiArquivos(this,${id})">
       </div>
-    </div>`
-  wrap.appendChild(div)
-  multiLinhas.push({id, arquivos:[]})
+    </td>
+    <td style="padding:6px 4px;text-align:center;vertical-align:top">
+      <button onclick="removerLinhaMulti(${id})" title="Remover" style="background:none;border:none;cursor:pointer;color:var(--ink2);font-size:18px;line-height:1;padding:2px">×</button>
+    </td>`
+  document.getElementById('multi-tbody').appendChild(tr)
 }
 
 function removerLinhaMulti(id){
-  const el = document.getElementById(`multi-linha-${id}`)
-  if(el) el.remove()
-  multiLinhas = multiLinhas.filter(l=>l.id!==id)
+  const tr = document.getElementById(`multi-tr-${id}`)
+  if(tr) tr.remove()
+  delete multiArquivos[id]
 }
 
 async function handleMultiArquivos(input, id){
   const files = Array.from(input.files)
-  const linha = multiLinhas.find(l=>l.id===id)
-  if(!linha) return
+  if(!multiArquivos[id]) multiArquivos[id] = []
   for(const file of files){
     const comp = await comprimirArquivo(file)
-    if(comp) linha.arquivos.push(comp)
+    if(comp) multiArquivos[id].push(comp)
   }
   input.value = ''
-  // Atualiza preview
-  const listEl = document.getElementById(`multi-files-list-${id}`)
-  const labelEl = document.getElementById(`multi-upload-label-${id}`)
-  if(listEl) listEl.innerHTML = linha.arquivos.map((f,i)=>`
-    <div style="display:inline-flex;align-items:center;gap:4px;background:var(--purple-light);border:1px solid #C4B5FD;border-radius:6px;padding:2px 6px;font-size:10px;color:var(--purple-dark)">
-      ${f.type==='application/pdf'?'📄':'🖼️'} ${f.name.slice(0,15)}
-      <button onclick="removerArqMulti(${id},${i})" style="background:none;border:none;cursor:pointer;color:#991B1B;font-size:12px;padding:0">×</button>
-    </div>`).join('')
-  if(labelEl) labelEl.textContent = linha.arquivos.length > 0 ? `${linha.arquivos.length} arquivo${linha.arquivos.length>1?'s':''} · clique para mais` : '📎 Anexar comprovantes'
+  renderMultiFiles(id)
 }
 
-function removerArqMulti(linhaId, arqIdx){
-  const linha = multiLinhas.find(l=>l.id===linhaId)
-  if(!linha) return
-  linha.arquivos.splice(arqIdx,1)
-  // Re-renderiza
-  const fakeInput = {files:[]}
-  handleMultiArquivos(fakeInput, linhaId)
+function renderMultiFiles(id){
+  const lista = document.getElementById(`multi-files-${id}`)
+  const lbl = document.getElementById(`multi-upload-lbl-${id}`)
+  const arqs = multiArquivos[id]||[]
+  if(lista) lista.innerHTML = arqs.map((f,i)=>`
+    <div style="display:inline-flex;align-items:center;gap:3px;background:var(--purple-light);border:1px solid #C4B5FD;border-radius:5px;padding:2px 5px;font-size:10px;color:var(--purple-dark)">
+      ${f.type==='application/pdf'?'📄':'🖼️'} ${f.name.length>12?f.name.slice(0,12)+'…':f.name}
+      <span style="color:var(--ink2)">${Math.round(f.size/1024)}kb</span>
+      <button onclick="removerArqMulti(${id},${i})" style="background:none;border:none;cursor:pointer;color:#991B1B;font-size:12px;padding:0;line-height:1">×</button>
+    </div>`).join('')
+  if(lbl) lbl.textContent = arqs.length > 0 ? `📎 ${arqs.length} arquivo${arqs.length>1?'s':''} · + mais` : '📎 Anexar'
+}
+
+function removerArqMulti(id, idx){
+  if(multiArquivos[id]) multiArquivos[id].splice(idx,1)
+  renderMultiFiles(id)
 }
 
 async function salvarMulti(){
   const err = document.getElementById('multi-erro')
   const prog = document.getElementById('multi-progresso')
-  err.style.display = 'none'
-  prog.style.display = 'none'
+  err.style.display = 'none'; prog.style.display = 'none'
 
   const viagId = multiTipoAtual==='viagem' ? document.getElementById('multi-viagem').value : null
-  if(multiTipoAtual==='viagem' && !viagId){ err.textContent='Selecione a viagem.'; err.style.display='block'; return }
+  if(multiTipoAtual==='viagem' && !viagId){
+    err.textContent = 'Selecione a viagem.'; err.style.display = 'block'; return
+  }
 
-  // Coleta linhas preenchidas
-  const linhasValidas = []
-  const idsNoDOM = document.querySelectorAll('[id^="multi-linha-"]')
-  for(const el of idsNoDOM){
-    const id = parseInt(el.id.replace('multi-linha-',''))
+  // Coleta linhas com dados
+  const rows = []
+  document.querySelectorAll('[id^="multi-tr-"]').forEach(tr => {
+    const id = parseInt(tr.id.replace('multi-tr-',''))
     const catId = document.getElementById(`multi-cat-${id}`)?.value
     const val = parseFloat(document.getElementById(`multi-val-${id}`)?.value)
     const data = document.getElementById(`multi-data-${id}`)?.value
-    const desc = document.getElementById(`multi-desc-${id}`)?.value.trim()
-    const linha = multiLinhas.find(l=>l.id===id)
-    if(!catId && !val) continue // linha vazia, pula
-    if(!catId){ err.textContent=`Linha ${linhasValidas.length+1}: selecione a categoria.`; err.style.display='block'; return }
-    if(!val||val<=0){ err.textContent=`Linha ${linhasValidas.length+1}: informe um valor válido.`; err.style.display='block'; return }
-    if(!data){ err.textContent=`Linha ${linhasValidas.length+1}: informe a data.`; err.style.display='block'; return }
-    linhasValidas.push({id, catId, val, data, desc, arquivos: linha?.arquivos||[]})
-  }
+    const desc = document.getElementById(`multi-desc-${id}`)?.value?.trim()
+    if(!catId && !val) return // linha vazia, pula
+    rows.push({id, catId, val, data, desc})
+  })
 
-  if(!linhasValidas.length){ err.textContent='Adicione pelo menos uma despesa.'; err.style.display='block'; return }
+  if(!rows.length){ err.textContent='Nenhuma linha preenchida.'; err.style.display='block'; return }
+
+  // Valida
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i]
+    if(!r.catId){ err.textContent=`Linha ${i+1}: selecione a categoria.`; err.style.display='block'; return }
+    if(!r.val||r.val<=0){ err.textContent=`Linha ${i+1}: informe um valor válido.`; err.style.display='block'; return }
+    if(!r.data){ err.textContent=`Linha ${i+1}: informe a data.`; err.style.display='block'; return }
+  }
 
   // Estado
   let estado_despesa = null
-  if(multiTipoAtual==='viagem' && viagId){
+  if(multiTipoAtual==='viagem'&&viagId){
     const{data:viag}=await sb.from('viagens').select('estado').eq('id',viagId).single()
     estado_despesa = viag?.estado||null
-  } else {
-    estado_despesa = perfil.estado_base||null
-  }
+  } else { estado_despesa = perfil.estado_base||null }
 
   document.getElementById('multi-btn-salvar').disabled = true
-  prog.textContent = `Salvando 0 de ${linhasValidas.length}...`
+  prog.textContent = `Salvando 0 de ${rows.length}...`
   prog.style.display = 'block'
 
   let ok = 0
-  for(const linha of linhasValidas){
-    const primeiro = linha.arquivos[0]||null
+  for(const r of rows){
+    const arqs = multiArquivos[r.id]||[]
+    const primeiro = arqs[0]||null
     let comprovante_url=null, comprovante_nome=null, comprovante_tamanho_kb=null
 
     if(primeiro){
@@ -1732,17 +1756,16 @@ async function salvarMulti(){
     }
 
     const{data:nova,error}=await sb.from('despesas').insert({
-      usuario_id:perfil.id, viagem_id:viagId||null, categoria_id:linha.catId,
-      descricao:linha.desc||null, valor:linha.val, data_despesa:linha.data,
+      usuario_id:perfil.id, viagem_id:viagId||null, categoria_id:r.catId,
+      descricao:r.desc||null, valor:r.val, data_despesa:r.data,
       status:'pendente', comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
     }).select('id').single()
 
-    if(!error && nova?.id && linha.arquivos.length > 1){
-      await uploadComprovantes(nova.id, linha.arquivos.slice(1))
+    if(!error && nova?.id && arqs.length > 1){
+      await uploadComprovantes(nova.id, arqs.slice(1))
     }
-
     ok++
-    prog.textContent = `Salvando ${ok} de ${linhasValidas.length}...`
+    prog.textContent = `Salvando ${ok} de ${rows.length}...`
   }
 
   document.getElementById('multi-btn-salvar').disabled = false
@@ -1751,20 +1774,17 @@ async function salvarMulti(){
   setTimeout(()=>{
     limparMulti()
     showScreen('agenda', document.getElementById('nav-agenda'))
-  }, 1500)
+  }, 1200)
 }
 
 function limparMulti(){
-  document.getElementById('multi-linhas').innerHTML = ''
+  document.getElementById('multi-tbody').innerHTML = ''
   document.getElementById('multi-viagem').value = ''
   document.getElementById('multi-erro').style.display = 'none'
   document.getElementById('multi-progresso').style.display = 'none'
-  multiLinhas = []
+  multiArquivos = {}
   multiContador = 0
-  // Reinicia com 3 linhas
-  adicionarLinhaMulti()
-  adicionarLinhaMulti()
-  adicionarLinhaMulti()
+  for(let i=0;i<5;i++) adicionarLinhaMulti()
 }
 
 ;(async()=>{
