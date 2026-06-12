@@ -2071,7 +2071,7 @@ async function carregarSemanal(){
     ? (document.getElementById('semanal-pessoa')?.value || null)
     : perfil.id
 
-  let q = sb.from('agenda_semanal').select('*, profiles(nome)')
+  let q = sb.from('agenda_semanal').select('*, usuario:profiles!agenda_semanal_usuario_id_fkey(nome)')
     .gte('data', isoDate(dom)).lte('data', isoDate(sex))
   if(pessoaId) q = q.eq('usuario_id', pessoaId)
   const{data:registros,error:errRegistros}=await q
@@ -2083,7 +2083,7 @@ async function carregarSemanal(){
   const porPessoaDia = {}
   ;(registros||[]).forEach(r=>{
     const uid = r.usuario_id
-    if(!porPessoaDia[uid]) porPessoaDia[uid] = {nome: r.profiles?.nome||'?', dias:{}}
+    if(!porPessoaDia[uid]) porPessoaDia[uid] = {nome: r.usuario?.nome||'?', dias:{}}
     porPessoaDia[uid].dias[r.data] = r
   })
 
@@ -2154,7 +2154,7 @@ async function renderMensalTodos(){
   const ini = `${mes}-01`
   const fim = fimMes(mes)
   const{data:registros}=await sb.from('agenda_semanal')
-    .select('*, profiles(nome)').gte('data',ini).lte('data',fim).order('data')
+    .select('*, usuario:profiles!agenda_semanal_usuario_id_fkey(nome)').gte('data',ini).lte('data',fim).order('data')
   const{data:profs}=await sb.from('profiles').select('id,nome').order('nome')
 
   const porPessoa = {}
