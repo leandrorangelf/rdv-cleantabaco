@@ -669,9 +669,10 @@ async function carregarDashboard() {
   if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
+  const dsAtivas=ds.filter(d=>d.status!=='rejeitado')
 
   document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
-  document.getElementById('m-total').textContent=moeda(ds.reduce((s,d)=>s+d.valor,0))
+  document.getElementById('m-total').textContent=moeda(dsAtivas.reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0))
@@ -685,7 +686,7 @@ async function carregarDashboard() {
     todosProfs=profs||[]
 
     // Alerta RDV — quem lançou e quem não lançou esse mês
-    const lançaramIds=new Set(ds.map(d=>d.usuario_id))
+    const lançaramIds=new Set(dsAtivas.map(d=>d.usuario_id))
     const lançaram=todosProfs.filter(p=>lançaramIds.has(p.id)).map(p=>p.nome)
     const naoLancaram=todosProfs.filter(p=>!lançaramIds.has(p.id)).map(p=>p.nome)
     let alertaHtml=`<div class="card" style="margin-bottom:12px">
@@ -717,7 +718,7 @@ async function carregarDashboard() {
     const nomePorId={}
     todosProfs.forEach(p=>nomePorId[p.id]=p.nome)
     const por={}
-    ds.forEach(d=>{
+    dsAtivas.forEach(d=>{
       if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',total:0,aprov:0,pend:0,rej:0}
       por[d.usuario_id].total+=d.valor
       if(d.status==='aprovado')por[d.usuario_id].aprov+=d.valor
@@ -1316,7 +1317,7 @@ async function salvarDespesa(){
   }
 
   limparFormDespesa()
-  await contarPendentes()
+  await atualizarCamposIntegrados(telaOrigemDespesa==='avulsas'?'avulsas':'agenda')
   if(telaOrigemDespesa==='avulsas'){
     showScreen('avulsas',document.getElementById('nav-agenda'))
   } else {
@@ -1449,10 +1450,26 @@ async function carregarAprovacoes(){
   document.getElementById('aprovar-lista').innerHTML=html
 }
 
-async function aprovar(id){
-  await sb.from('despesas').update({status:'aprovado',aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
+
+async function atualizarCamposIntegrados(origemAtual=null){
   await contarPendentes()
-  await carregarAprovacoes()
+  await carregarDashboard()
+
+  const telaAtiva=document.querySelector('.screen.active')?.id||''
+  const origem=origemAtual||telaAtiva.replace('screen-','')
+  if(origem==='aprovar') await carregarAprovacoes()
+  if(origem==='agenda') await carregarAgenda()
+  if(origem==='avulsas') await carregarAvulsas()
+  if(origem==='insights') await carregarInsights()
+  if(origem==='semanal') await carregarSemanal()
+}
+
+async function aprovar(id){
+  const{error}=await sb.from('despesas')
+    .update({status:'aprovado',motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .eq('id',id)
+  if(error){alert('Erro ao aprovar: '+error.message);return}
+  await atualizarCamposIntegrados('aprovar')
 }
 
 function mostrarRejeitar(id){
@@ -1463,14 +1480,16 @@ function mostrarRejeitar(id){
 async function rejeitar(id){
   const motivo=document.getElementById('rej-motivo-'+id).value.trim()
   if(!motivo){alert('Informe o motivo da rejeição.');return}
-  await sb.from('despesas').update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
-  await contarPendentes()
-  await carregarAprovacoes()
+  const{error}=await sb.from('despesas')
+    .update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .eq('id',id)
+  if(error){alert('Erro ao rejeitar: '+error.message);return}
+  await atualizarCamposIntegrados('aprovar')
 }
 
 async function carregarInsights(){
   const ini=new Date();ini.setDate(ini.getDate()-90)
-  const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').gte('data_despesa',ini.toISOString().slice(0,10))
+  const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').neq('status','rejeitado').gte('data_despesa',ini.toISOString().slice(0,10))
   const{data:profs}=await sb.from('profiles').select('id,nome')
   const{data:cats}=await sb.from('categorias').select('id,nome')
   const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
@@ -1636,6 +1655,7 @@ async function carregarConsolidadoAnual(profs){
   const ano=new Date().getFullYear()
   const {data:despesas}=await sb.from('despesas')
     .select('usuario_id,valor,status,data_despesa')
+    .neq('status','rejeitado')
     .gte('data_despesa',`${ano}-01-01`)
     .lte('data_despesa',`${ano}-12-31`)
 
@@ -1703,6 +1723,7 @@ async function carregarGastosPorEstado(){
   const mes=mesAtual()
   const{data:despesas}=await sb.from('despesas')
     .select('valor,status,estado,viagem_id')
+    .neq('status','rejeitado')
     .gte('data_despesa',`${mes}-01`)
     .lte('data_despesa',fimMes(mes))
 
@@ -2090,7 +2111,7 @@ async function salvarMulti(){
   }
 
   document.getElementById('multi-btn-salvar').disabled = false
-  await contarPendentes()
+  await atualizarCamposIntegrados('agenda')
   prog.textContent = `✓ ${ok} despesa${ok>1?'s':''} salva${ok>1?'s':''}!`
   setTimeout(()=>{
     limparMulti()
