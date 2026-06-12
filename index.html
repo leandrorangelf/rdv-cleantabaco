@@ -1220,7 +1220,6 @@ async function contarPendentes(){
 }
 
 async function carregarAprovacoes(){
-  // Busca despesas pendentes
   const{data:despesas}=await sb.from('despesas').select('*').eq('status','pendente').order('data_despesa')
   if(!despesas||!despesas.length){
     document.getElementById('aprovar-sub').textContent='Nenhum item pendente'
@@ -1228,7 +1227,6 @@ async function carregarAprovacoes(){
     return
   }
 
-  // Busca perfis, categorias e viagens separadamente
   const{data:profs}=await sb.from('profiles').select('id,nome')
   const{data:cats}=await sb.from('categorias').select('id,nome,tipo')
   const viagIds=despesas.filter(d=>d.viagem_id).map(d=>d.viagem_id)
@@ -1237,6 +1235,15 @@ async function carregarAprovacoes(){
     const{data:vs}=await sb.from('viagens').select('id,destino,cliente').in('id',viagIds)
     viagens=vs||[]
   }
+
+  // Busca comprovantes extras da tabela comprovantes
+  const despIds = despesas.map(d=>d.id)
+  let compPorDespesa = {}
+  const{data:comps}=await sb.from('comprovantes').select('*').in('despesa_id',despIds)
+  ;(comps||[]).forEach(c=>{
+    if(!compPorDespesa[c.despesa_id]) compPorDespesa[c.despesa_id]=[]
+    compPorDespesa[c.despesa_id].push(c)
+  })
 
   const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
   const catPorId={};(cats||[]).forEach(c=>catPorId[c.id]=c)
@@ -1256,14 +1263,39 @@ async function carregarAprovacoes(){
     const rows=g.items.map(d=>{
       const cat=catPorId[d.categoria_id]
       const viag=d.viagem_id?viagPorId[d.viagem_id]:null
+
+      // Monta lista de todos os comprovantes
+      const extrasTabela = compPorDespesa[d.id]||[]
+      let compHtml = ''
+      if(d.comprovante_url){
+        const isPdf = d.comprovante_nome?.toLowerCase().endsWith('.pdf')
+        compHtml += isPdf
+          ? `<a href="${d.comprovante_url}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD">📄 ${d.comprovante_nome||'PDF'}</a>`
+          : `<a href="${d.comprovante_url}" target="_blank"><img src="${d.comprovante_url}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--line)" title="${d.comprovante_nome||'foto'}"></a>`
+      }
+      extrasTabela.forEach(c=>{
+        const isPdf = c.tipo==='pdf'
+        compHtml += isPdf
+          ? `<a href="${c.url}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD">📄 ${c.nome||'PDF'}</a>`
+          : `<a href="${c.url}" target="_blank"><img src="${c.url}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--line)" title="${c.nome||'foto'}"></a>`
+      })
+      const totalComps = (d.comprovante_url?1:0) + extrasTabela.length
+      const semComp = !d.comprovante_url && !extrasTabela.length
+
       return`<div class="approve-row" id="row-${d.id}">
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:500">${cat?.nome||'?'}${d.descricao?` · <span style="font-weight:400;color:var(--ink2)">${d.descricao}</span>`:''}</div>
           <div style="font-size:11px;color:var(--ink2);margin-top:2px">
             ${dataFmt(d.data_despesa)}
             ${viag?` · ${viag.destino} – ${viag.cliente}`:' · avulso'}
-            ${d.comprovante_url?` · <a href="${d.comprovante_url}" target="_blank" style="color:var(--purple)">comprovante</a>`:' · <span style="color:var(--orange-dark)">sem comprovante</span>'}
           </div>
+          ${semComp
+            ? `<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`
+            : `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">
+                ${compHtml}
+                ${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}
+               </div>`
+          }
         </div>
         <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
         <div style="display:flex;gap:6px;flex-shrink:0">
