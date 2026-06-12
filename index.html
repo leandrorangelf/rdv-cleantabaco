@@ -11,7 +11,7 @@
     --mint: #10B981; --mint-light: #D1FAE5; --mint-dark: #065F46;
     --orange: #F97316; --orange-light: #FEF3C7; --orange-dark: #92400E;
     --red: #EF4444; --red-light: #FEE2E2;
-    --cream: #FAF7F0; --ink: #1C1917; --ink2: #57534E; --line: #E7E5E4;
+    --cream: #FAF7F0; --surface-alt: #F5F5F4; --ink: #1C1917; --ink2: #57534E; --line: #E7E5E4;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: system-ui, sans-serif; background: var(--cream); color: var(--ink); font-size: 14px; }
@@ -517,6 +517,27 @@ function statusBadge(s) {
   return`<span class="badge ${m[s]||'b-gray'}">${l[s]||s}</span>`
 }
 
+function normalizarNomeCategoria(nome){
+  return String(nome||'')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g,'')
+    .replace(/\s+/g,' ')
+}
+
+function categoriasUnicas(lista, tipoFiltro=null){
+  const vistos = new Set()
+  return (lista||[]).filter(c=>{
+    if(!c || c.ativo===false) return false
+    if(tipoFiltro && c.tipo !== tipoFiltro) return false
+    const chave = `${tipoFiltro||c.tipo||''}|${normalizarNomeCategoria(c.nome)}`
+    if(vistos.has(chave)) return false
+    vistos.add(chave)
+    return true
+  })
+}
+
 function mostrarAviso(msg, tipo='ok'){
   let box=document.getElementById('app-toast')
   if(!box){
@@ -563,6 +584,8 @@ async function iniciarApp() {
   document.getElementById('topbar-avatar').textContent=iniciais(perfil.nome)
   document.getElementById('login-screen').style.display='none'
   document.getElementById('app').classList.add('show')
+  document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
+  document.getElementById('nav-label-admin').style.display='none'
   if(perfil.papel==='aprovador'){
     document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='flex')
     document.getElementById('nav-label-admin').style.display='block'
@@ -571,13 +594,13 @@ async function iniciarApp() {
   await contarPendentes()
 }
 
-function showScreen(nome,navEl) {
+function showScreen(nome,navEl,skipLoader=false) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'))
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
   const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,semanal:carregarSemanal}
-  if(loaders[nome])loaders[nome]()
+  if(!skipLoader && loaders[nome])loaders[nome]()
 }
 
 // ── Calendário ────────────────────────────────
@@ -679,6 +702,12 @@ async function carregarDashboard() {
 
   const dashSemanaWrap = document.getElementById('dash-semana-wrap')
   if(dashSemanaWrap) dashSemanaWrap.style.display = 'none'
+  if(perfil.papel!=='aprovador'){
+    document.getElementById('dash-alerta-rdv').innerHTML=''
+    document.getElementById('dash-tabela').innerHTML=''
+    document.getElementById('dash-calendario-wrap').style.display='none'
+    document.getElementById('dash-viagens-wrap').style.display='none'
+  }
 
   if(perfil.papel==='aprovador'){
     // Perfis
@@ -892,10 +921,12 @@ async function carregarAgenda() {
   } else {
     viagens.forEach(v=>{
       const ds=despPorViagem[v.id]||[]
-      const total=ds.reduce((s,d)=>s+d.valor,0)
+      const dsAtivasViagem=ds.filter(d=>d.status!=='rejeitado')
+      const total=dsAtivasViagem.reduce((s,d)=>s+d.valor,0)
       const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
       const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
       const rejN=ds.filter(d=>d.status==='rejeitado').length
+      const rejValor=ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0)
       const quem=perfil.papel==='aprovador'&&nomePorId[v.usuario_id]?` · ${nomePorId[v.usuario_id]}`:''
       const estadoLabel=v.estado?` · ${v.estado}`:''
       const temResultado=v.fechou_negocio!==null
@@ -926,7 +957,7 @@ async function carregarAgenda() {
             <span>Total: <strong style="color:var(--ink)">${moeda(total)}</strong></span>
             ${aprov>0?`<span style="color:var(--mint-dark)">Aprov: ${moeda(aprov)}</span>`:''}
             ${pend>0?`<span style="color:var(--orange-dark)">Pend: ${moeda(pend)}</span>`:''}
-            ${rejN>0?`<span style="color:#991B1B">${rejN} rejeitado(s)</span>`:''}
+            ${rejN>0?`<span style="color:#991B1B">${rejN} rejeitado(s): ${moeda(rejValor)}</span>`:''}
           </div>`
       } else {
         despesasHtml=`<div style="padding:8px 12px;font-size:11px;color:var(--ink2)">Nenhuma despesa lançada.</div>`
@@ -956,7 +987,7 @@ async function carregarAgenda() {
 }
 
 function lancarParaViagem(vid){
-  showScreen('lancarmultiplo',document.getElementById('nav-lancarmultiplo'))
+  showScreen('lancar',document.getElementById('nav-lancarmultiplo'),true)
   setTimeout(()=>{
     setMultiTipo('viagem')
     const s=document.getElementById('multi-viagem')
@@ -985,9 +1016,11 @@ async function carregarAvulsas(){
     ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
   }
 
-  const total=(avulsas||[]).reduce((s,d)=>s+d.valor,0)
+  const avulsasAtivasTela=(avulsas||[]).filter(d=>d.status!=='rejeitado')
+  const total=avulsasAtivasTela.reduce((s,d)=>s+d.valor,0)
   const pend=(avulsas||[]).filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
-  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total: ${moeda(total)} · Pendente: ${moeda(pend)}`
+  const rej=(avulsas||[]).filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0)
+  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total ativo: ${moeda(total)} · Pendente: ${moeda(pend)}${rej>0?' · Rejeitado: '+moeda(rej):''}`
 
   if(!avulsas||!avulsas.length){
     document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
@@ -1045,6 +1078,7 @@ async function salvarViagem(){
   document.getElementById('v-inicio').value=''
   document.getElementById('v-fim').value=''
   document.getElementById('v-motivo').value=''
+  await atualizarCamposIntegrados('agenda')
   showScreen('agenda',document.getElementById('nav-agenda'))
 }
 
@@ -1066,7 +1100,7 @@ async function atualizarCategoriasDrop(){
   const{data:cats}=await sb.from('categorias').select('*').eq('ativo',true).eq('tipo',tipoAtual).order('ordem')
   const sel=document.getElementById('d-categoria')
   sel.innerHTML='<option value="">Selecione</option>'
-  ;(cats||[]).forEach(c=>{sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`})
+  categoriasUnicas(cats,tipoAtual).forEach(c=>{sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`})
 }
 
 function setTipo(t){
@@ -1084,8 +1118,9 @@ async function sugerirCategoria(){
   const valor=parseFloat(document.getElementById('d-valor').value)||0
   const desc=document.getElementById('d-descricao').value.trim().toLowerCase()
   if(!valor)return
-  const{data:cats}=await sb.from('categorias').select('id,nome').eq('ativo',true).eq('tipo',tipoAtual).order('ordem')
-  if(!cats||!cats.length)return
+  const{data:catsRaw}=await sb.from('categorias').select('id,nome,tipo,ativo').eq('ativo',true).eq('tipo',tipoAtual).order('ordem')
+  const cats = categoriasUnicas(catsRaw,tipoAtual)
+  if(!cats.length)return
   let sugerido=null
   if(tipoAtual==='viagem'){
     if(desc.includes('hotel')||desc.includes('hosped'))sugerido='Hospedagem'
@@ -1233,10 +1268,7 @@ async function excluirDespesa(id, origem='agenda'){
   if(!confirm('Tem certeza que quer excluir essa despesa? Essa ação não pode ser desfeita.')) return
   const{error}=await sb.from('despesas').delete().eq('id',id)
   if(error){alert('Erro ao excluir. Tente novamente.');return}
-  await contarPendentes()
-  if(origem==='avulsas') await carregarAvulsas()
-  else await carregarAgenda()
-  await carregarDashboard()
+  await atualizarCamposIntegrados(origem)
 }
 
 async function prepararFormViagensSelect(){
@@ -1847,7 +1879,7 @@ function setMultiTipo(t){
   document.getElementById('multi-tipo-viagem').classList.toggle('active', t==='viagem')
   document.getElementById('multi-tipo-avulso').classList.toggle('active', t==='avulso')
   document.getElementById('multi-campo-viagem').style.display = t==='viagem' ? 'flex' : 'none'
-  // Não re-renderiza blocos — categorias são as mesmas independente do tipo
+  renderBlocos()
 }
 
 function renderBlocos(){
@@ -1857,9 +1889,8 @@ function renderBlocos(){
   const wrap = document.getElementById('multi-blocos')
   if(!wrap) return
 
-  // Mostra TODAS as categorias ativas, sem filtrar por tipo
-  // O tipo (viagem/avulso) afeta apenas a viagem vinculada, não quais categorias aparecem
-  const cats = multiCats.filter(c=>c.ativo!==false)
+  // Mostra apenas as categorias do tipo escolhido e remove nomes duplicados
+  const cats = categoriasUnicas(multiCats, multiTipoAtual)
 
   if(!cats.length){
     wrap.innerHTML = `<div class="empty">Nenhuma categoria cadastrada.<br>Vá em Admin → Categorias para adicionar.</div>`
@@ -2101,8 +2132,16 @@ async function salvarMulti(){
       status:'pendente', comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
     }).select('id').single()
 
+    if(error){
+      document.getElementById('multi-btn-salvar').disabled = false
+      err.textContent = 'Erro ao salvar uma despesa: ' + error.message
+      err.style.display = 'block'
+      prog.style.display = 'none'
+      return
+    }
+
     // Demais arquivos do bloco vão na tabela comprovantes (só na primeira linha do bloco)
-    if(!error && nova?.id && !jaSalvou && arqsBloco.length > 1){
+    if(nova?.id && !jaSalvou && arqsBloco.length > 1){
       await uploadComprovantes(nova.id, arqsBloco.slice(1))
     }
     catsSalvas.add(l.catId)
@@ -2285,9 +2324,17 @@ async function renderMensalTodos(){
   const mes = mesAtual()
   const ini = `${mes}-01`
   const fim = fimMes(mes)
-  const{data:registros}=await sb.from('agenda_semanal')
+  const{data:registros,error:erroRegistros}=await sb.from('agenda_semanal')
     .select('*, usuario:profiles!agenda_semanal_usuario_id_fkey(nome)').gte('data',ini).lte('data',fim).order('data')
-  const{data:profs}=await sb.from('profiles').select('id,nome').order('nome')
+  if(erroRegistros){
+    document.getElementById('semanal-mensal').innerHTML = `<div class="empty">Erro ao carregar visão mensal: ${erroRegistros.message}</div>`
+    return
+  }
+  const{data:profs,error:erroProfs}=await sb.from('profiles').select('id,nome').order('nome')
+  if(erroProfs){
+    document.getElementById('semanal-mensal').innerHTML = `<div class="empty">Erro ao carregar equipe: ${erroProfs.message}</div>`
+    return
+  }
 
   const porPessoa = {}
   ;(profs||[]).forEach(p=>{ porPessoa[p.id]={nome:p.nome, dias:{}} })
@@ -2424,6 +2471,7 @@ async function salvarDiaSemanal(uid, data){
   }
   fecharModalSemanal()
   await carregarSemanal()
+  if(perfil.papel==='aprovador') await carregarDashboard()
   mostrarAviso('Agenda semanal salva com sucesso.')
 }
 
@@ -2433,6 +2481,7 @@ async function excluirDiaSemanal(uid, data){
   if(error){ mostrarAviso('Erro ao excluir: '+error.message, 'erro'); return }
   fecharModalSemanal()
   await carregarSemanal()
+  if(perfil.papel==='aprovador') await carregarDashboard()
   mostrarAviso('Registro excluído.')
 }
 
