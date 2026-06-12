@@ -546,7 +546,7 @@ function showScreen(nome,navEl) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,demandas:carregarDemandas,semanal:carregarSemanal}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,semanal:carregarSemanal}
   if(loaders[nome])loaders[nome]()
 }
 
