@@ -39,7 +39,7 @@
   .card-title { font-size: 12px; font-weight: 500; }
   .card-meta { font-size: 11px; color: var(--ink2); margin-top: 2px; }
   .card-footer { padding: 8px 12px; background: var(--cream); border-top: 1.5px solid var(--line); display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--ink2); }
-  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; }
+  .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
   .metric { border-radius: 10px; padding: 10px 12px; border: 1.5px solid; }
   .metric-label { font-size: 10px; color: var(--ink2); margin-bottom: 4px; }
   .metric-value { font-size: 17px; font-weight: 500; }
@@ -963,7 +963,9 @@ async function carregarDashboard() {
   document.getElementById('m-total').textContent=moeda(dsAtivas.reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
-  document.getElementById('m-rej').textContent=moeda(ds.filter(despesaRejeitada).reduce((s,d)=>s+d.valor,0))
+  document.getElementById('m-rej').textContent=moeda(0)
+  const rejCard=document.getElementById('m-rej')?.closest('.metric')
+  if(rejCard) rejCard.style.display='none'
 
   const dashSemanaWrap = document.getElementById('dash-semana-wrap')
   if(dashSemanaWrap) dashSemanaWrap.style.display = 'none'
@@ -1159,8 +1161,8 @@ async function carregarAgenda() {
   if(avulsasAtivas.length){
     const pend=avulsasAtivas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
     const aprov=avulsasAtivas.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
-    const rejeitadas=(avulsas||[]).filter(d=>d.status==='rejeitado').length
-    const rejLabel=rejeitadas>0?` · <span style="color:#991B1B">${rejeitadas} rejeitada${rejeitadas>1?'s':''}</span>`:''
+    const rejeitadas=0
+    const rejLabel='' 
     html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-agenda'))">
       <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
         <div>
@@ -1280,10 +1282,10 @@ async function carregarAvulsas(){
     ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
   }
 
-  const avulsasAtivasTela=(avulsas||[]).filter(d=>d.status!=='rejeitado')
+  const avulsasAtivasTela=(avulsas||[]).filter(despesaComputavel)
   const total=avulsasAtivasTela.reduce((s,d)=>s+d.valor,0)
   const pend=(avulsas||[]).filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
-  const rej=(avulsas||[]).filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0)
+  const rej=0
   document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total ativo: ${moeda(total)} · Pendente: ${moeda(pend)}${rej>0?' · Rejeitado: '+moeda(rej):''}`
 
   if(!avulsas||!avulsas.length){
@@ -1528,10 +1530,17 @@ async function editarDespesa(id, origem='agenda'){
   showScreen('lancarmultiplo',document.getElementById('nav-lancarmultiplo'))
 }
 
+async function apagarDespesaDefinitivo(id){
+  // Remove anexos extras primeiro para evitar bloqueio por chave estrangeira.
+  await sb.from('comprovantes').delete().eq('despesa_id',id)
+  const {error}=await sb.from('despesas').delete().eq('id',id)
+  return error
+}
+
 async function excluirDespesa(id, origem='agenda'){
   if(!confirm('Tem certeza que quer excluir essa despesa? Essa ação não pode ser desfeita.')) return
-  const{error}=await sb.from('despesas').delete().eq('id',id)
-  if(error){alert('Erro ao excluir. Tente novamente.');return}
+  const error=await apagarDespesaDefinitivo(id)
+  if(error){alert('Erro ao excluir: '+error.message);return}
   await atualizarCamposIntegrados(origem)
 }
 
@@ -1774,12 +1783,21 @@ function mostrarRejeitar(id){
 }
 
 async function rejeitar(id){
-  const motivo=document.getElementById('rej-motivo-'+id).value.trim()
+  const motivoEl=document.getElementById('rej-motivo-'+id)
+  const motivo=motivoEl ? motivoEl.value.trim() : ''
   if(!motivo){alert('Informe o motivo da rejeição.');return}
-  const{error}=await sb.from('despesas')
-    .update({status:'rejeitado',motivo_rejeicao:motivo,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
-    .eq('id',id)
-  if(error){alert('Erro ao rejeitar: '+error.message);return}
+
+  // Regra definida: rejeitou = apaga do sistema, não fica mais no dashboard nem em totais.
+  const btn = document.querySelector(`#rej-form-${id} .btn-reject`)
+  if(btn){ btn.disabled=true; btn.textContent='Excluindo...' }
+
+  const error=await apagarDespesaDefinitivo(id)
+  if(error){
+    if(btn){ btn.disabled=false; btn.textContent='Confirmar' }
+    alert('Erro ao rejeitar/excluir: '+error.message)
+    return
+  }
+  mostrarAviso('Lançamento rejeitado e excluído.')
   await atualizarCamposIntegrados('aprovar')
 }
 
