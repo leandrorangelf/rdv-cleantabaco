@@ -205,6 +205,18 @@
         <!-- Alerta RDV -->
         <div id="dash-alerta-rdv"></div>
 
+        <!-- Semana de todos (Admin) -->
+        <div id="dash-semana-wrap" style="display:none;margin-bottom:12px">
+          <div class="sec-header" style="margin-bottom:6px">
+            <div>
+              <div class="sec-title">Semana de todos</div>
+              <div style="font-size:11px;color:var(--ink2)" id="dash-semana-sub">Semana atual</div>
+            </div>
+            <button class="btn" style="font-size:11px;padding:5px 10px" onclick="showScreen('semanal',document.getElementById('nav-semanal'))">Abrir Minha semana</button>
+          </div>
+          <div id="dash-semana-todos"><div class="loading">Carregando semana...</div></div>
+        </div>
+
         <!-- Calendário -->
         <div id="dash-calendario-wrap" style="display:none">
           <div class="sec-header" style="margin-bottom:6px">
@@ -664,6 +676,9 @@ async function carregarDashboard() {
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0))
 
+  const dashSemanaWrap = document.getElementById('dash-semana-wrap')
+  if(dashSemanaWrap) dashSemanaWrap.style.display = 'none'
+
   if(perfil.papel==='aprovador'){
     // Perfis
     const{data:profs}=await sb.from('profiles').select('id,nome')
@@ -686,6 +701,9 @@ async function carregarDashboard() {
     </div>`
     alertaHtml+=`</div></div>`
     document.getElementById('dash-alerta-rdv').innerHTML=alertaHtml
+
+    document.getElementById('dash-semana-wrap').style.display='block'
+    await renderDashboardSemanaTodos(todosProfs)
 
     // Viagens
     const{data:viagens}=await sb.from('viagens').select('*').order('data_inicio',{ascending:true})
@@ -720,6 +738,99 @@ async function carregarDashboard() {
     const tabelaAnual=await carregarConsolidadoAnual(todosProfs)
     document.getElementById('dash-tabela').innerHTML+=(tabelaAnual||'')
   }
+}
+
+
+async function renderDashboardSemanaTodos(profsParam){
+  const wrap = document.getElementById('dash-semana-todos')
+  const sub = document.getElementById('dash-semana-sub')
+  if(!wrap) return
+
+  const hojeBase = new Date()
+  const dia = hojeBase.getDay()
+  const diff = dia === 0 ? -6 : 1 - dia
+  const seg = new Date(hojeBase)
+  seg.setDate(hojeBase.getDate() + diff)
+  seg.setHours(0,0,0,0)
+
+  const diasSemana = []
+  for(let i=0;i<6;i++){
+    const d = new Date(seg)
+    d.setDate(seg.getDate()+i)
+    diasSemana.push(isoDate(d))
+  }
+  const fim = diasSemana[diasSemana.length-1]
+  if(sub) sub.textContent = `${dataFmt(diasSemana[0])} – ${dataFmt(fim)}`
+
+  const profs = (profsParam && profsParam.length)
+    ? [...profsParam].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''))
+    : []
+
+  if(!profs.length){
+    wrap.innerHTML = '<div class="empty">Nenhuma pessoa cadastrada na equipe.</div>'
+    return
+  }
+
+  const {data:registros,error} = await sb.from('agenda_semanal')
+    .select('*, usuario:profiles!agenda_semanal_usuario_id_fkey(nome)')
+    .gte('data', diasSemana[0])
+    .lte('data', fim)
+    .order('data')
+
+  if(error){
+    wrap.innerHTML = `<div class="empty">Erro ao carregar semana de todos: ${error.message}</div>`
+    return
+  }
+
+  const porPessoa = {}
+  profs.forEach(p=>{ porPessoa[p.id] = {nome:p.nome, dias:{}} })
+  ;(registros||[]).forEach(r=>{
+    if(!porPessoa[r.usuario_id]) porPessoa[r.usuario_id] = {nome:r.usuario?.nome||'?', dias:{}}
+    porPessoa[r.usuario_id].dias[r.data] = r
+  })
+
+  const hoje = isoDate(new Date())
+  const thDias = diasSemana.map(dt=>{
+    const dObj = new Date(dt+'T00:00:00')
+    const isHoje = dt === hoje
+    return `<th style="text-align:center;padding:7px 6px;font-size:10px;min-width:92px;color:${isHoje?'var(--purple)':'var(--ink2)'};background:${isHoje?'var(--purple-light)':'var(--cream)'}">
+      ${DIAS_SEMANA[dObj.getDay()]}<br>${dataFmt(dt).slice(0,5)}
+    </th>`
+  }).join('')
+
+  const linhas = Object.entries(porPessoa).map(([uid,p])=>{
+    const cells = diasSemana.map(dt=>{
+      const r = p.dias[dt]
+      if(!r) return `<td style="text-align:center;padding:6px;color:var(--ink2);font-size:11px">—</td>`
+      const cfg = TIPOS_DIA[r.tipo] || TIPOS_DIA.outro
+      const local = [r.cidade,r.estado].filter(Boolean).join(' · ')
+      return `<td style="padding:5px 6px;background:${cfg.bg};text-align:center;vertical-align:top" title="${cfg.label}${local?' · '+local:''}${r.observacao?' · '+r.observacao:''}">
+        <div style="font-size:10px;font-weight:700;color:${cfg.cor}">${cfg.label}</div>
+        ${local?`<div style="font-size:9px;color:var(--ink2);margin-top:2px">${local}</div>`:''}
+      </td>`
+    }).join('')
+    const viagemCount = Object.values(p.dias).filter(r=>r.tipo==='viagem').length
+    return `<tr>
+      <td style="padding:7px 8px;font-size:11px;font-weight:600;white-space:nowrap;background:white;position:sticky;left:0;border-right:1px solid var(--line)">${p.nome}</td>
+      ${cells}
+      <td style="padding:7px 8px;text-align:center;font-size:11px;font-weight:700;color:var(--purple)">${viagemCount||'—'}</td>
+    </tr>`
+  }).join('')
+
+  wrap.innerHTML = `
+    <div class="card" style="overflow-x:auto;margin-bottom:8px">
+      <table class="tbl" style="min-width:760px">
+        <thead><tr>
+          <th style="text-align:left;padding:7px 8px;position:sticky;left:0;background:var(--cream);z-index:1;border-right:1px solid var(--line)">Nome</th>
+          ${thDias}
+          <th style="text-align:center;padding:7px 8px;min-width:70px">Viagens</th>
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:10px">
+      ${Object.entries(TIPOS_DIA).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:4px"><span style="background:${v.bg};color:${v.cor};border-radius:4px;padding:1px 6px;font-weight:700">${v.label[0]}</span> ${v.label}</span>`).join('')}
+    </div>`
 }
 
 async function carregarAgenda() {
