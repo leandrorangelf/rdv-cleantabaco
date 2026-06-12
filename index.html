@@ -505,6 +505,24 @@ function statusBadge(s) {
   return`<span class="badge ${m[s]||'b-gray'}">${l[s]||s}</span>`
 }
 
+function mostrarAviso(msg, tipo='ok'){
+  let box=document.getElementById('app-toast')
+  if(!box){
+    box=document.createElement('div')
+    box.id='app-toast'
+    box.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;max-width:360px;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;box-shadow:0 10px 35px rgba(0,0,0,.18);display:none'
+    document.body.appendChild(box)
+  }
+  const ok=tipo==='ok'
+  box.style.background=ok?'var(--mint-light)':'var(--red-light)'
+  box.style.color=ok?'var(--mint-dark)':'#991B1B'
+  box.style.border='1.5px solid '+(ok?'#6EE7B7':'#FCA5A5')
+  box.textContent=msg
+  box.style.display='block'
+  clearTimeout(window.__toastTimer)
+  window.__toastTimer=setTimeout(()=>{box.style.display='none'},2800)
+}
+
 async function doLogin() {
   const email=document.getElementById('login-email').value.trim()
   const senha=document.getElementById('login-senha').value
@@ -2036,9 +2054,15 @@ async function carregarSemanal(){
     document.getElementById('semanal-mensal-wrap').style.display = 'block'
     const sel = document.getElementById('semanal-pessoa')
     if(sel.options.length <= 1){
-      const{data:profs}=await sb.from('profiles').select('id,nome').order('nome')
-      sel.innerHTML = '<option value="">Todos</option>'
-      ;(profs||[]).forEach(p=>{ sel.innerHTML += `<option value="${p.id}">${p.nome}</option>` })
+      const{data:profs,error:errProfs}=await sb.from('profiles').select('id,nome').order('nome')
+      if(errProfs){
+        document.getElementById('semanal-grid').innerHTML = `<div class="empty">Erro ao carregar equipe: ${errProfs.message}</div>`
+        return
+      }
+      // Para aprovador, deixa a própria semana como padrão. Assim o admin também consegue lançar a própria agenda.
+      sel.innerHTML = `<option value="${perfil.id}">Minha semana (${perfil.nome})</option><option value="">Todos · visão mensal</option>`
+      ;(profs||[]).filter(p=>p.id!==perfil.id).forEach(p=>{ sel.innerHTML += `<option value="${p.id}">${p.nome}</option>` })
+      sel.value = perfil.id
     }
   }
 
@@ -2050,7 +2074,11 @@ async function carregarSemanal(){
   let q = sb.from('agenda_semanal').select('*, profiles(nome)')
     .gte('data', isoDate(dom)).lte('data', isoDate(sex))
   if(pessoaId) q = q.eq('usuario_id', pessoaId)
-  const{data:registros}=await q
+  const{data:registros,error:errRegistros}=await q
+  if(errRegistros){
+    document.getElementById('semanal-grid').innerHTML = `<div class="empty">Erro ao carregar agenda semanal: ${errRegistros.message}<br><br>Confira se a tabela agenda_semanal existe, se há chave estrangeira para profiles(id) e se as políticas RLS permitem leitura.</div>`
+    return
+  }
 
   const porPessoaDia = {}
   ;(registros||[]).forEach(r=>{
@@ -2107,6 +2135,10 @@ async function carregarSemanal(){
 
     document.getElementById('semanal-grid').innerHTML = `
       <div style="display:flex;gap:6px;flex-wrap:wrap">${colunas}</div>`
+  }
+
+  if(perfil.papel === 'aprovador' && !pessoaId){
+    document.getElementById('semanal-grid').innerHTML = '<div class="empty">Você está na visão geral. Para lançar ou editar, selecione uma pessoa no campo acima.</div>'
   }
 
   // Visão mensal de todos (só aprovador)
@@ -2234,24 +2266,42 @@ function fecharModalSemanal(){
 }
 
 async function salvarDiaSemanal(uid, data){
+  const btn = event?.target
+  if(btn){ btn.disabled=true; btn.textContent='Salvando...' }
   const tipo = document.getElementById('modal-tipo').value
   const cidade = document.getElementById('modal-cidade').value.trim()
   const estado = document.getElementById('modal-estado').value
   const observacao = document.getElementById('modal-obs').value.trim()
-  const{error}=await sb.from('agenda_semanal').upsert({
+
+  if(tipo === 'viagem' && (!cidade || !estado)){
+    mostrarAviso('Para marcar Viagem, informe cidade e estado.', 'erro')
+    if(btn){ btn.disabled=false; btn.textContent='Salvar' }
+    return
+  }
+
+  const payload = {
     usuario_id:uid, data, tipo, cidade:cidade||null, estado:estado||null,
-    observacao:observacao||null, created_by:perfil.id
-  }, {onConflict:'usuario_id,data'})
-  if(error){ alert('Erro ao salvar: '+error.message); return }
+    observacao:observacao||null, created_by:perfil.id, updated_at:new Date().toISOString()
+  }
+
+  const{error}=await sb.from('agenda_semanal').upsert(payload, {onConflict:'usuario_id,data'})
+  if(error){
+    mostrarAviso('Erro ao salvar: '+error.message, 'erro')
+    if(btn){ btn.disabled=false; btn.textContent='Salvar' }
+    return
+  }
   fecharModalSemanal()
   await carregarSemanal()
+  mostrarAviso('Agenda semanal salva com sucesso.')
 }
 
 async function excluirDiaSemanal(uid, data){
   if(!confirm('Excluir registro deste dia?')) return
-  await sb.from('agenda_semanal').delete().eq('usuario_id',uid).eq('data',data)
+  const{error}=await sb.from('agenda_semanal').delete().eq('usuario_id',uid).eq('data',data)
+  if(error){ mostrarAviso('Erro ao excluir: '+error.message, 'erro'); return }
   fecharModalSemanal()
   await carregarSemanal()
+  mostrarAviso('Registro excluído.')
 }
 
 ;(async()=>{
