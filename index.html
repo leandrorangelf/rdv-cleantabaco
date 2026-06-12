@@ -778,6 +778,9 @@ function statusBadge(s) {
   const l={pendente:'Pendente',aprovado:'Aprovado',rejeitado:'Rejeitado',agendada:'Agendada',em_andamento:'Em andamento',concluida:'Concluída',cancelada:'Cancelada'}
   return`<span class="badge ${m[s]||'b-gray'}">${l[s]||s}</span>`
 }
+function statusNorm(s){ return String(s||'').trim().toLowerCase() }
+function despesaComputavel(d){ return ['pendente','aprovado'].includes(statusNorm(d?.status)) }
+function despesaRejeitada(d){ return statusNorm(d?.status).startsWith('rejeit') }
 
 function normalizarNomeCategoria(nome){
   return String(nome||'')
@@ -954,13 +957,13 @@ async function carregarDashboard() {
   if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
-  const dsAtivas=ds.filter(d=>d.status!=='rejeitado')
+  const dsAtivas=ds.filter(despesaComputavel)
 
   document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
   document.getElementById('m-total').textContent=moeda(dsAtivas.reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
-  document.getElementById('m-rej').textContent=moeda(ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0))
+  document.getElementById('m-rej').textContent=moeda(ds.filter(despesaRejeitada).reduce((s,d)=>s+d.valor,0))
 
   const dashSemanaWrap = document.getElementById('dash-semana-wrap')
   if(dashSemanaWrap) dashSemanaWrap.style.display = 'none'
@@ -1014,10 +1017,9 @@ async function carregarDashboard() {
       por[d.usuario_id].total+=d.valor
       if(d.status==='aprovado')por[d.usuario_id].aprov+=d.valor
       if(d.status==='pendente')por[d.usuario_id].pend+=d.valor
-      if(d.status==='rejeitado')por[d.usuario_id].rej+=d.valor
-    })
+          })
     const rows=Object.values(por).map(r=>{
-      const st=r.rej>0?'rejeitado':r.pend>0?'pendente':'aprovado'
+      const st=r.pend>0?'pendente':'aprovado'
       return`<tr><td style="font-weight:500">${r.nome}</td><td>${moeda(r.total)}</td><td style="color:var(--mint-dark)">${moeda(r.aprov)}</td><td style="color:var(--orange-dark)">${moeda(r.pend)}</td><td>${statusBadge(st)}</td></tr>`
     }).join('')
     document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
@@ -1152,7 +1154,7 @@ async function carregarAgenda() {
   const{data:avulsas}=await q2
 
   // Só mostra card se tiver avulsas que não foram rejeitadas
-  const avulsasAtivas=(avulsas||[]).filter(d=>d.status!=='rejeitado')
+  const avulsasAtivas=(avulsas||[]).filter(despesaComputavel)
   let html=''
   if(avulsasAtivas.length){
     const pend=avulsasAtivas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
@@ -1183,7 +1185,7 @@ async function carregarAgenda() {
   } else {
     viagens.forEach(v=>{
       const ds=despPorViagem[v.id]||[]
-      const dsAtivasViagem=ds.filter(d=>d.status!=='rejeitado')
+      const dsAtivasViagem=ds.filter(despesaComputavel)
       const total=dsAtivasViagem.reduce((s,d)=>s+d.valor,0)
       const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
       const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
@@ -1783,7 +1785,7 @@ async function rejeitar(id){
 
 async function carregarInsights(){
   const ini=new Date();ini.setDate(ini.getDate()-90)
-  const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').neq('status','rejeitado').gte('data_despesa',ini.toISOString().slice(0,10))
+  const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').in('status',['pendente','aprovado']).gte('data_despesa',ini.toISOString().slice(0,10))
   const{data:profs}=await sb.from('profiles').select('id,nome')
   const{data:cats}=await sb.from('categorias').select('id,nome')
   const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
@@ -1949,7 +1951,7 @@ async function carregarConsolidadoAnual(profs){
   const ano=new Date().getFullYear()
   const {data:despesas}=await sb.from('despesas')
     .select('usuario_id,valor,status,data_despesa')
-    .neq('status','rejeitado')
+    .in('status',['pendente','aprovado'])
     .gte('data_despesa',`${ano}-01-01`)
     .lte('data_despesa',`${ano}-12-31`)
 
@@ -2017,7 +2019,7 @@ async function carregarGastosPorEstado(){
   const mes=mesAtual()
   const{data:despesas}=await sb.from('despesas')
     .select('valor,status,estado,viagem_id')
-    .neq('status','rejeitado')
+    .in('status',['pendente','aprovado'])
     .gte('data_despesa',`${mes}-01`)
     .lte('data_despesa',fimMes(mes))
 
