@@ -595,48 +595,39 @@ body {
       <!-- BILHETE / PASSAGEM -->
       <div class="screen" id="screen-bilhete">
         <div class="page-title">Preencher bilhete</div>
-        <div class="page-sub" id="bilhete-sub">Dados oficiais da passagem</div>
+        <div class="page-sub" id="bilhete-sub">Dados principais da passagem</div>
         <div class="form-card">
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Aeroporto origem *</label><input id="b-aero-origem" class="form-input" placeholder="ex: GIG"></div>
-            <div class="form-group"><label class="form-label">Aeroporto destino *</label><input id="b-aero-destino" class="form-input" placeholder="ex: REC"></div>
+          <div style="font-size:12px;color:var(--ink2);margin-bottom:12px">
+            Preencha só o essencial para agenda e controle de custo. Companhia, número do voo e chegada podem ir na observação se precisar.
           </div>
           <div class="form-row">
-            <div class="form-group"><label class="form-label">Data ida *</label><input id="b-data-ida" type="date" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Hora saída ida *</label><input id="b-hora-saida-ida" type="time" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Origem *</label><input id="b-aero-origem" class="form-input" placeholder="ex: GIG ou Rio de Janeiro"></div>
+            <div class="form-group"><label class="form-label">Destino *</label><input id="b-aero-destino" class="form-input" placeholder="ex: REC ou Recife"></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label class="form-label">Hora chegada ida</label><input id="b-hora-chegada-ida" type="time" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Companhia ida</label><input id="b-companhia-ida" class="form-input" placeholder="Azul, Gol, Latam..."></div>
+            <div class="form-group"><label class="form-label">Ida *</label><input id="b-data-ida" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Horário ida *</label><input id="b-hora-saida-ida" type="time" class="form-input"></div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label class="form-label">Número voo ida</label><input id="b-numero-voo-ida" class="form-input" placeholder="ex: AD1234"></div>
+            <div class="form-group"><label class="form-label">Volta</label><input id="b-data-volta" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Horário volta</label><input id="b-hora-saida-volta" type="time" class="form-input"></div>
+          </div>
+          <div class="form-row">
             <div class="form-group"><label class="form-label">Localizador *</label><input id="b-localizador" class="form-input" placeholder="ex: ABC123"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Data volta</label><input id="b-data-volta" type="date" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Hora saída volta</label><input id="b-hora-saida-volta" type="time" class="form-input"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Hora chegada volta</label><input id="b-hora-chegada-volta" type="time" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Companhia volta</label><input id="b-companhia-volta" class="form-input" placeholder="Azul, Gol, Latam..."></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Número voo volta</label><input id="b-numero-voo-volta" class="form-input" placeholder="ex: LA5678"></div>
             <div class="form-group"><label class="form-label">Valor pago *</label><input id="b-valor" type="number" step="0.01" class="form-input" placeholder="0,00"></div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Quem escolheu o horário?</label>
+              <label class="form-label">Quem escolheu?</label>
               <select id="b-escolhido-por" class="form-select">
                 <option value="promotor">Promotor</option>
                 <option value="compras">Compras/passagens</option>
                 <option value="gestor">Gestor</option>
-                <option value="menor_preco">Menor preço disponível</option>
-                <option value="unica_opcao">Única opção disponível</option>
+                <option value="menor_preco">Menor preço</option>
+                <option value="unica_opcao">Única opção</option>
               </select>
             </div>
-            <div class="form-group"><label class="form-label">Observação</label><input id="b-observacao" class="form-input" placeholder="Opcional"></div>
+            <div class="form-group"><label class="form-label">Observação</label><input id="b-observacao" class="form-input" placeholder="Companhia, voo, chegada ou detalhe opcional"></div>
           </div>
           <div id="b-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1587,14 +1578,8 @@ async function abrirBilhete(vid){
   document.getElementById('b-aero-destino').value=v.aeroporto_destino||''
   document.getElementById('b-data-ida').value=v.data_ida||v.data_inicio||''
   document.getElementById('b-hora-saida-ida').value=v.hora_saida_ida?v.hora_saida_ida.slice(0,5):''
-  document.getElementById('b-hora-chegada-ida').value=v.hora_chegada_ida?v.hora_chegada_ida.slice(0,5):''
-  document.getElementById('b-companhia-ida').value=v.companhia_ida||''
-  document.getElementById('b-numero-voo-ida').value=v.numero_voo_ida||''
   document.getElementById('b-data-volta').value=v.data_volta||v.data_fim||''
   document.getElementById('b-hora-saida-volta').value=v.hora_saida_volta?v.hora_saida_volta.slice(0,5):''
-  document.getElementById('b-hora-chegada-volta').value=v.hora_chegada_volta?v.hora_chegada_volta.slice(0,5):''
-  document.getElementById('b-companhia-volta').value=v.companhia_volta||''
-  document.getElementById('b-numero-voo-volta').value=v.numero_voo_volta||''
   document.getElementById('b-localizador').value=v.localizador||''
   document.getElementById('b-valor').value=v.valor_bilhete||''
   document.getElementById('b-escolhido-por').value=v.escolhido_por||'promotor'
@@ -1610,20 +1595,20 @@ async function salvarBilhete(){
   const aeroporto_destino=document.getElementById('b-aero-destino').value.trim().toUpperCase()
   const data_ida=document.getElementById('b-data-ida').value
   const hora_saida_ida=document.getElementById('b-hora-saida-ida').value
-  const hora_chegada_ida=document.getElementById('b-hora-chegada-ida').value||null
-  const companhia_ida=document.getElementById('b-companhia-ida').value.trim()||null
-  const numero_voo_ida=document.getElementById('b-numero-voo-ida').value.trim()||null
+  const hora_chegada_ida=null
+  const companhia_ida=null
+  const numero_voo_ida=null
   const data_volta=document.getElementById('b-data-volta').value||null
   const hora_saida_volta=document.getElementById('b-hora-saida-volta').value||null
-  const hora_chegada_volta=document.getElementById('b-hora-chegada-volta').value||null
-  const companhia_volta=document.getElementById('b-companhia-volta').value.trim()||null
-  const numero_voo_volta=document.getElementById('b-numero-voo-volta').value.trim()||null
+  const hora_chegada_volta=null
+  const companhia_volta=null
+  const numero_voo_volta=null
   const localizador=document.getElementById('b-localizador').value.trim().toUpperCase()
   const valor_bilhete=parseFloat(document.getElementById('b-valor').value)
   const escolhido_por=document.getElementById('b-escolhido-por').value
   const observacao_bilhete=document.getElementById('b-observacao').value.trim()||null
   if(!aeroporto_origem||!aeroporto_destino||!data_ida||!hora_saida_ida||!localizador||!valor_bilhete){
-    err.textContent='Preencha origem, destino, data/hora de ida, localizador e valor.';err.style.display='block';return
+    err.textContent='Preencha origem, destino, ida, horário, localizador e valor.';err.style.display='block';return
   }
   const payload={
     aeroporto_origem,aeroporto_destino,data_ida,hora_saida_ida,hora_chegada_ida,companhia_ida,numero_voo_ida,
