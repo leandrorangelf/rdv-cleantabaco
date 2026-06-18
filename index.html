@@ -331,6 +331,24 @@ body {
 #agenda-lista [style*="padding:8px 12px"],
 #dash-viagens-lista [style*="padding:8px 12px"] { padding: 12px 16px !important; }
 
+
+
+/* Módulos profissionais */
+.mod-tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 14px; }
+.mod-tab { border:1px solid var(--line); background:#fff; border-radius:999px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; color:var(--ink2); }
+.mod-tab.active { background:var(--purple); color:#fff; border-color:var(--purple-dark); }
+.mod-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px; }
+.mod-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow:var(--shadow-sm); }
+.mod-card-label { font-size:11px; font-weight:800; color:var(--ink2); margin-bottom:6px; }
+.mod-card-value { font-size:24px; font-weight:850; letter-spacing:-.04em; }
+.action-row { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+.week-cell-click { cursor:pointer; transition:.12s ease; }
+.week-cell-click:hover { transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+.person-card { cursor:pointer; }
+.person-card:hover { border-color:rgba(91,33,182,.35); box-shadow:var(--shadow-md); }
+@media (max-width: 900px) { .mod-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .mod-grid { grid-template-columns: 1fr; } }
+
 @media (max-width: 900px) {
   body { font-size: 14px; }
   .layout { flex-direction: column; }
@@ -417,28 +435,32 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Dashboard
       </div>
-      <div class="nav-item" onclick="showScreen('agenda',this)" id="nav-agenda">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Agenda
-      </div>
       <div class="nav-item" onclick="showScreen('semanal',this)" id="nav-semanal">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="18"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="16" y1="14" x2="16" y2="18"/></svg>
-        Minha semana
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Minha agenda
+      </div>
+      <div class="nav-item aprovador-only" onclick="showScreen('agendaequipe',this)" id="nav-agendaequipe" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Agenda da equipe
+      </div>
+      <div class="nav-item" onclick="showScreen('viagens',this)" id="nav-viagens">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
+        Viagens
       </div>
       <div class="nav-item" onclick="showScreen('lancarmultiplo',this)" id="nav-lancarmultiplo">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Lançar despesas
+        RDV / Despesas
       </div>
       <div class="nav-item aprovador-only" onclick="showScreen('aprovar',this)" id="nav-aprovar" style="display:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        Aprovar
+        Aprovar RDV
         <span class="badge-pill" id="badge-pendentes" style="display:none">0</span>
       </div>
-      <div class="nav-item aprovador-only" onclick="showScreen('insights',this)" id="nav-insights" style="display:none">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Insights IA
+      <div class="nav-label aprovador-only" id="nav-label-admin" style="display:none">Gestão</div>
+      <div class="nav-item aprovador-only" onclick="showScreen('equipe',this)" id="nav-equipe" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Equipe 360º
       </div>
-      <div class="nav-label aprovador-only" id="nav-label-admin" style="display:none">Admin</div>
       <div class="nav-item aprovador-only" onclick="showScreen('categorias',this)" id="nav-categorias" style="display:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         Categorias
@@ -447,10 +469,11 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         SKUs
       </div>
-      <div class="nav-item aprovador-only" onclick="showScreen('equipe',this)" id="nav-equipe" style="display:none">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Equipe
+      <div class="nav-item aprovador-only" onclick="showScreen('insights',this)" id="nav-insights" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Insights IA
       </div>
+      <div class="nav-item" onclick="showScreen('agenda',this)" id="nav-agenda" style="display:none">Viagens antigas</div>
     </div>
 
     <div class="main">
@@ -504,10 +527,45 @@ body {
         <div id="dash-tabela"></div>
       </div>
 
+
+      <div class="screen" id="screen-viagens">
+        <div class="sec-header">
+          <div>
+            <div class="page-title">Viagens</div>
+            <div class="page-sub">Solicitações, bilhetes, valores e pendências por profissional</div>
+          </div>
+          <button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">+ Solicitar viagem</button>
+        </div>
+        <div id="viagens-resumo" class="mod-grid"></div>
+        <div class="mod-tabs">
+          <button class="mod-tab active" id="tab-viagens-pendentes" onclick="setViagensTab('pendentes')">Pendentes</button>
+          <button class="mod-tab" id="tab-viagens-bilhete" onclick="setViagensTab('bilhete')">Aguardando bilhete</button>
+          <button class="mod-tab" id="tab-viagens-emitidas" onclick="setViagensTab('emitidas')">Emitidas</button>
+          <button class="mod-tab aprovador-only" id="tab-viagens-pessoa" onclick="setViagensTab('pessoa')">Por profissional</button>
+        </div>
+        <div id="viagens-conteudo"><div class="loading">Carregando viagens...</div></div>
+      </div>
+
+      <div class="screen" id="screen-agendaequipe">
+        <div class="sec-header">
+          <div>
+            <div class="page-title">Agenda da equipe</div>
+            <div class="page-sub" id="agendaequipe-sub">Onde cada pessoa está na semana</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn" style="padding:5px 10px" onclick="navAgendaEquipe(-1)">‹</button>
+            <span id="agendaequipe-titulo" style="font-size:12px;font-weight:600;min-width:160px;text-align:center"></span>
+            <button class="btn" style="padding:5px 10px" onclick="navAgendaEquipe(1)">›</button>
+            <button class="btn" style="padding:5px 10px" onclick="irAgendaEquipeAtual()">Hoje</button>
+          </div>
+        </div>
+        <div id="agendaequipe-grid"><div class="loading">Carregando agenda...</div></div>
+      </div>
+
       <div class="screen" id="screen-agenda">
         <div class="sec-header">
-          <div><div class="page-title">Agenda de viagens</div><div class="page-sub">Próximas e recentes</div></div>
-          <button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-agenda'))">+ Solicitar viagem</button>
+          <div><div class="page-title">Viagens autorizadas</div><div class="page-sub">Tela antiga mantida para compatibilidade</div></div>
+          <button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">+ Solicitar viagem</button>
         </div>
         <div id="agenda-lista"><div class="loading">Carregando...</div></div>
       </div>
@@ -558,7 +616,7 @@ body {
           <div id="v-prazo-info" style="display:none;margin-bottom:10px;font-size:11px;padding:8px 10px;border-radius:8px"></div>
           <div id="v-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn" onclick="showScreen('agenda',document.getElementById('nav-agenda'))">Cancelar</button>
+            <button class="btn" onclick="showScreen('viagens',document.getElementById('nav-viagens'))">Cancelar</button>
             <button class="btn btn-mint" onclick="salvarViagem()">Enviar solicitação</button>
           </div>
         </div>
@@ -586,7 +644,7 @@ body {
           </div>
           <div id="res-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn" onclick="showScreen('agenda',document.getElementById('nav-agenda'))">Cancelar</button>
+            <button class="btn" onclick="showScreen('viagens',document.getElementById('nav-viagens'))">Cancelar</button>
             <button class="btn btn-mint" onclick="salvarResultado()">Salvar resultado</button>
           </div>
         </div>
@@ -631,7 +689,7 @@ body {
           </div>
           <div id="b-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn" onclick="showScreen('agenda',document.getElementById('nav-agenda'))">Cancelar</button>
+            <button class="btn" onclick="showScreen('viagens',document.getElementById('nav-viagens'))">Cancelar</button>
             <button class="btn btn-mint" onclick="salvarBilhete()">Salvar bilhete</button>
           </div>
         </div>
@@ -796,9 +854,10 @@ body {
       </div>
 
       <div class="screen" id="screen-equipe">
-        <div class="page-title">Equipe</div>
-        <div class="page-sub">Configure o estado base de cada coordenador</div>
-        <div id="equipe-lista" style="max-width:500px"><div class="loading">Carregando...</div></div>
+        <div class="page-title">Equipe 360º</div>
+        <div class="page-sub">Resumo individual com agenda, RDV, viagens, pendências e gastos do mês</div>
+        <div id="equipe-lista"><div class="loading">Carregando equipe...</div></div>
+        <div id="equipe-detalhe" style="margin-top:16px"></div>
       </div>
 
       <div class="screen" id="screen-categorias">
@@ -960,7 +1019,7 @@ function showScreen(nome,navEl,skipLoader=false) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,semanal:carregarSemanal}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,viagens:carregarModuloViagens,agendaequipe:carregarAgendaEquipe,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,avulsas:carregarAvulsas,semanal:carregarSemanal}
   if(!skipLoader && loaders[nome])loaders[nome]()
 }
 
@@ -1098,16 +1157,29 @@ async function carregarDashboard() {
     alertaHtml+=`</div></div>`
     document.getElementById('dash-alerta-rdv').innerHTML=alertaHtml
 
-    document.getElementById('dash-semana-wrap').style.display='block'
-    await renderDashboardSemanaTodos(todosProfs)
+    // Dashboard limpo: semana completa e lista de viagens ficam nos módulos próprios
+    document.getElementById('dash-semana-wrap').style.display='none'
 
-    // Viagens
+    // Resumo executivo de viagens
     const{data:viagens}=await sb.from('viagens').select('*').order('data_inicio',{ascending:true})
+    const{data:demandasDash}=await sb.from('demandas_viagem').select('*')
     todasViagens=viagens||[]
-    document.getElementById('dash-calendario-wrap').style.display='block'
-    document.getElementById('dash-viagens-wrap').style.display='block'
-    renderCalendario()
-    renderViagensDash()
+    document.getElementById('dash-calendario-wrap').style.display='none'
+    document.getElementById('dash-viagens-wrap').style.display='none'
+    const _mf=mesIntervalo()
+    const pendViag=(demandasDash||[]).filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
+    const agBilhete=(viagens||[]).filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada')).length
+    const emitMes=(viagens||[]).filter(v=>(v.localizador||statusNorm(v.status)==='bilhete_preenchido') && isDentroPeriodo(v.data_ida||v.data_inicio,_mf.ini,_mf.fim)).length
+    const gastoPass=(viagens||[]).filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio,_mf.ini,_mf.fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
+    document.getElementById('dash-alerta-rdv').innerHTML += `<div class="card" style="margin-bottom:12px">
+      <div class="card-header"><div><div class="card-title">Viagens do mês</div><div class="card-meta">Resumo rápido · detalhes no módulo Viagens</div></div><button class="btn btn-primary" onclick="showScreen('viagens',document.getElementById('nav-viagens'))">Abrir viagens</button></div>
+      <div class="metrics" style="padding:12px;margin:0;grid-template-columns:repeat(4,1fr)">
+        <div class="metric m-orange"><div class="metric-label">Pendentes</div><div class="metric-value">${pendViag}</div></div>
+        <div class="metric m-purple"><div class="metric-label">Aguardando bilhete</div><div class="metric-value">${agBilhete}</div></div>
+        <div class="metric m-mint"><div class="metric-label">Emitidas</div><div class="metric-value">${emitMes}</div></div>
+        <div class="metric"><div class="metric-label">Gasto passagens</div><div class="metric-value" style="font-size:20px">${moeda(gastoPass)}</div></div>
+      </div>
+    </div>`
 
     // Tabela por coordenador
     const nomePorId={}
@@ -1265,7 +1337,7 @@ async function carregarAgenda() {
   if(avulsasAtivas.length){
     const pend=avulsasAtivas.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
     const aprov=avulsasAtivas.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
-    html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-agenda'))">
+    html+=`<div class="card" style="border-style:dashed;border-color:var(--purple);background:var(--purple-light);margin-bottom:10px;cursor:pointer" onclick="showScreen('avulsas',document.getElementById('nav-lancarmultiplo'))">
       <div style="padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-size:12px;font-weight:500">Despesas avulsas · mês atual</div>
@@ -1311,7 +1383,7 @@ async function carregarAgenda() {
   const catPorId={};(catsAgenda||[]).forEach(c=>catPorId[c.id]=c.nome)
 
   if(!viagens||!viagens.length){
-    if(!html) html+=`<div class="empty">Nenhuma viagem registrada.<br><br><button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-agenda'))">Solicitar primeira viagem</button></div>`
+    if(!html) html+=`<div class="empty">Nenhuma viagem registrada.<br><br><button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">Solicitar primeira viagem</button></div>`
   } else {
     html+=`<div class="sec-header" style="margin-top:12px;margin-bottom:8px"><div class="sec-title">Viagens autorizadas</div></div>`
     viagens.forEach(v=>{
@@ -1511,7 +1583,7 @@ async function salvarViagem(){
   if(document.getElementById('v-prazo-info'))document.getElementById('v-prazo-info').style.display='none'
   mostrarAviso('Solicitação enviada para aprovação do gestor.')
   await atualizarCamposIntegrados('agenda')
-  showScreen('agenda',document.getElementById('nav-agenda'))
+  showScreen('viagens',document.getElementById('nav-viagens'))
 }
 
 
@@ -1548,7 +1620,7 @@ async function aprovarDemandaViagem(id){
   }).eq('id',id)
   if(updErr){alert('Viagem criada, mas erro ao atualizar solicitação: '+updErr.message);return}
   mostrarAviso('Viagem autorizada. Aguardando preenchimento do bilhete.')
-  await atualizarCamposIntegrados('aprovar')
+  await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
 }
 
 async function reprovarDemandaViagem(id){
@@ -1563,7 +1635,7 @@ async function reprovarDemandaViagem(id){
   }).eq('id',id)
   if(error){alert('Erro ao reprovar: '+error.message);return}
   mostrarAviso('Solicitação de viagem reprovada.')
-  await atualizarCamposIntegrados('aprovar')
+  await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
 }
 
 let bilheteViagemId=null
@@ -1624,7 +1696,7 @@ async function salvarBilhete(){
   if(error){err.textContent='Erro ao salvar bilhete: '+error.message;err.style.display='block';return}
   mostrarAviso('Bilhete preenchido e viagem atualizada.')
   await atualizarCamposIntegrados('agenda')
-  showScreen('agenda',document.getElementById('nav-agenda'))
+  showScreen('viagens',document.getElementById('nav-viagens'))
 }
 
 let despesaEditandoId = null
@@ -1903,9 +1975,9 @@ async function salvarDespesa(){
   limparFormDespesa()
   await atualizarCamposIntegrados(telaOrigemDespesa==='avulsas'?'avulsas':'agenda')
   if(telaOrigemDespesa==='avulsas'){
-    showScreen('avulsas',document.getElementById('nav-agenda'))
+    showScreen('avulsas',document.getElementById('nav-lancarmultiplo'))
   } else {
-    showScreen('agenda',document.getElementById('nav-agenda'))
+    showScreen('viagens',document.getElementById('nav-viagens'))
   }
 }
 
@@ -2067,7 +2139,7 @@ async function aprovar(id){
     .update({status:'aprovado',motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
     .eq('id',id)
   if(error){alert('Erro ao aprovar: '+error.message);return}
-  await atualizarCamposIntegrados('aprovar')
+  await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
 }
 
 function mostrarRejeitar(id){
@@ -2091,7 +2163,7 @@ async function rejeitar(id){
     return
   }
   mostrarAviso('Lançamento rejeitado e excluído.')
-  await atualizarCamposIntegrados('aprovar')
+  await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
 }
 
 async function carregarInsights(){
@@ -2194,7 +2266,7 @@ async function salvarResultado(){
   }).eq('id',viagemResultadoId)
 
   if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
-  showScreen('agenda',document.getElementById('nav-agenda'))
+  showScreen('viagens',document.getElementById('nav-viagens'))
 }
 
 // ── SKUs ──────────────────────────────────────
@@ -2729,7 +2801,7 @@ async function salvarMulti(){
   prog.textContent = `✓ ${ok} despesa${ok>1?'s':''} salva${ok>1?'s':''}!`
   setTimeout(()=>{
     limparMulti()
-    showScreen('agenda', document.getElementById('nav-agenda'))
+    showScreen('viagens', document.getElementById('nav-viagens'))
   }, 1400)
 }
 
@@ -3058,6 +3130,373 @@ async function excluirDiaSemanal(uid, data){
   await carregarSemanal()
   if(perfil.papel==='aprovador') await carregarDashboard()
   mostrarAviso('Registro excluído.')
+}
+
+
+
+// ── Módulo Viagens / Agenda Equipe / Equipe 360 ───────────────────────────
+let viagensTabAtual = 'pendentes'
+let viagensCache = { demandas:[], viagens:[], profs:[], despesas:[] }
+let agendaEquipeSegunda = null
+
+function safeTxt(v){ return String(v??'').replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])) }
+function primeiroNome(n){ return String(n||'?').split(' ')[0] }
+function mesIntervalo(){ const m=mesAtual(); return {ini:`${m}-01`, fim:fimMes(m)} }
+function isDentroPeriodo(data, ini, fim){ if(!data||!ini)return false; const f=fim||ini; return data>=ini && data<=f }
+
+async function atualizarTudo(telaAtual=''){
+  await contarPendentes().catch(()=>{})
+  if(telaAtual==='viagens') await carregarModuloViagens()
+  if(telaAtual==='agendaequipe') await carregarAgendaEquipe()
+  if(telaAtual==='equipe') await carregarEquipe()
+  if(telaAtual==='semanal') await carregarSemanal()
+  if(telaAtual==='dashboard') await carregarDashboard()
+}
+
+function setViagensTab(tab){
+  viagensTabAtual=tab
+  document.querySelectorAll('[id^="tab-viagens-"]').forEach(b=>b.classList.remove('active'))
+  document.getElementById('tab-viagens-'+tab)?.classList.add('active')
+  renderViagensConteudo()
+}
+
+async function carregarModuloViagens(){
+  const wrap=document.getElementById('viagens-conteudo')
+  if(wrap) wrap.innerHTML='<div class="loading">Carregando viagens...</div>'
+  let qd=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false})
+  let qv=sb.from('viagens').select('*').order('data_inicio',{ascending:false})
+  let qdesp=sb.from('despesas').select('usuario_id,viagem_id,valor,status,data_despesa')
+  if(!isGestor()){
+    qd=qd.eq('usuario_id',perfil.id)
+    qv=qv.eq('usuario_id',perfil.id)
+    qdesp=qdesp.eq('usuario_id',perfil.id)
+  }
+  const [{data:demandas,error:ed},{data:viagens,error:ev},{data:profs},{data:despesas}]=await Promise.all([
+    qd, qv, sb.from('profiles').select('id,nome,email,papel,estado_base').order('nome'), qdesp
+  ])
+  if(ed||ev){
+    wrap.innerHTML=`<div class="empty">Erro ao carregar viagens: ${(ed||ev).message}</div>`
+    return
+  }
+  viagensCache={demandas:demandas||[],viagens:viagens||[],profs:profs||[],despesas:despesas||[]}
+  renderViagensResumo()
+  if(!isGestor() && viagensTabAtual==='pessoa') viagensTabAtual='emitidas'
+  setViagensTab(viagensTabAtual)
+}
+
+function renderViagensResumo(){
+  const {ini,fim}=mesIntervalo()
+  const demandas=viagensCache.demandas||[]
+  const viagens=viagensCache.viagens||[]
+  const pend=demandas.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
+  const aguard=viagens.filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada')).length
+  const emitidas=viagens.filter(v=>(v.localizador||statusNorm(v.status)==='bilhete_preenchido') && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim)).length
+  const gasto=viagens.filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
+  const fora=demandas.filter(d=>{
+    const p=politicaPrazoViagem(d.data_inicio||d.data_sugerida)
+    const raw=String(d.observacao||'')
+    return p.nivel!=='ok' || /Fora da política|Crítico|Antecedência:\s*([0-9]|1[0-4])\s*dias/i.test(raw)
+  }).length
+  document.getElementById('viagens-resumo').innerHTML=`
+    <div class="mod-card"><div class="mod-card-label">Pendentes de aprovação</div><div class="mod-card-value" style="color:var(--orange-dark)">${pend}</div></div>
+    <div class="mod-card"><div class="mod-card-label">Aguardando bilhete</div><div class="mod-card-value" style="color:var(--purple-dark)">${aguard}</div></div>
+    <div class="mod-card"><div class="mod-card-label">Bilhetes emitidos no mês</div><div class="mod-card-value" style="color:var(--mint-dark)">${emitidas}</div></div>
+    <div class="mod-card"><div class="mod-card-label">Gasto com passagens no mês</div><div class="mod-card-value" style="font-size:20px;color:var(--ink)">${moeda(gasto)}</div><div style="font-size:11px;color:var(--red);margin-top:6px">${fora} fora da política</div></div>`
+}
+
+function nomeProf(uid){ return viagensCache.profs.find(p=>p.id===uid)?.nome || (uid===perfil?.id?perfil.nome:'?') }
+
+function renderViagensConteudo(){
+  const wrap=document.getElementById('viagens-conteudo')
+  const demandas=viagensCache.demandas||[]
+  const viagens=viagensCache.viagens||[]
+  if(viagensTabAtual==='pendentes'){
+    const lista=demandas.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status)))
+    wrap.innerHTML=lista.length?lista.map(cardDemandaViagem).join(''):'<div class="empty">Nenhuma solicitação pendente.</div>'
+    return
+  }
+  if(viagensTabAtual==='bilhete'){
+    const lista=viagens.filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada'))
+    wrap.innerHTML=lista.length?lista.map(cardViagemOperacional).join(''):'<div class="empty">Nenhuma viagem aguardando bilhete.</div>'
+    return
+  }
+  if(viagensTabAtual==='emitidas'){
+    const lista=viagens.filter(v=>v.localizador||statusNorm(v.status)==='bilhete_preenchido')
+    wrap.innerHTML=lista.length?lista.map(cardViagemOperacional).join(''):'<div class="empty">Nenhum bilhete preenchido.</div>'
+    return
+  }
+  if(viagensTabAtual==='pessoa'){
+    wrap.innerHTML=renderViagensPorPessoa()
+    return
+  }
+}
+
+function cardDemandaViagem(d){
+  const prazo=politicaPrazoViagem(d.data_inicio||d.data_sugerida)
+  const obs=extrairObsDemanda(d.observacao)
+  const fora=prazo.nivel!=='ok'
+  return `<div class="card" style="border-color:${fora?'#FCD34D':'var(--line)'}">
+    <div class="card-header">
+      <div style="flex:1;min-width:0">
+        <div class="card-title">${safeTxt(nomeProf(d.usuario_id))} · ${safeTxt(d.destino)}${d.estado?' · '+safeTxt(d.estado):''}</div>
+        <div class="card-meta">${dataFmt(d.data_inicio||d.data_sugerida)} – ${dataFmt(d.data_fim||d.data_sugerida)} · ${safeTxt(d.cliente||'')} · ${safeTxt(d.motivo||'')}</div>
+      </div>
+      ${statusBadge(statusNorm(d.status)==='solicitada'?'pendente':statusNorm(d.status))}
+    </div>
+    <div style="padding:10px 12px;font-size:12px;color:var(--ink2);line-height:1.5">
+      <strong style="color:${fora?'var(--orange-dark)':'var(--mint-dark)'}">${safeTxt(prazo.label||'Prazo não calculado')}</strong><br>
+      Preferência: ${safeTxt(obs.preferencia||'não informada')}${obs.justificativa&&obs.justificativa!=='n/a'?` · Justificativa: ${safeTxt(obs.justificativa)}`:''}
+    </div>
+    <div class="card-footer"><span></span><div class="action-row">
+      ${isGestor()?`<button class="btn btn-sm" onclick="editarSolicitacaoViagem('${d.id}')">Editar</button><button class="btn btn-sm btn-approve" onclick="aprovarDemandaViagem('${d.id}')">Autorizar</button><button class="btn btn-sm btn-reject" onclick="mostrarReprovarDemanda('${d.id}')">Reprovar</button><button class="btn btn-sm btn-reject" onclick="excluirSolicitacaoViagem('${d.id}')">Excluir</button>`:''}
+    </div></div>
+    <div id="dem-rej-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5"><div style="display:flex;gap:8px"><input id="dem-rej-motivo-${d.id}" class="form-input" placeholder="Motivo da reprovação" style="flex:1"><button class="btn btn-sm btn-reject" onclick="reprovarDemandaViagem('${d.id}')">Confirmar</button></div></div>
+  </div>`
+}
+
+function cardViagemOperacional(v){
+  const nome=nomeProf(v.usuario_id)
+  const emitida=!!v.localizador || statusNorm(v.status)==='bilhete_preenchido'
+  return `<div class="card">
+    <div class="card-header">
+      <div style="flex:1;min-width:0">
+        <div class="card-title">${safeTxt(nome)} · ${safeTxt(v.destino)}${v.estado?' · '+safeTxt(v.estado):''}</div>
+        <div class="card-meta">${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${safeTxt(v.cliente||'')} · ${safeTxt(v.motivo||'')}</div>
+      </div>
+      ${statusBadge(v.status)}
+    </div>
+    ${resumoBilhete(v)}
+    <div style="padding:9px 12px;font-size:12px;color:var(--ink2);display:flex;gap:14px;flex-wrap:wrap">
+      <span>Valor bilhete: <strong style="color:var(--ink)">${moeda(v.valor_bilhete||0)}</strong></span>
+      ${v.escolhido_por?`<span>Escolha: <strong>${safeTxt(labelEscolhidoPor(v.escolhido_por))}</strong></span>`:''}
+      ${v.localizador?`<span>Localizador: <strong>${safeTxt(v.localizador)}</strong></span>`:''}
+    </div>
+    <div class="card-footer"><span>${emitida?'Bilhete preenchido':'Falta preencher bilhete'}</span><div class="action-row">
+      <button class="btn btn-sm" onclick="abrirDetalheViagem('${v.id}')">Abrir</button>
+      ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button><button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Excluir</button>`:''}
+    </div></div>
+  </div>`
+}
+
+function renderViagensPorPessoa(){
+  const {ini,fim}=mesIntervalo()
+  const profs=viagensCache.profs||[]
+  const demandas=viagensCache.demandas||[]
+  const viagens=viagensCache.viagens||[]
+  const rows=profs.map(p=>{
+    const ds=demandas.filter(d=>d.usuario_id===p.id)
+    const vs=viagens.filter(v=>v.usuario_id===p.id)
+    const pend=ds.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
+    const ag=vs.filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada')).length
+    const emit=vs.filter(v=>(v.localizador||statusNorm(v.status)==='bilhete_preenchido') && isDentroPeriodo(v.data_ida||v.data_inicio,ini,fim)).length
+    const gasto=vs.filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio,ini,fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
+    const fora=ds.filter(d=>politicaPrazoViagem(d.data_inicio||d.data_sugerida).nivel!=='ok' || /Antecedência:\s*([0-9]|1[0-4])\s*dias/i.test(String(d.observacao||''))).length
+    return `<tr><td style="font-weight:700">${safeTxt(p.nome)}</td><td>${pend}</td><td>${ag}</td><td>${emit}</td><td style="text-align:right">${moeda(gasto)}</td><td>${fora}</td><td><button class="btn btn-sm" onclick="abrirPessoa360('${p.id}')">Abrir</button></td></tr>`
+  }).join('')
+  return `<div class="card"><table class="tbl"><thead><tr><th>Profissional</th><th>Pendentes</th><th>Aguardando bilhete</th><th>Emitidas mês</th><th style="text-align:right">Gasto mês</th><th>Fora 15 dias</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+}
+
+async function editarSolicitacaoViagem(id){
+  if(!isGestor())return
+  const d=viagensCache.demandas.find(x=>x.id===id) || (await sb.from('demandas_viagem').select('*').eq('id',id).single()).data
+  if(!d)return
+  const destino=prompt('Destino:', d.destino||''); if(destino===null)return
+  const cliente=prompt('Cliente/motivo comercial:', d.cliente||''); if(cliente===null)return
+  const inicio=prompt('Data ida (AAAA-MM-DD):', d.data_inicio||d.data_sugerida||''); if(inicio===null)return
+  const fim=prompt('Data volta (AAAA-MM-DD):', d.data_fim||d.data_sugerida||inicio); if(fim===null)return
+  const motivo=prompt('Motivo:', d.motivo||''); if(motivo===null)return
+  const {error}=await sb.from('demandas_viagem').update({destino,cliente,data_inicio:inicio,data_sugerida:inicio,data_fim:fim,motivo,updated_at:new Date().toISOString()}).eq('id',id)
+  if(error){alert('Erro ao editar: '+error.message);return}
+  mostrarAviso('Solicitação atualizada.'); await carregarModuloViagens()
+}
+
+async function excluirSolicitacaoViagem(id){
+  if(!isGestor())return
+  if(!confirm('Excluir esta solicitação de viagem?'))return
+  const {error}=await sb.from('demandas_viagem').delete().eq('id',id)
+  if(error){alert('Erro ao excluir: '+error.message);return}
+  mostrarAviso('Solicitação excluída.'); await atualizarTudo('viagens')
+}
+
+async function editarViagemBasica(id){
+  if(!isGestor())return
+  const v=viagensCache.viagens.find(x=>x.id===id) || (await sb.from('viagens').select('*').eq('id',id).single()).data
+  if(!v)return
+  const destino=prompt('Destino:', v.destino||''); if(destino===null)return
+  const cliente=prompt('Cliente:', v.cliente||''); if(cliente===null)return
+  const inicio=prompt('Data início (AAAA-MM-DD):', v.data_inicio||v.data_ida||''); if(inicio===null)return
+  const fim=prompt('Data fim (AAAA-MM-DD):', v.data_fim||v.data_volta||inicio); if(fim===null)return
+  const motivo=prompt('Motivo:', v.motivo||''); if(motivo===null)return
+  const {error}=await sb.from('viagens').update({destino,cliente,data_inicio:inicio,data_fim:fim,motivo,updated_at:new Date().toISOString()}).eq('id',id)
+  if(error){alert('Erro ao editar viagem: '+error.message);return}
+  mostrarAviso('Viagem atualizada.'); await atualizarTudo('viagens')
+}
+
+async function cancelarViagem(id){
+  if(!isGestor())return
+  const motivo=prompt('Motivo do cancelamento:', '')
+  if(motivo===null)return
+  const {error}=await sb.from('viagens').update({status:'cancelada',observacao_bilhete:motivo||null,updated_at:new Date().toISOString()}).eq('id',id)
+  if(error){alert('Erro ao cancelar: '+error.message);return}
+  mostrarAviso('Viagem cancelada.'); await atualizarTudo('viagens')
+}
+
+async function excluirViagemDefinitivo(id){
+  if(!isGestor())return
+  if(!confirm('Excluir definitivamente esta viagem? Se houver RDV vinculado, o banco pode bloquear.'))return
+  const {error}=await sb.from('viagens').delete().eq('id',id)
+  if(error){alert('Erro ao excluir: '+error.message);return}
+  mostrarAviso('Viagem excluída.'); await atualizarTudo('viagens')
+}
+
+function iniciarAgendaEquipe(){
+  const hoje=new Date(); const dia=hoje.getDay(); const diff=dia===0?-6:1-dia
+  agendaEquipeSegunda=new Date(hoje); agendaEquipeSegunda.setDate(hoje.getDate()+diff); agendaEquipeSegunda.setHours(0,0,0,0)
+}
+function navAgendaEquipe(d){ if(!agendaEquipeSegunda)iniciarAgendaEquipe(); agendaEquipeSegunda.setDate(agendaEquipeSegunda.getDate()+d*7); carregarAgendaEquipe() }
+function irAgendaEquipeAtual(){ iniciarAgendaEquipe(); carregarAgendaEquipe() }
+
+async function carregarAgendaEquipe(){
+  if(!isGestor()){ document.getElementById('agendaequipe-grid').innerHTML='<div class="empty">Apenas gestor vê a agenda da equipe.</div>'; return }
+  if(!agendaEquipeSegunda) iniciarAgendaEquipe()
+  const seg=new Date(agendaEquipeSegunda), sab=new Date(seg); sab.setDate(seg.getDate()+5)
+  const dias=[]; for(let i=0;i<6;i++){ const d=new Date(seg); d.setDate(seg.getDate()+i); dias.push(isoDate(d)) }
+  document.getElementById('agendaequipe-titulo').textContent=`${dataFmt(dias[0])} – ${dataFmt(dias[5])}`
+  const [{data:profs,error:ep},{data:regs,error:er},{data:viagens,error:ev}]=await Promise.all([
+    sb.from('profiles').select('id,nome').order('nome'),
+    sb.from('agenda_semanal').select('*, usuario:profiles!agenda_semanal_usuario_id_fkey(nome)').gte('data',dias[0]).lte('data',dias[5]).order('data'),
+    sb.from('viagens').select('*').lte('data_inicio',dias[5]).gte('data_fim',dias[0])
+  ])
+  const wrap=document.getElementById('agendaequipe-grid')
+  if(ep||er||ev){ wrap.innerHTML=`<div class="empty">Erro ao carregar agenda: ${(ep||er||ev).message}</div>`; return }
+  const por={}; (profs||[]).forEach(p=>por[p.id]={nome:p.nome,dias:{}})
+  ;(regs||[]).forEach(r=>{ if(!por[r.usuario_id])por[r.usuario_id]={nome:r.usuario?.nome||'?',dias:{}}; por[r.usuario_id].dias[r.data]=r })
+  const viagensDia={}
+  ;(viagens||[]).forEach(v=>{
+    dias.forEach(dt=>{ if(v.usuario_id && isDentroPeriodo(dt, v.data_inicio||v.data_ida, v.data_fim||v.data_volta||v.data_inicio||v.data_ida)){ viagensDia[`${v.usuario_id}_${dt}`]=v } })
+  })
+  const th=dias.map(dt=>{ const d=new Date(dt+'T00:00:00'); return `<th style="text-align:center">${DIAS_SEMANA[d.getDay()]}<br>${dataFmt(dt).slice(0,5)}</th>` }).join('')
+  const rows=Object.entries(por).map(([uid,p])=>{
+    const cells=dias.map(dt=>{
+      const r=p.dias[dt]
+      const v=viagensDia[`${uid}_${dt}`]
+      if(!r && !v) return `<td style="text-align:center;color:var(--ink2)">—</td>`
+      const tipo=r?.tipo || (v?'viagem':'outro')
+      const cfg=TIPOS_DIA[tipo]||TIPOS_DIA.outro
+      const cidade=r?.cidade || v?.destino || ''
+      const estado=r?.estado || v?.estado || ''
+      const detalhe=v?`${v.aeroporto_origem||''}${v.aeroporto_destino?' → '+v.aeroporto_destino:''}${v.hora_saida_ida?' · '+v.hora_saida_ida.slice(0,5):''}`:''
+      const onclick=v?`onclick="abrirDetalheViagem('${v.id}')"`: (isGestor()?`onclick="editarDiaSemanal('${uid}','${dt}')"`:'')
+      return `<td class="week-cell-click" ${onclick} style="padding:7px 6px;background:${cfg.bg};vertical-align:top;text-align:center">
+        <div style="font-size:11px;font-weight:800;color:${cfg.cor}">${cfg.label}</div>
+        ${cidade||estado?`<div style="font-size:10px;color:var(--ink2);margin-top:2px">${safeTxt([cidade,estado].filter(Boolean).join(' · '))}</div>`:''}
+        ${detalhe?`<div style="font-size:10px;color:var(--purple-dark);margin-top:3px">${safeTxt(detalhe)}</div>`:''}
+      </td>`
+    }).join('')
+    return `<tr><td style="font-weight:800;white-space:nowrap;position:sticky;left:0;background:white;border-right:1px solid var(--line)">${safeTxt(p.nome)}</td>${cells}</tr>`
+  }).join('')
+  wrap.innerHTML=`<div class="card" style="overflow-x:auto"><table class="tbl" style="min-width:860px"><thead><tr><th style="text-align:left;position:sticky;left:0;background:var(--cream);z-index:1">Pessoa</th>${th}</tr></thead><tbody>${rows}</tbody></table></div><div style="font-size:11px;color:var(--ink2);margin-top:8px">Clique em um dia de viagem para abrir a viagem relacionada. Clique em outros dias para editar a agenda.</div>`
+}
+
+async function abrirDetalheViagem(id){
+  const {data:v,error}=await sb.from('viagens').select('*').eq('id',id).single()
+  if(error||!v){ alert('Erro ao abrir viagem.'); return }
+  const modal=document.createElement('div')
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px'
+  modal.innerHTML=`<div style="background:white;border-radius:18px;width:100%;max-width:560px;box-shadow:0 24px 80px rgba(0,0,0,.25);overflow:hidden">
+    <div class="card-header"><div><div class="card-title">${safeTxt(v.destino)}${v.estado?' · '+safeTxt(v.estado):''}</div><div class="card-meta">${safeTxt(nomeProf(v.usuario_id))} · ${safeTxt(v.cliente||'')}</div></div>${statusBadge(v.status)}</div>
+    <div style="padding:14px 16px;font-size:13px;line-height:1.65;color:var(--ink2)">
+      <div><strong>Período:</strong> ${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)}</div>
+      <div><strong>Motivo:</strong> ${safeTxt(v.motivo||'')}</div>
+      <div><strong>Bilhete:</strong> ${safeTxt(v.aeroporto_origem||'—')} → ${safeTxt(v.aeroporto_destino||'—')} · ${v.data_ida?dataFmt(v.data_ida):'—'} ${v.hora_saida_ida?String(v.hora_saida_ida).slice(0,5):''}</div>
+      <div><strong>Volta:</strong> ${v.data_volta?dataFmt(v.data_volta):'—'} ${v.hora_saida_volta?String(v.hora_saida_volta).slice(0,5):''}</div>
+      <div><strong>Localizador:</strong> ${safeTxt(v.localizador||'—')} · <strong>Valor:</strong> ${moeda(v.valor_bilhete||0)}</div>
+      <div><strong>Escolhido por:</strong> ${safeTxt(labelEscolhidoPor(v.escolhido_por)||'—')}</div>
+      ${v.observacao_bilhete?`<div><strong>Obs:</strong> ${safeTxt(v.observacao_bilhete)}</div>`:''}
+    </div>
+    <div class="card-footer"><span></span><div class="action-row">${isGestor()?`<button class="btn" onclick="document.body.removeChild(this.closest('[style*=fixed]'));abrirBilhete('${v.id}')">Editar bilhete</button>`:''}<button class="btn btn-primary" onclick="document.body.removeChild(this.closest('[style*=fixed]'))">Fechar</button></div></div>
+  </div>`
+  document.body.appendChild(modal)
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()})
+}
+
+async function carregarEquipe(){
+  if(!isGestor())return
+  const {ini,fim}=mesIntervalo()
+  const [{data:profs,error:ep},{data:despesas},{data:viagens},{data:demandas},{data:agenda}]=await Promise.all([
+    sb.from('profiles').select('*').order('nome'),
+    sb.from('despesas').select('*').gte('data_despesa',ini).lte('data_despesa',fim),
+    sb.from('viagens').select('*'),
+    sb.from('demandas_viagem').select('*'),
+    sb.from('agenda_semanal').select('*').gte('data',ini).lte('data',fim)
+  ])
+  if(ep){ document.getElementById('equipe-lista').innerHTML=`<div class="empty">Erro ao carregar equipe: ${ep.message}</div>`; return }
+  if(!profs?.length){document.getElementById('equipe-lista').innerHTML='<div class="empty">Nenhum usuário.</div>';return}
+  const cards=profs.map(p=>{
+    const ds=(despesas||[]).filter(d=>d.usuario_id===p.id && despesaComputavel(d))
+    const gasto=ds.reduce((s,d)=>s+Number(d.valor||0),0)
+    const pendRDV=ds.filter(d=>statusNorm(d.status)==='pendente').length
+    const vs=(viagens||[]).filter(v=>v.usuario_id===p.id)
+    const dsDem=(demandas||[]).filter(d=>d.usuario_id===p.id)
+    const pendViag=dsDem.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
+    const emitidas=vs.filter(v=>v.localizador||statusNorm(v.status)==='bilhete_preenchido').length
+    const agendaDias=(agenda||[]).filter(a=>a.usuario_id===p.id).length
+    return `<div class="mod-card person-card" onclick="abrirPessoa360('${p.id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <div><div style="font-size:15px;font-weight:850;color:var(--ink)">${safeTxt(p.nome)}</div><div style="font-size:11px;color:var(--ink2)">${safeTxt(p.email||'')} · ${statusBadge(p.papel==='aprovador'?'aprovada':'agendada')}</div></div>
+        <div class="avatar">${iniciais(p.nome||'?')}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+        <div><strong>${moeda(gasto)}</strong><br><span style="color:var(--ink2)">RDV mês</span></div>
+        <div><strong>${pendRDV}</strong><br><span style="color:var(--ink2)">RDV pend.</span></div>
+        <div><strong>${pendViag}</strong><br><span style="color:var(--ink2)">Viagens pend.</span></div>
+        <div><strong>${emitidas}</strong><br><span style="color:var(--ink2)">Bilhetes</span></div>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:6px" onclick="event.stopPropagation()">
+        <label style="font-size:11px;color:var(--ink2)">Base:</label>
+        <select onchange="salvarEstadoBase('${p.id}',this.value)" class="form-select" style="width:82px;padding:4px 6px;font-size:11px">
+          <option value="">—</option>${ESTADOS.map(e=>`<option value="${e}" ${p.estado_base===e?'selected':''}>${e}</option>`).join('')}
+        </select>
+      </div>
+    </div>`
+  }).join('')
+  document.getElementById('equipe-lista').innerHTML=`<div class="mod-grid">${cards}</div>`
+}
+
+async function abrirPessoa360(uid){
+  const mes=mesAtual(), ini=`${mes}-01`, fim=fimMes(mes)
+  const [{data:p},{data:despesas},{data:viagens},{data:demandas},{data:agenda}]=await Promise.all([
+    sb.from('profiles').select('*').eq('id',uid).single(),
+    sb.from('despesas').select('*').eq('usuario_id',uid).gte('data_despesa',ini).lte('data_despesa',fim).order('data_despesa',{ascending:false}),
+    sb.from('viagens').select('*').eq('usuario_id',uid).order('data_inicio',{ascending:false}),
+    sb.from('demandas_viagem').select('*').eq('usuario_id',uid).order('created_at',{ascending:false}),
+    sb.from('agenda_semanal').select('*').eq('usuario_id',uid).gte('data',ini).lte('data',fim).order('data')
+  ])
+  if(!p)return
+  const dsAtivas=(despesas||[]).filter(despesaComputavel)
+  const gasto=dsAtivas.reduce((s,d)=>s+Number(d.valor||0),0)
+  const gastoPassagens=(viagens||[]).filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio,ini,fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
+  const proxViagens=(viagens||[]).slice(0,5).map(v=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><strong>${safeTxt(v.destino)}</strong> · ${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${statusBadge(v.status)} ${v.localizador?`<div style="font-size:11px;color:var(--ink2)">${safeTxt(v.aeroporto_origem||'')} → ${safeTxt(v.aeroporto_destino||'')} · ${safeTxt(v.localizador)} · ${moeda(v.valor_bilhete||0)}</div>`:''}</div>`).join('')||'<div class="empty">Sem viagens.</div>'
+  const rdvRows=(despesas||[]).slice(0,8).map(d=>`<tr><td>${dataFmt(d.data_despesa)}</td><td>${safeTxt(d.descricao||'')}</td><td>${statusBadge(d.status)}</td><td style="text-align:right">${moeda(d.valor)}</td></tr>`).join('')
+  const agRows=(agenda||[]).slice(-10).map(a=>`<tr><td>${dataFmt(a.data)}</td><td>${safeTxt((TIPOS_DIA[a.tipo]||TIPOS_DIA.outro).label)}</td><td>${safeTxt([a.cidade,a.estado].filter(Boolean).join(' · '))}</td><td><button class="btn btn-sm" onclick="editarDiaSemanal('${uid}','${a.data}')">Editar</button></td></tr>`).join('')
+  document.getElementById('equipe-detalhe').innerHTML=`<div class="card">
+    <div class="card-header"><div><div class="card-title">${safeTxt(p.nome)}</div><div class="card-meta">${safeTxt(p.email||'')} · ${safeTxt(p.papel||'')}</div></div><button class="btn" onclick="document.getElementById('equipe-detalhe').innerHTML=''">Fechar</button></div>
+    <div style="padding:14px">
+      <div class="mod-grid">
+        <div class="mod-card"><div class="mod-card-label">RDV do mês</div><div class="mod-card-value" style="font-size:20px">${moeda(gasto)}</div></div>
+        <div class="mod-card"><div class="mod-card-label">Passagens mês</div><div class="mod-card-value" style="font-size:20px">${moeda(gastoPassagens)}</div></div>
+        <div class="mod-card"><div class="mod-card-label">Solicitações pendentes</div><div class="mod-card-value">${(demandas||[]).filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length}</div></div>
+        <div class="mod-card"><div class="mod-card-label">Dias com agenda no mês</div><div class="mod-card-value">${(agenda||[]).length}</div></div>
+      </div>
+      <div class="form-row">
+        <div><div class="sec-title" style="margin-bottom:8px">Viagens</div><div class="card" style="padding:0 12px">${proxViagens}</div></div>
+        <div><div class="sec-title" style="margin-bottom:8px">Agenda recente</div><div class="card"><table class="tbl"><tbody>${agRows||'<tr><td>Sem agenda no mês.</td></tr>'}</tbody></table></div></div>
+      </div>
+      <div class="sec-title" style="margin:14px 0 8px">RDV / Despesas</div>
+      <div class="card"><table class="tbl"><thead><tr><th>Data</th><th>Descrição</th><th>Status</th><th style="text-align:right">Valor</th></tr></thead><tbody>${rdvRows||'<tr><td colspan="4">Sem despesas no mês.</td></tr>'}</tbody></table></div>
+    </div>
+  </div>`
+  showScreen('equipe',document.getElementById('nav-equipe'),true)
 }
 
 ;(async()=>{
