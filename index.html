@@ -899,8 +899,14 @@ function statusBadge(s) {
   return`<span class="badge ${m[s]||'b-gray'}">${l[s]||s}</span>`
 }
 function statusNorm(s){ return String(s||'').trim().toLowerCase() }
-function despesaComputavel(d){ return ['pendente','aprovado'].includes(statusNorm(d?.status)) }
-function despesaRejeitada(d){ return statusNorm(d?.status).startsWith('rejeit') }
+function registroAtivo(r){ return !r || r.ativo !== false }
+function despesaComputavel(d){ return registroAtivo(d) && ['pendente','aprovado'].includes(statusNorm(d?.status)) }
+function despesaRejeitada(d){ return registroAtivo(d) && statusNorm(d?.status).startsWith('rejeit') }
+function demandaAtiva(d){ return registroAtivo(d) && !['cancelada','cancelado','excluida','excluído','excluido'].includes(statusNorm(d?.status)) }
+function viagemAtiva(v){ return registroAtivo(v) && statusNorm(v?.status) !== 'cancelada' }
+function viagemComBilhete(v){ return viagemAtiva(v) && (statusNorm(v?.status)==='bilhete_preenchido' || !!v?.localizador) }
+function viagemAguardandoBilhete(v){ return viagemAtiva(v) && !viagemComBilhete(v) && ['autorizada','aguardando_bilhete'].includes(statusNorm(v?.status)) }
+function viagemFinanceiraNoPeriodo(v, ini, fim){ return viagemComBilhete(v) && Number(v?.valor_bilhete||0)>0 && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim) }
 function isGestor(){ return perfil?.papel==='aprovador' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
 function diasEntreHoje(dataISO){
@@ -915,6 +921,17 @@ function politicaPrazoViagem(dataISO){
   if(dias<7)return {dias,nivel:'critico',label:`Crítico: ${dias} dia${dias===1?'':'s'} de antecedência`}
   if(dias<15)return {dias,nivel:'fora',label:`Fora da política: ${dias} dias de antecedência`}
   return {dias,nivel:'ok',label:`Dentro da política: ${dias} dias de antecedência`}
+}
+function prazoDemanda(d){
+  const raw=String(d?.observacao||'')
+  const m=raw.match(/Antecedência:\s*(-?\d+)\s*dias/i)
+  if(m){
+    const dias=Number(m[1])
+    if(dias<7)return {dias,nivel:'critico',label:`Crítico: ${dias} dia${dias===1?'':'s'} de antecedência`}
+    if(dias<15)return {dias,nivel:'fora',label:`Fora da política: ${dias} dias de antecedência`}
+    return {dias,nivel:'ok',label:`Dentro da política: ${dias} dias de antecedência`}
+  }
+  return politicaPrazoViagem(d?.data_inicio||d?.data_sugerida)
 }
 function extrairObsDemanda(obs){
   const raw=String(obs||'')
@@ -1040,7 +1057,7 @@ function renderCalendario(){
 
   // Mapeia viagens para dias do mês
   const viagensPorDia={}
-  todasViagens.forEach(v=>{
+  todasViagens.filter(viagemAtiva).forEach(v=>{
     const ini=new Date(v.data_inicio+'T00:00:00')
     const fim=new Date(v.data_fim+'T00:00:00')
     for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){
@@ -1082,7 +1099,7 @@ function renderCalendario(){
 
 function renderViagensDash(){
   const hoje=isoHoje()
-  const sorted=[...todasViagens].sort((a,b)=>(a.data_inicio||a.data_ida||'').localeCompare(b.data_inicio||b.data_ida||''))
+  const sorted=[...todasViagens].filter(viagemAtiva).sort((a,b)=>(a.data_inicio||a.data_ida||'').localeCompare(b.data_inicio||b.data_ida||''))
   if(!sorted.length){document.getElementById('dash-viagens-lista').innerHTML='<div class="empty">Nenhuma viagem registrada.</div>';return}
 
   let html=''
@@ -1111,7 +1128,7 @@ function renderViagensDash(){
 
 async function carregarDashboard() {
   const mes=mesAtual()
-  let q=sb.from('despesas').select('valor,status,usuario_id').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
+  let q=sb.from('despesas').select('valor,status,usuario_id,ativo').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
   if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
@@ -1119,8 +1136,8 @@ async function carregarDashboard() {
 
   document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
   document.getElementById('m-total').textContent=moeda(dsAtivas.reduce((s,d)=>s+d.valor,0))
-  document.getElementById('m-aprov').textContent=moeda(ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0))
-  document.getElementById('m-pend').textContent=moeda(ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0))
+  document.getElementById('m-aprov').textContent=moeda(dsAtivas.filter(d=>statusNorm(d.status)==='aprovado').reduce((s,d)=>s+Number(d.valor||0),0))
+  document.getElementById('m-pend').textContent=moeda(dsAtivas.filter(d=>statusNorm(d.status)==='pendente').reduce((s,d)=>s+Number(d.valor||0),0))
   document.getElementById('m-rej').textContent=moeda(0)
   const rejCard=document.getElementById('m-rej')?.closest('.metric')
   if(rejCard) rejCard.style.display='none'
@@ -1162,7 +1179,7 @@ async function carregarDashboard() {
 
     // Viagens
     const{data:viagens}=await sb.from('viagens').select('*').order('data_inicio',{ascending:true})
-    todasViagens=viagens||[]
+    todasViagens=(viagens||[]).filter(viagemAtiva)
     document.getElementById('dash-calendario-wrap').style.display='block'
     document.getElementById('dash-viagens-wrap').style.display='block'
     renderCalendario()
@@ -1174,9 +1191,9 @@ async function carregarDashboard() {
     const por={}
     dsAtivas.forEach(d=>{
       if(!por[d.usuario_id])por[d.usuario_id]={nome:nomePorId[d.usuario_id]||'?',total:0,aprov:0,pend:0,rej:0}
-      por[d.usuario_id].total+=d.valor
-      if(d.status==='aprovado')por[d.usuario_id].aprov+=d.valor
-      if(d.status==='pendente')por[d.usuario_id].pend+=d.valor
+      por[d.usuario_id].total+=Number(d.valor||0)
+      if(statusNorm(d.status)==='aprovado')por[d.usuario_id].aprov+=Number(d.valor||0)
+      if(statusNorm(d.status)==='pendente')por[d.usuario_id].pend+=Number(d.valor||0)
           })
     const rows=Object.values(por).map(r=>{
       const st=r.pend>0?'pendente':'aprovado'
@@ -1288,17 +1305,18 @@ async function renderDashboardSemanaTodos(profsParam){
 }
 
 async function carregarAgenda() {
-  let q=sb.from('viagens').select('*').order('data_inicio',{ascending:false})
+  let q=sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada').order('data_inicio',{ascending:false})
   if(!isGestor())q=q.eq('usuario_id',perfil.id)
   const{data:viagens,error:viagErr}=await q
   if(viagErr){document.getElementById('agenda-lista').innerHTML=`<div class="empty">Erro ao carregar viagens: ${viagErr.message}</div>`;return}
 
-  let dq=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false})
+  let dq=sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').order('created_at',{ascending:false})
   if(!isGestor())dq=dq.eq('usuario_id',perfil.id)
   const{data:demandas,error:demErr}=await dq
   if(demErr){document.getElementById('agenda-lista').innerHTML=`<div class="empty">Erro ao carregar solicitações: ${demErr.message}</div>`;return}
 
-  const ids=(viagens||[]).map(v=>v.id)
+  const viagensAtivas=(viagens||[]).filter(viagemAtiva)
+  const ids=viagensAtivas.map(v=>v.id)
   let despPorViagem={}
   if(ids.length){
     const{data:desps}=await sb.from('despesas').select('id,viagem_id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url').in('viagem_id',ids)
@@ -1343,7 +1361,7 @@ async function carregarAgenda() {
   if(demandasVisiveis.length){
     html+=`<div class="sec-header" style="margin-top:4px;margin-bottom:8px"><div class="sec-title">Solicitações de viagem</div></div>`
     demandasVisiveis.forEach(d=>{
-      const prazo=politicaPrazoViagem(d.data_inicio||d.data_sugerida)
+      const prazo=prazoDemanda(d)
       const obs=extrairObsDemanda(d.observacao)
       const quem=isGestor()&&nomePorId[d.usuario_id]?` · ${nomePorId[d.usuario_id]}`:''
       const fora=prazo.nivel!=='ok'
@@ -1369,18 +1387,18 @@ async function carregarAgenda() {
   const{data:catsAgenda}=await sb.from('categorias').select('id,nome')
   const catPorId={};(catsAgenda||[]).forEach(c=>catPorId[c.id]=c.nome)
 
-  if(!viagens||!viagens.length){
+  if(!viagensAtivas.length){
     if(!html) html+=`<div class="empty">Nenhuma viagem registrada.<br><br><button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">Solicitar primeira viagem</button></div>`
   } else {
     html+=`<div class="sec-header" style="margin-top:12px;margin-bottom:8px"><div class="sec-title">Viagens autorizadas</div></div>`
-    viagens.forEach(v=>{
+    viagensAtivas.forEach(v=>{
       const ds=despPorViagem[v.id]||[]
       const dsAtivasViagem=ds.filter(despesaComputavel)
-      const total=dsAtivasViagem.reduce((s,d)=>s+d.valor,0)
-      const aprov=ds.filter(d=>d.status==='aprovado').reduce((s,d)=>s+d.valor,0)
-      const pend=ds.filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
-      const rejN=ds.filter(d=>d.status==='rejeitado').length
-      const rejValor=ds.filter(d=>d.status==='rejeitado').reduce((s,d)=>s+d.valor,0)
+      const total=dsAtivasViagem.reduce((s,d)=>s+Number(d.valor||0),0)
+      const aprov=dsAtivasViagem.filter(d=>statusNorm(d.status)==='aprovado').reduce((s,d)=>s+Number(d.valor||0),0)
+      const pend=dsAtivasViagem.filter(d=>statusNorm(d.status)==='pendente').reduce((s,d)=>s+Number(d.valor||0),0)
+      const rejN=ds.filter(despesaRejeitada).length
+      const rejValor=ds.filter(despesaRejeitada).reduce((s,d)=>s+Number(d.valor||0),0)
       const quem=isGestor()&&nomePorId[v.usuario_id]?` · ${nomePorId[v.usuario_id]}`:''
       const estadoLabel=v.estado?` · ${v.estado}`:''
       const temResultado=v.fechou_negocio!==null
@@ -1390,8 +1408,8 @@ async function carregarAgenda() {
       if(ds.length){
         const ehDono=isGestor()||(v.usuario_id===perfil.id)
         const linhas=ds.map(d=>{
-          const dotCor=d.status==='aprovado'?'dot-mint':d.status==='rejeitado'?'dot-red':'dot-orange'
-          const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
+          const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
+          const rejNote=despesaRejeitada(d)&&d.motivo_rejeicao?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
           const editBtn=(d.status==='pendente'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:''
           return`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line)">
             <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
@@ -1455,7 +1473,7 @@ function lancarParaViagem(vid){
 async function carregarAvulsas(){
   const mes=mesAtual()
   let q=sb.from('despesas')
-    .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id')
+    .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id,ativo')
     .is('viagem_id',null)
     .gte('data_despesa',`${mes}-01`)
     .lte('data_despesa',fimMes(mes))
@@ -1474,18 +1492,18 @@ async function carregarAvulsas(){
   }
 
   const avulsasAtivasTela=(avulsas||[]).filter(despesaComputavel)
-  const total=avulsasAtivasTela.reduce((s,d)=>s+d.valor,0)
-  const pend=(avulsas||[]).filter(d=>d.status==='pendente').reduce((s,d)=>s+d.valor,0)
+  const total=avulsasAtivasTela.reduce((s,d)=>s+Number(d.valor||0),0)
+  const pend=avulsasAtivasTela.filter(d=>statusNorm(d.status)==='pendente').reduce((s,d)=>s+Number(d.valor||0),0)
   const rej=0
-  document.getElementById('avulsas-sub').textContent=`${(avulsas||[]).length} itens · Total ativo: ${moeda(total)} · Pendente: ${moeda(pend)}${rej>0?' · Rejeitado: '+moeda(rej):''}`
+  document.getElementById('avulsas-sub').textContent=`${avulsasAtivasTela.length} itens ativos · Total ativo: ${moeda(total)} · Pendente: ${moeda(pend)}${rej>0?' · Rejeitado: '+moeda(rej):''}`
 
-  if(!avulsas||!avulsas.length){
+  if(!avulsasAtivasTela.length){
     document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
     return
   }
 
   const linhas=avulsas.map(d=>{
-    const dotCor=d.status==='aprovado'?'dot-mint':d.status==='rejeitado'?'dot-red':'dot-orange'
+    const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
     const editBtn=(d.status==='pendente'||d.status==='rejeitado')
@@ -1574,6 +1592,21 @@ async function salvarViagem(){
 }
 
 
+
+async function gerarAgendaParaViagemAutorizada(viagemId, usuarioId, inicio, fim, destino, estado){
+  if(!viagemId||!usuarioId||!inicio)return
+  const datas=[]
+  const dIni=new Date(inicio+'T00:00:00')
+  const dFim=new Date((fim||inicio)+'T00:00:00')
+  for(let d=new Date(dIni); d<=dFim; d.setDate(d.getDate()+1)) datas.push(isoDate(d))
+  for(const data of datas){
+    const {data:existente}=await sb.from('agenda_semanal').select('id').eq('usuario_id',usuarioId).eq('data',data).limit(1).maybeSingle()
+    const payload={usuario_id:usuarioId,data,tipo:'viagem',cidade:destino||null,estado:estado||null,observacao:'Gerado pela viagem autorizada',viagem_id:viagemId,origem:'viagem_autorizada',ativo:true,updated_at:new Date().toISOString(),updated_by:perfil.id}
+    if(existente?.id) await sb.from('agenda_semanal').update(payload).eq('id',existente.id)
+    else await sb.from('agenda_semanal').insert({...payload,created_by:perfil.id})
+  }
+}
+
 function mostrarReprovarDemanda(id){
   const el=document.getElementById('dem-rej-'+id)
   if(el){el.style.display='block';document.getElementById('dem-rej-motivo-'+id)?.focus()}
@@ -1606,6 +1639,7 @@ async function aprovarDemandaViagem(id){
     viagem_id:viagem.id
   }).eq('id',id)
   if(updErr){alert('Viagem criada, mas erro ao atualizar solicitação: '+updErr.message);return}
+  await gerarAgendaParaViagemAutorizada(viagem.id, d.usuario_id, inicio, fim, d.destino, d.estado).catch(()=>{})
   mostrarAviso('Viagem autorizada. Aguardando preenchimento do bilhete.')
   await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
 }
@@ -1885,7 +1919,7 @@ async function excluirDespesa(id, origem='agenda'){
 async function prepararFormViagensSelect(){
   document.getElementById('d-arquivo').value=''
   resetUpload()
-  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).in('status',['agendada','em_andamento','autorizada','bilhete_preenchido','concluida']).order('data_inicio',{ascending:false})
+  const{data:viagens}=await sb.from('viagens').select('id,destino,cliente,data_inicio').eq('usuario_id',perfil.id).or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['agendada','em_andamento','autorizada','bilhete_preenchido','concluida']).order('data_inicio',{ascending:false})
   const sel=document.getElementById('d-viagem')
   sel.innerHTML='<option value="">Selecione a viagem</option>'
   ;(viagens||[]).forEach(v=>{sel.innerHTML+=`<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>`})
@@ -2020,7 +2054,7 @@ async function carregarAprovacoes(){
 
   if(demandas.length){
     const rows=demandas.map(d=>{
-      const prazo=politicaPrazoViagem(d.data_inicio||d.data_sugerida)
+      const prazo=prazoDemanda(d)
       const obs=extrairObsDemanda(d.observacao)
       const fora=prazo.nivel!=='ok'
       return`<div class="approve-row" id="dem-row-${d.id}">
@@ -2155,7 +2189,8 @@ async function rejeitar(id){
 
 async function carregarInsights(){
   const ini=new Date();ini.setDate(ini.getDate()-90)
-  const{data:despesas}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id').in('status',['pendente','aprovado']).gte('data_despesa',ini.toISOString().slice(0,10))
+  const{data:despesasRaw}=await sb.from('despesas').select('usuario_id,valor,status,data_despesa,categoria_id,ativo').in('status',['pendente','aprovado']).gte('data_despesa',ini.toISOString().slice(0,10))
+  const despesas=(despesasRaw||[]).filter(despesaComputavel)
   const{data:profs}=await sb.from('profiles').select('id,nome')
   const{data:cats}=await sb.from('categorias').select('id,nome')
   const nomePorId={};(profs||[]).forEach(p=>nomePorId[p.id]=p.nome)
@@ -2483,7 +2518,7 @@ async function prepararFormMulti(){
   try {
     const [viagRes, catsRes] = await Promise.all([
       sb.from('viagens').select('id,destino,cliente,data_inicio')
-        .eq('usuario_id',perfil.id).in('status',['agendada','em_andamento','autorizada','bilhete_preenchido','concluida']).order('data_inicio',{ascending:false}),
+        .eq('usuario_id',perfil.id).or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['agendada','em_andamento','autorizada','bilhete_preenchido','concluida']).order('data_inicio',{ascending:false}),
       sb.from('categorias').select('*').eq('ativo',true).order('tipo').order('ordem')
     ])
 
@@ -3165,7 +3200,7 @@ async function carregarModuloViagens(){
     wrap.innerHTML=`<div class="empty">Erro ao carregar viagens: ${(ed||ev).message}</div>`
     return
   }
-  viagensCache={demandas:demandas||[],viagens:viagens||[],profs:profs||[],despesas:despesas||[]}
+  viagensCache={demandas:(demandas||[]).filter(demandaAtiva),viagens:(viagens||[]).filter(viagemAtiva),profs:profs||[],despesas:(despesas||[]).filter(despesaComputavel)}
   renderViagensResumo()
   if(!isGestor() && viagensTabAtual==='pessoa') viagensTabAtual='emitidas'
   setViagensTab(viagensTabAtual)
@@ -3175,12 +3210,12 @@ function renderViagensResumo(){
   const {ini,fim}=mesIntervalo()
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
-  const pend=demandas.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
-  const aguard=viagens.filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada')).length
-  const emitidas=viagens.filter(v=>(v.localizador||statusNorm(v.status)==='bilhete_preenchido') && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim)).length
-  const gasto=viagens.filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
+  const pend=demandas.filter(d=>demandaAtiva(d)&&['pendente','solicitada'].includes(statusNorm(d.status))).length
+  const aguard=viagens.filter(viagemAguardandoBilhete).length
+  const emitidas=viagens.filter(v=>viagemComBilhete(v) && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim)).length
+  const gasto=viagens.filter(v=>viagemFinanceiraNoPeriodo(v, ini, fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
   const fora=demandas.filter(d=>{
-    const p=politicaPrazoViagem(d.data_inicio||d.data_sugerida)
+    const p=prazoDemanda(d)
     const raw=String(d.observacao||'')
     return p.nivel!=='ok' || /Fora da política|Crítico|Antecedência:\s*([0-9]|1[0-4])\s*dias/i.test(raw)
   }).length
@@ -3198,17 +3233,17 @@ function renderViagensConteudo(){
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
   if(viagensTabAtual==='pendentes'){
-    const lista=demandas.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status)))
+    const lista=demandas.filter(d=>demandaAtiva(d)&&['pendente','solicitada'].includes(statusNorm(d.status)))
     wrap.innerHTML=lista.length?lista.map(cardDemandaViagem).join(''):'<div class="empty">Nenhuma solicitação pendente.</div>'
     return
   }
   if(viagensTabAtual==='bilhete'){
-    const lista=viagens.filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada'))
+    const lista=viagens.filter(viagemAguardandoBilhete)
     wrap.innerHTML=lista.length?lista.map(cardViagemOperacional).join(''):'<div class="empty">Nenhuma viagem aguardando bilhete.</div>'
     return
   }
   if(viagensTabAtual==='emitidas'){
-    const lista=viagens.filter(v=>v.localizador||statusNorm(v.status)==='bilhete_preenchido')
+    const lista=viagens.filter(viagemComBilhete)
     wrap.innerHTML=lista.length?lista.map(cardViagemOperacional).join(''):'<div class="empty">Nenhum bilhete preenchido.</div>'
     return
   }
@@ -3219,7 +3254,7 @@ function renderViagensConteudo(){
 }
 
 function cardDemandaViagem(d){
-  const prazo=politicaPrazoViagem(d.data_inicio||d.data_sugerida)
+  const prazo=prazoDemanda(d)
   const obs=extrairObsDemanda(d.observacao)
   const fora=prazo.nivel!=='ok'
   return `<div class="card" style="border-color:${fora?'#FCD34D':'var(--line)'}">
@@ -3271,13 +3306,13 @@ function renderViagensPorPessoa(){
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
   const rows=profs.map(p=>{
-    const ds=demandas.filter(d=>d.usuario_id===p.id)
-    const vs=viagens.filter(v=>v.usuario_id===p.id)
+    const ds=demandas.filter(d=>d.usuario_id===p.id && demandaAtiva(d))
+    const vs=viagens.filter(v=>v.usuario_id===p.id && viagemAtiva(v))
     const pend=ds.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
-    const ag=vs.filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada')).length
-    const emit=vs.filter(v=>(v.localizador||statusNorm(v.status)==='bilhete_preenchido') && isDentroPeriodo(v.data_ida||v.data_inicio,ini,fim)).length
-    const gasto=vs.filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio,ini,fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
-    const fora=ds.filter(d=>politicaPrazoViagem(d.data_inicio||d.data_sugerida).nivel!=='ok' || /Antecedência:\s*([0-9]|1[0-4])\s*dias/i.test(String(d.observacao||''))).length
+    const ag=vs.filter(viagemAguardandoBilhete).length
+    const emit=vs.filter(v=>viagemComBilhete(v) && isDentroPeriodo(v.data_ida||v.data_inicio,ini,fim)).length
+    const gasto=vs.filter(v=>viagemFinanceiraNoPeriodo(v,ini,fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
+    const fora=ds.filter(d=>prazoDemanda(d).nivel!=='ok' || /Antecedência:\s*([0-9]|1[0-4])\s*dias/i.test(String(d.observacao||''))).length
     return `<tr><td style="font-weight:700">${safeTxt(p.nome)}</td><td>${pend}</td><td>${ag}</td><td>${emit}</td><td style="text-align:right">${moeda(gasto)}</td><td>${fora}</td><td><button class="btn btn-sm" onclick="abrirPessoa360('${p.id}')">Abrir</button></td></tr>`
   }).join('')
   return `<div class="card"><table class="tbl"><thead><tr><th>Profissional</th><th>Pendentes</th><th>Aguardando bilhete</th><th>Emitidas mês</th><th style="text-align:right">Gasto mês</th><th>Fora 15 dias</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
@@ -3299,10 +3334,20 @@ async function editarSolicitacaoViagem(id){
 
 async function excluirSolicitacaoViagem(id){
   if(!isGestor())return
-  if(!confirm('Excluir esta solicitação de viagem?'))return
-  const {error}=await sb.from('demandas_viagem').delete().eq('id',id)
-  if(error){alert('Erro ao excluir: '+error.message);return}
-  mostrarAviso('Solicitação excluída.'); await atualizarTudo('viagens')
+  const motivo=prompt('Motivo para remover esta solicitação das telas principais:', '')
+  if(motivo===null)return
+  const agora=new Date().toISOString()
+  const {error}=await sb.from('demandas_viagem').update({
+    status:'cancelada',
+    ativo:false,
+    cancelado_por:perfil.id,
+    cancelado_em:agora,
+    motivo_cancelamento:motivo||'Solicitação removida pelo gestor',
+    updated_at:agora,
+    updated_by:perfil.id
+  }).eq('id',id)
+  if(error){alert('Erro ao remover: '+error.message);return}
+  mostrarAviso('Solicitação removida das telas principais sem apagar o histórico.'); await atualizarTudo('viagens')
 }
 
 async function editarViagemBasica(id){
@@ -3323,9 +3368,20 @@ async function cancelarViagem(id){
   if(!isGestor())return
   const motivo=prompt('Motivo do cancelamento:', '')
   if(motivo===null)return
-  const {error}=await sb.from('viagens').update({status:'cancelada',observacao_bilhete:motivo||null,updated_at:new Date().toISOString()}).eq('id',id)
+  const agora=new Date().toISOString()
+  const {error}=await sb.from('viagens').update({
+    status:'cancelada',
+    ativo:false,
+    cancelado_por:perfil.id,
+    cancelado_em:agora,
+    motivo_cancelamento:motivo||'Cancelada pelo gestor',
+    observacao_bilhete:motivo||null,
+    updated_at:agora,
+    updated_by:perfil.id
+  }).eq('id',id)
   if(error){alert('Erro ao cancelar: '+error.message);return}
-  mostrarAviso('Viagem cancelada.'); await atualizarTudo('viagens')
+  await sb.from('agenda_semanal').update({viagem_id:null, tipo:'outro', origem:'manual', cidade:null, estado:null, observacao:'Viagem cancelada/removida pelo gestor', updated_at:agora, updated_by:perfil.id}).eq('viagem_id',id)
+  mostrarAviso('Viagem cancelada e retirada dos relatórios ativos.'); await atualizarTudo('viagens')
 }
 
 async function excluirViagemDefinitivo(id){
@@ -3347,7 +3403,7 @@ async function excluirViagemDefinitivo(id){
   }).eq('id',id)
   if(error){alert('Erro ao remover: '+error.message);return}
 
-  await sb.from('agenda_semanal').update({viagem_id:null, origem:'manual', updated_at:agora, updated_by:perfil.id}).eq('viagem_id',id)
+  await sb.from('agenda_semanal').update({viagem_id:null, tipo:'outro', origem:'manual', cidade:null, estado:null, observacao:'Viagem cancelada/removida pelo gestor', updated_at:agora, updated_by:perfil.id}).eq('viagem_id',id)
   await sb.from('demandas_viagem').update({ativo:false, cancelado_por:perfil.id, cancelado_em:agora, motivo_cancelamento:motivo||'Viagem removida pelo gestor', updated_at:agora, updated_by:perfil.id}).eq('viagem_id',id)
 
   mostrarAviso('Viagem removida das telas principais sem apagar o histórico.')
@@ -3370,23 +3426,25 @@ async function carregarAgendaEquipe(){
   const [{data:profs,error:ep},{data:regs,error:er},{data:viagens,error:ev}]=await Promise.all([
     sb.from('profiles').select('id,nome').order('nome'),
     sb.from('agenda_semanal').select('*, usuario:profiles!agenda_semanal_usuario_id_fkey(nome)').gte('data',dias[0]).lte('data',dias[5]).order('data'),
-    sb.from('viagens').select('*').lte('data_inicio',dias[5]).gte('data_fim',dias[0])
+    sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada').lte('data_inicio',dias[5]).gte('data_fim',dias[0])
   ])
   const wrap=document.getElementById('agendaequipe-grid')
   if(ep||er||ev){ wrap.innerHTML=`<div class="empty">Erro ao carregar agenda: ${(ep||er||ev).message}</div>`; return }
   const por={}; (profs||[]).forEach(p=>por[p.id]={nome:p.nome,dias:{}})
   ;(regs||[]).forEach(r=>{ if(!por[r.usuario_id])por[r.usuario_id]={nome:r.usuario?.nome||'?',dias:{}}; por[r.usuario_id].dias[r.data]=r })
   const viagensDia={}
-  ;(viagens||[]).forEach(v=>{
+  const viagensPorId={}
+  ;(viagens||[]).filter(viagemAtiva).forEach(v=>{
+    viagensPorId[v.id]=v
     dias.forEach(dt=>{ if(v.usuario_id && isDentroPeriodo(dt, v.data_inicio||v.data_ida, v.data_fim||v.data_volta||v.data_inicio||v.data_ida)){ viagensDia[`${v.usuario_id}_${dt}`]=v } })
   })
   const th=dias.map(dt=>{ const d=new Date(dt+'T00:00:00'); return `<th style="text-align:center">${DIAS_SEMANA[d.getDay()]}<br>${dataFmt(dt).slice(0,5)}</th>` }).join('')
   const rows=Object.entries(por).map(([uid,p])=>{
     const cells=dias.map(dt=>{
       const r=p.dias[dt]
-      const v=viagensDia[`${uid}_${dt}`]
-      if(!r && !v) return `<td style="text-align:center;color:var(--ink2)">—</td>`
-      const tipo=r?.tipo || (v?'viagem':'outro')
+      if(!r) return `<td style="text-align:center;color:var(--ink2)">—</td>`
+      const tipo=r?.tipo || 'outro'
+      const v=statusNorm(tipo)==='viagem' ? (r.viagem_id ? viagensPorId[r.viagem_id] : viagensDia[`${uid}_${dt}`]) : null
       const cfg=TIPOS_DIA[tipo]||TIPOS_DIA.outro
       const cidade=r?.cidade || v?.destino || ''
       const estado=r?.estado || v?.estado || ''
@@ -3431,9 +3489,9 @@ async function carregarEquipe(){
   const [{data:profs,error:ep},{data:despesas},{data:viagens},{data:demandas},{data:agenda}]=await Promise.all([
     sb.from('profiles').select('*').order('nome'),
     sb.from('despesas').select('*').gte('data_despesa',ini).lte('data_despesa',fim),
-    sb.from('viagens').select('*'),
-    sb.from('demandas_viagem').select('*'),
-    sb.from('agenda_semanal').select('*').gte('data',ini).lte('data',fim)
+    sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada'),
+    sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true'),
+    sb.from('agenda_semanal').select('*').or('ativo.is.null,ativo.eq.true').gte('data',ini).lte('data',fim)
   ])
   if(ep){ document.getElementById('equipe-lista').innerHTML=`<div class="empty">Erro ao carregar equipe: ${ep.message}</div>`; return }
   if(!profs?.length){document.getElementById('equipe-lista').innerHTML='<div class="empty">Nenhum usuário.</div>';return}
@@ -3441,10 +3499,10 @@ async function carregarEquipe(){
     const ds=(despesas||[]).filter(d=>d.usuario_id===p.id && despesaComputavel(d))
     const gasto=ds.reduce((s,d)=>s+Number(d.valor||0),0)
     const pendRDV=ds.filter(d=>statusNorm(d.status)==='pendente').length
-    const vs=(viagens||[]).filter(v=>v.usuario_id===p.id)
-    const dsDem=(demandas||[]).filter(d=>d.usuario_id===p.id)
+    const vs=(viagens||[]).filter(v=>v.usuario_id===p.id && viagemAtiva(v))
+    const dsDem=(demandas||[]).filter(d=>d.usuario_id===p.id && demandaAtiva(d))
     const pendViag=dsDem.filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
-    const emitidas=vs.filter(v=>v.localizador||statusNorm(v.status)==='bilhete_preenchido').length
+    const emitidas=vs.filter(viagemComBilhete).length
     const agendaDias=(agenda||[]).filter(a=>a.usuario_id===p.id).length
     return `<div class="mod-card person-card" onclick="abrirPessoa360('${p.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
@@ -3473,16 +3531,17 @@ async function abrirPessoa360(uid){
   const [{data:p},{data:despesas},{data:viagens},{data:demandas},{data:agenda}]=await Promise.all([
     sb.from('profiles').select('*').eq('id',uid).single(),
     sb.from('despesas').select('*').eq('usuario_id',uid).gte('data_despesa',ini).lte('data_despesa',fim).order('data_despesa',{ascending:false}),
-    sb.from('viagens').select('*').eq('usuario_id',uid).order('data_inicio',{ascending:false}),
-    sb.from('demandas_viagem').select('*').eq('usuario_id',uid).order('created_at',{ascending:false}),
-    sb.from('agenda_semanal').select('*').eq('usuario_id',uid).gte('data',ini).lte('data',fim).order('data')
+    sb.from('viagens').select('*').eq('usuario_id',uid).or('ativo.is.null,ativo.eq.true').neq('status','cancelada').order('data_inicio',{ascending:false}),
+    sb.from('demandas_viagem').select('*').eq('usuario_id',uid).or('ativo.is.null,ativo.eq.true').order('created_at',{ascending:false}),
+    sb.from('agenda_semanal').select('*').eq('usuario_id',uid).or('ativo.is.null,ativo.eq.true').gte('data',ini).lte('data',fim).order('data')
   ])
   if(!p)return
   const dsAtivas=(despesas||[]).filter(despesaComputavel)
   const gasto=dsAtivas.reduce((s,d)=>s+Number(d.valor||0),0)
-  const gastoPassagens=(viagens||[]).filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio,ini,fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
-  const proxViagens=(viagens||[]).slice(0,5).map(v=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><strong>${safeTxt(v.destino)}</strong> · ${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${statusBadge(v.status)} ${v.localizador?`<div style="font-size:11px;color:var(--ink2)">${safeTxt(v.aeroporto_origem||'')} → ${safeTxt(v.aeroporto_destino||'')} · ${safeTxt(v.localizador)} · ${moeda(v.valor_bilhete||0)}</div>`:''}</div>`).join('')||'<div class="empty">Sem viagens.</div>'
-  const rdvRows=(despesas||[]).slice(0,8).map(d=>`<tr><td>${dataFmt(d.data_despesa)}</td><td>${safeTxt(d.descricao||'')}</td><td>${statusBadge(d.status)}</td><td style="text-align:right">${moeda(d.valor)}</td></tr>`).join('')
+  const viagensAtivasPessoa=(viagens||[]).filter(viagemAtiva)
+  const gastoPassagens=viagensAtivasPessoa.filter(v=>viagemFinanceiraNoPeriodo(v,ini,fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
+  const proxViagens=viagensAtivasPessoa.slice(0,5).map(v=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><strong>${safeTxt(v.destino)}</strong> · ${dataFmt(v.data_inicio)} – ${dataFmt(v.data_fim)} · ${statusBadge(v.status)} ${v.localizador?`<div style="font-size:11px;color:var(--ink2)">${safeTxt(v.aeroporto_origem||'')} → ${safeTxt(v.aeroporto_destino||'')} · ${safeTxt(v.localizador)} · ${moeda(v.valor_bilhete||0)}</div>`:''}</div>`).join('')||'<div class="empty">Sem viagens.</div>'
+  const rdvRows=dsAtivas.slice(0,8).map(d=>`<tr><td>${dataFmt(d.data_despesa)}</td><td>${safeTxt(d.descricao||'')}</td><td>${statusBadge(d.status)}</td><td style="text-align:right">${moeda(d.valor)}</td></tr>`).join('')
   const agRows=(agenda||[]).slice(-10).map(a=>`<tr><td>${dataFmt(a.data)}</td><td>${safeTxt((TIPOS_DIA[a.tipo]||TIPOS_DIA.outro).label)}</td><td>${safeTxt([a.cidade,a.estado].filter(Boolean).join(' · '))}</td><td><button class="btn btn-sm" onclick="editarDiaSemanal('${uid}','${a.data}')">Editar</button></td></tr>`).join('')
   document.getElementById('equipe-detalhe').innerHTML=`<div class="card">
     <div class="card-header"><div><div class="card-title">${safeTxt(p.nome)}</div><div class="card-meta">${safeTxt(p.email||'')} · ${safeTxt(p.papel||'')}</div></div><button class="btn" onclick="document.getElementById('equipe-detalhe').innerHTML=''">Fechar</button></div>
@@ -3490,7 +3549,7 @@ async function abrirPessoa360(uid){
       <div class="mod-grid">
         <div class="mod-card"><div class="mod-card-label">RDV do mês</div><div class="mod-card-value" style="font-size:20px">${moeda(gasto)}</div></div>
         <div class="mod-card"><div class="mod-card-label">Passagens mês</div><div class="mod-card-value" style="font-size:20px">${moeda(gastoPassagens)}</div></div>
-        <div class="mod-card"><div class="mod-card-label">Solicitações pendentes</div><div class="mod-card-value">${(demandas||[]).filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length}</div></div>
+        <div class="mod-card"><div class="mod-card-label">Solicitações pendentes</div><div class="mod-card-value">${(demandas||[]).filter(d=>demandaAtiva(d)&&['pendente','solicitada'].includes(statusNorm(d.status))).length}</div></div>
         <div class="mod-card"><div class="mod-card-label">Dias com agenda no mês</div><div class="mod-card-value">${(agenda||[]).length}</div></div>
       </div>
       <div class="form-row">
