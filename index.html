@@ -1157,29 +1157,16 @@ async function carregarDashboard() {
     alertaHtml+=`</div></div>`
     document.getElementById('dash-alerta-rdv').innerHTML=alertaHtml
 
-    // Dashboard limpo: semana completa e lista de viagens ficam nos módulos próprios
-    document.getElementById('dash-semana-wrap').style.display='none'
+    document.getElementById('dash-semana-wrap').style.display='block'
+    await renderDashboardSemanaTodos(todosProfs)
 
-    // Resumo executivo de viagens
+    // Viagens
     const{data:viagens}=await sb.from('viagens').select('*').order('data_inicio',{ascending:true})
-    const{data:demandasDash}=await sb.from('demandas_viagem').select('*')
     todasViagens=viagens||[]
-    document.getElementById('dash-calendario-wrap').style.display='none'
-    document.getElementById('dash-viagens-wrap').style.display='none'
-    const _mf=mesIntervalo()
-    const pendViag=(demandasDash||[]).filter(d=>['pendente','solicitada'].includes(statusNorm(d.status))).length
-    const agBilhete=(viagens||[]).filter(v=>['autorizada','aguardando_bilhete'].includes(statusNorm(v.status)) || (!v.localizador && statusNorm(v.status)!=='cancelada')).length
-    const emitMes=(viagens||[]).filter(v=>(v.localizador||statusNorm(v.status)==='bilhete_preenchido') && isDentroPeriodo(v.data_ida||v.data_inicio,_mf.ini,_mf.fim)).length
-    const gastoPass=(viagens||[]).filter(v=>isDentroPeriodo(v.data_ida||v.data_inicio,_mf.ini,_mf.fim)).reduce((s,v)=>s+Number(v.valor_bilhete||0),0)
-    document.getElementById('dash-alerta-rdv').innerHTML += `<div class="card" style="margin-bottom:12px">
-      <div class="card-header"><div><div class="card-title">Viagens do mês</div><div class="card-meta">Resumo rápido · detalhes no módulo Viagens</div></div><button class="btn btn-primary" onclick="showScreen('viagens',document.getElementById('nav-viagens'))">Abrir viagens</button></div>
-      <div class="metrics" style="padding:12px;margin:0;grid-template-columns:repeat(4,1fr)">
-        <div class="metric m-orange"><div class="metric-label">Pendentes</div><div class="metric-value">${pendViag}</div></div>
-        <div class="metric m-purple"><div class="metric-label">Aguardando bilhete</div><div class="metric-value">${agBilhete}</div></div>
-        <div class="metric m-mint"><div class="metric-label">Emitidas</div><div class="metric-value">${emitMes}</div></div>
-        <div class="metric"><div class="metric-label">Gasto passagens</div><div class="metric-value" style="font-size:20px">${moeda(gastoPass)}</div></div>
-      </div>
-    </div>`
+    document.getElementById('dash-calendario-wrap').style.display='block'
+    document.getElementById('dash-viagens-wrap').style.display='block'
+    renderCalendario()
+    renderViagensDash()
 
     // Tabela por coordenador
     const nomePorId={}
@@ -3163,9 +3150,9 @@ function setViagensTab(tab){
 async function carregarModuloViagens(){
   const wrap=document.getElementById('viagens-conteudo')
   if(wrap) wrap.innerHTML='<div class="loading">Carregando viagens...</div>'
-  let qd=sb.from('demandas_viagem').select('*').order('created_at',{ascending:false})
-  let qv=sb.from('viagens').select('*').order('data_inicio',{ascending:false})
-  let qdesp=sb.from('despesas').select('usuario_id,viagem_id,valor,status,data_despesa')
+  let qd=sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').order('created_at',{ascending:false})
+  let qv=sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').order('data_inicio',{ascending:false})
+  let qdesp=sb.from('despesas').select('usuario_id,viagem_id,valor,status,data_despesa').or('ativo.is.null,ativo.eq.true')
   if(!isGestor()){
     qd=qd.eq('usuario_id',perfil.id)
     qv=qv.eq('usuario_id',perfil.id)
@@ -3273,7 +3260,7 @@ function cardViagemOperacional(v){
     </div>
     <div class="card-footer"><span>${emitida?'Bilhete preenchido':'Falta preencher bilhete'}</span><div class="action-row">
       <button class="btn btn-sm" onclick="abrirDetalheViagem('${v.id}')">Abrir</button>
-      ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button><button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Excluir</button>`:''}
+      ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button><button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Remover</button>`:''}
     </div></div>
   </div>`
 }
@@ -3343,10 +3330,28 @@ async function cancelarViagem(id){
 
 async function excluirViagemDefinitivo(id){
   if(!isGestor())return
-  if(!confirm('Excluir definitivamente esta viagem? Se houver RDV vinculado, o banco pode bloquear.'))return
-  const {error}=await sb.from('viagens').delete().eq('id',id)
-  if(error){alert('Erro ao excluir: '+error.message);return}
-  mostrarAviso('Viagem excluída.'); await atualizarTudo('viagens')
+  const motivo=prompt('Motivo para remover esta viagem das telas principais:', '')
+  if(motivo===null)return
+  const agora=new Date().toISOString()
+
+  // Não apaga fisicamente: a viagem pode estar vinculada à solicitação, RDV ou agenda.
+  // Remover = cancelar + inativar, mantendo histórico e evitando erro de chave estrangeira.
+  const {error}=await sb.from('viagens').update({
+    status:'cancelada',
+    ativo:false,
+    cancelado_por:perfil.id,
+    cancelado_em:agora,
+    motivo_cancelamento:motivo||'Removida pelo gestor',
+    updated_at:agora,
+    updated_by:perfil.id
+  }).eq('id',id)
+  if(error){alert('Erro ao remover: '+error.message);return}
+
+  await sb.from('agenda_semanal').update({viagem_id:null, origem:'manual', updated_at:agora, updated_by:perfil.id}).eq('viagem_id',id)
+  await sb.from('demandas_viagem').update({ativo:false, cancelado_por:perfil.id, cancelado_em:agora, motivo_cancelamento:motivo||'Viagem removida pelo gestor', updated_at:agora, updated_by:perfil.id}).eq('viagem_id',id)
+
+  mostrarAviso('Viagem removida das telas principais sem apagar o histórico.')
+  await atualizarTudo('viagens')
 }
 
 function iniciarAgendaEquipe(){
