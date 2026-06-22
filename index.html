@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RDV · Cleantabaco</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
   :root {
     --purple: #7C3AED; --purple-light: #EDE9FE; --purple-dark: #4C1D95;
@@ -655,6 +656,14 @@ body::before {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
 
+/* Download de comprovantes em ZIP */
+.zip-toolbar { display:grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap:10px; align-items:end; }
+.zip-toolbar .btn { justify-content:center; }
+.zip-help { font-size:11px; color:var(--ink2); margin-top:8px; }
+.zip-status { display:none; font-size:11px; margin-top:8px; padding:8px 10px; border-radius:8px; background:var(--purple-light); color:var(--purple-dark); border:1px solid #C4B5FD; }
+@media (max-width: 900px) { .zip-toolbar { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .zip-toolbar { grid-template-columns: 1fr; } }
+
 </style>
 </head>
 <body>
@@ -1107,6 +1116,43 @@ body::before {
       <div class="screen" id="screen-aprovar">
         <div class="page-title">Aprovações pendentes</div>
         <div class="page-sub" id="aprovar-sub">Carregando...</div>
+
+        <div class="form-card" id="zip-comprovantes-card" style="margin-bottom:14px">
+          <div class="sec-header" style="margin-bottom:10px">
+            <div>
+              <div class="sec-title">Baixar comprovantes</div>
+              <div style="font-size:11px;color:var(--ink2)">Organiza em ZIP por coordenador e categoria.</div>
+            </div>
+          </div>
+          <div class="zip-toolbar">
+            <div class="form-group">
+              <label class="form-label">Mês</label>
+              <input id="zip-mes" type="month" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Coordenador</label>
+              <select id="zip-coord" class="form-select"><option value="">Todos</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Categoria</label>
+              <select id="zip-cat" class="form-select"><option value="">Todas</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select id="zip-status" class="form-select">
+                <option value="aprovado_pendente">Aprovados + pendentes</option>
+                <option value="aprovado">Só aprovados</option>
+                <option value="pendente">Só pendentes</option>
+                <option value="rejeitado">Só rejeitados</option>
+                <option value="todos">Todos</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="baixarZipRDV()">Baixar ZIP</button>
+          </div>
+          <div class="zip-help">Exemplo: RDV_Junho_2026 / Igor / Alimentação / comprovantes.</div>
+          <div id="zip-status-msg" class="zip-status"></div>
+        </div>
+
         <div id="aprovar-lista"><div class="loading">Carregando...</div></div>
       </div>
 
@@ -2294,6 +2340,173 @@ function limparFormDespesa(){
   resetUpload()
 }
 
+
+async function carregarFiltrosZipComprovantes(){
+  const mesEl=document.getElementById('zip-mes')
+  if(!mesEl) return
+  if(!mesEl.value) mesEl.value=mesAtual()
+
+  const [profRes,catsRes]=await Promise.all([
+    sb.from('profiles').select('id,nome').order('nome'),
+    sb.from('categorias').select('id,nome,tipo').order('nome')
+  ])
+
+  const coord=document.getElementById('zip-coord')
+  const cat=document.getElementById('zip-cat')
+  const coordAtual=coord?.value||''
+  const catAtual=cat?.value||''
+
+  if(coord){
+    coord.innerHTML='<option value="">Todos</option>'+((profRes.data||[]).map(p=>`<option value="${p.id}">${p.nome}</option>`).join(''))
+    coord.value=coordAtual
+  }
+  if(cat){
+    cat.innerHTML='<option value="">Todas</option>'+((catsRes.data||[]).map(c=>`<option value="${c.id}">${c.nome}</option>`).join(''))
+    cat.value=catAtual
+  }
+}
+
+function nomeSeguroZip(v){
+  return String(v||'sem_nome')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[\\/:*?"<>|]/g,'-')
+    .replace(/\s+/g,' ')
+    .trim()
+    .slice(0,90) || 'sem_nome'
+}
+
+function extensaoArquivo(nome,url,tipo){
+  const base=String(nome||url||'').split('?')[0]
+  const m=base.match(/\.([a-zA-Z0-9]{2,5})$/)
+  if(m) return m[1].toLowerCase()
+  if(tipo==='pdf') return 'pdf'
+  if(tipo==='image') return 'jpg'
+  return 'bin'
+}
+
+function setZipMsg(msg,erro=false){
+  const el=document.getElementById('zip-status-msg')
+  if(!el){ if(msg) alert(msg); return }
+  el.textContent=msg
+  el.style.display=msg?'block':'none'
+  el.style.background=erro?'var(--red-light)':'var(--purple-light)'
+  el.style.color=erro?'#991B1B':'var(--purple-dark)'
+  el.style.borderColor=erro?'#FCA5A5':'#C4B5FD'
+}
+
+async function adicionarUrlNoZip(zip,caminho,url){
+  const resp=await fetch(url)
+  if(!resp.ok) throw new Error('Falha ao baixar comprovante')
+  const blob=await resp.blob()
+  zip.file(caminho,blob)
+}
+
+async function baixarZipDespesa(id){
+  if(typeof JSZip==='undefined'){ alert('Biblioteca ZIP não carregou. Recarregue a página e tente novamente.'); return }
+  const {data:d,error}=await sb.from('despesas').select('*').eq('id',id).single()
+  if(error||!d){ alert('Despesa não encontrada.'); return }
+  const [{data:extras},{data:prof},{data:cat}]=await Promise.all([
+    sb.from('comprovantes').select('*').eq('despesa_id',id),
+    sb.from('profiles').select('nome').eq('id',d.usuario_id).single(),
+    sb.from('categorias').select('nome').eq('id',d.categoria_id).single()
+  ])
+  const arquivos=[]
+  if(d.comprovante_url) arquivos.push({url:d.comprovante_url,nome:d.comprovante_nome,tipo:d.comprovante_nome?.toLowerCase().endsWith('.pdf')?'pdf':'image'})
+  ;(extras||[]).forEach(c=>arquivos.push({url:c.url,nome:c.nome,tipo:c.tipo}))
+  if(!arquivos.length){ alert('Essa despesa não tem comprovante.'); return }
+
+  const zip=new JSZip()
+  const pasta=`${nomeSeguroZip(prof?.nome||'Coordenador')}/${nomeSeguroZip(cat?.nome||'Categoria')}`
+  let ok=0
+  for(let i=0;i<arquivos.length;i++){
+    const a=arquivos[i]
+    try{
+      const ext=extensaoArquivo(a.nome,a.url,a.tipo)
+      const nome=`${dataFmt(d.data_despesa)} - ${moeda(d.valor)} - comprovante ${String(i+1).padStart(2,'0')}.${ext}`
+      await adicionarUrlNoZip(zip,`${pasta}/${nomeSeguroZip(nome)}`,a.url)
+      ok++
+    }catch(e){ console.error(e) }
+  }
+  if(!ok){ alert('Não foi possível baixar os comprovantes.'); return }
+  const blob=await zip.generateAsync({type:'blob'})
+  const a=document.createElement('a')
+  a.href=URL.createObjectURL(blob)
+  a.download=`RDV_${nomeSeguroZip(prof?.nome||'Coordenador')}_${d.data_despesa||'despesa'}.zip`
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+}
+
+async function baixarZipRDV(){
+  if(typeof JSZip==='undefined'){ alert('Biblioteca ZIP não carregou. Recarregue a página e tente novamente.'); return }
+  const mes=document.getElementById('zip-mes')?.value||mesAtual()
+  const usuario=document.getElementById('zip-coord')?.value||''
+  const categoria=document.getElementById('zip-cat')?.value||''
+  const status=document.getElementById('zip-status')?.value||'aprovado_pendente'
+
+  setZipMsg('Buscando despesas e comprovantes...')
+  let q=sb.from('despesas').select('*').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes)).order('data_despesa',{ascending:true})
+  if(usuario) q=q.eq('usuario_id',usuario)
+  if(categoria) q=q.eq('categoria_id',categoria)
+  if(status==='aprovado_pendente') q=q.in('status',['aprovado','pendente'])
+  else if(status==='todos') q=q.in('status',['aprovado','pendente','rejeitado'])
+  else q=q.eq('status',status)
+
+  const {data:despesas,error}=await q
+  if(error){ setZipMsg('Erro ao buscar despesas: '+error.message,true); return }
+  const lista=(despesas||[]).filter(registroAtivo)
+  if(!lista.length){ setZipMsg('Nenhuma despesa encontrada para esse filtro.',true); return }
+
+  const ids=lista.map(d=>d.id)
+  const [profRes,catsRes,compRes]=await Promise.all([
+    sb.from('profiles').select('id,nome'),
+    sb.from('categorias').select('id,nome,tipo'),
+    ids.length?sb.from('comprovantes').select('*').in('despesa_id',ids):Promise.resolve({data:[]})
+  ])
+  const nomePorId={}; (profRes.data||[]).forEach(p=>nomePorId[p.id]=p.nome)
+  const catPorId={}; (catsRes.data||[]).forEach(c=>catPorId[c.id]=c.nome)
+  const extrasPorDespesa={}
+  ;(compRes.data||[]).forEach(c=>{ if(!extrasPorDespesa[c.despesa_id]) extrasPorDespesa[c.despesa_id]=[]; extrasPorDespesa[c.despesa_id].push(c) })
+
+  const zip=new JSZip()
+  let totalArquivos=0, falhas=0
+  const [ano,mesNum]=mes.split('-')
+  const nomeMes=new Date(Number(ano),Number(mesNum)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).replace(' de ','_')
+  const raiz=`RDV_${nomeSeguroZip(nomeMes)}`
+
+  for(const d of lista){
+    const arquivos=[]
+    if(d.comprovante_url) arquivos.push({url:d.comprovante_url,nome:d.comprovante_nome,tipo:d.comprovante_nome?.toLowerCase().endsWith('.pdf')?'pdf':'image'})
+    ;(extrasPorDespesa[d.id]||[]).forEach(c=>arquivos.push({url:c.url,nome:c.nome,tipo:c.tipo}))
+    if(!arquivos.length) continue
+
+    const nomeCoord=nomeSeguroZip(nomePorId[d.usuario_id]||'Coordenador')
+    const nomeCat=nomeSeguroZip(catPorId[d.categoria_id]||'Sem categoria')
+    const desc=nomeSeguroZip(d.descricao||'despesa')
+    const pasta=`${raiz}/${nomeCoord}/${nomeCat}`
+
+    for(let i=0;i<arquivos.length;i++){
+      const arq=arquivos[i]
+      try{
+        const ext=extensaoArquivo(arq.nome,arq.url,arq.tipo)
+        const base=`${d.data_despesa||'sem-data'} - ${moeda(d.valor)} - ${desc} - ${String(i+1).padStart(2,'0')}.${ext}`
+        await adicionarUrlNoZip(zip,`${pasta}/${nomeSeguroZip(base)}`,arq.url)
+        totalArquivos++
+        if(totalArquivos%5===0) setZipMsg(`Montando ZIP... ${totalArquivos} arquivo(s) incluído(s).`)
+      }catch(e){ falhas++; console.error('Falha comprovante',arq,e) }
+    }
+  }
+
+  if(!totalArquivos){ setZipMsg('As despesas encontradas não têm comprovantes para baixar.',true); return }
+  setZipMsg(`Gerando arquivo ZIP com ${totalArquivos} comprovante(s)...`)
+  const blob=await zip.generateAsync({type:'blob'})
+  const link=document.createElement('a')
+  link.href=URL.createObjectURL(blob)
+  link.download=`${raiz}_por_coordenador_e_categoria.zip`
+  document.body.appendChild(link); link.click(); link.remove()
+  setTimeout(()=>URL.revokeObjectURL(link.href),1000)
+  setZipMsg(`ZIP gerado com ${totalArquivos} comprovante(s)${falhas?` · ${falhas} falha(s) ignorada(s)`:''}.`)
+}
+
 async function contarPendentes(){
   if(perfil?.papel!=='aprovador')return
   const[{count:despCount},{count:viagCount}]=await Promise.all([
@@ -2307,6 +2520,7 @@ async function contarPendentes(){
 }
 
 async function carregarAprovacoes(){
+  await carregarFiltrosZipComprovantes()
   const [despRes, demRes, profRes, catsRes] = await Promise.all([
     sb.from('despesas').select('*').eq('status','pendente').order('data_despesa'),
     sb.from('demandas_viagem').select('*').in('status',['pendente','solicitada']).order('created_at',{ascending:true}),
@@ -2405,13 +2619,13 @@ async function carregarAprovacoes(){
             ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
           </div>
           <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
-          <div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">Aprovar</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button></div>
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="baixarZipDespesa('${d.id}')">Baixar</button><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">Aprovar</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button></div>
         </div>
         <div id="rej-form-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5">
           <div style="display:flex;gap:8px;align-items:center"><input id="rej-motivo-${d.id}" class="form-input" placeholder="Motivo da rejeição *" style="flex:1;font-size:11px;padding:5px 8px"><button class="btn btn-sm btn-reject" onclick="rejeitar('${d.id}')">Confirmar</button><button class="btn btn-sm" onclick="document.getElementById('rej-form-${d.id}').style.display='none'">Cancelar</button></div>
         </div>`
       }).join('')
-      html+=`<div class="card" style="margin-bottom:10px"><div class="card-header"><div class="card-title">RDV · ${g.nome}</div><span class="badge b-orange">${g.items.length} pendente${g.items.length>1?'s':''}</span></div>${rows}<div class="card-footer"><span>Total pendente</span><strong>${moeda(total)}</strong></div></div>`
+      html+=`<div class="card" style="margin-bottom:10px"><div class="card-header"><div class="card-title">RDV · ${g.nome}</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="document.getElementById('zip-coord').value='${uid}';document.getElementById('zip-status').value='pendente';baixarZipRDV()">Baixar pendentes</button><span class="badge b-orange">${g.items.length} pendente${g.items.length>1?'s':''}</span></div></div>${rows}<div class="card-footer"><span>Total pendente</span><strong>${moeda(total)}</strong></div></div>`
     })
   }
   document.getElementById('aprovar-lista').innerHTML=html
