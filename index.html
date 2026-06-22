@@ -1369,8 +1369,6 @@ async function iniciarApp() {
 
   document.querySelectorAll('.nav-item').forEach(el=>el.style.display='flex')
   document.querySelectorAll('.nav-label').forEach(el=>el.style.display='block')
-  document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
-  document.getElementById('nav-label-admin').style.display='none'
   document.getElementById('nav-agenda').style.display='none'
 
   if(perfil.papel==='aprovador'){
@@ -2028,7 +2026,7 @@ async function abrirBilhete(vid){
   document.getElementById('b-escolhido-por').value=v.escolhido_por||'promotor'
   document.getElementById('b-observacao').value=v.observacao_bilhete||''
   document.getElementById('b-pdf').value=''
-  document.getElementById('b-pdf-atual').innerHTML=v.bilhete_pdf_url?`PDF atual: <a href="${v.bilhete_pdf_url}" target="_blank">${safeTxt(v.bilhete_pdf_nome||'abrir bilhete')}</a>`:'Nenhum PDF anexado ainda.'
+  document.getElementById('b-pdf-atual').innerHTML=v.bilhete_pdf_url?`PDF atual: <a href="${v.bilhete_pdf_url}" target="_blank">${safeTxt(v.bilhete_pdf_nome||'abrir bilhete')}</a> <button type="button" class="btn btn-sm btn-reject" style="margin-left:8px;font-size:10px;padding:2px 8px" onclick="removerPdfBilhete('${v.id}')">Remover PDF</button>`:'Nenhum PDF anexado ainda.'
   document.getElementById('b-erro').style.display='none'
   showScreen('bilhete',document.getElementById('nav-viagens'))
 }
@@ -2043,6 +2041,58 @@ async function uploadPdfBilhete(viagemId){
   if(error) throw error
   const {data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
   return {url:publicUrl,nome:file.name,tamanho_kb:Math.round(file.size/1024)}
+}
+
+
+async function removerPdfBilhete(id){
+  if(!isGestor()&&!isEmissorViagens()){alert('Sem permissão para remover PDF do bilhete.');return}
+  if(!confirm('Remover apenas o PDF anexado deste bilhete? Os dados preenchidos serão mantidos.'))return
+  const {error}=await sb.from('viagens').update({
+    bilhete_pdf_url:null,
+    bilhete_pdf_nome:null,
+    bilhete_pdf_tamanho_kb:null,
+    updated_at:new Date().toISOString()
+  }).eq('id',id)
+  if(error){alert('Erro ao remover PDF: '+error.message);return}
+  mostrarAviso('PDF do bilhete removido.');
+  await atualizarTudo('viagens')
+  if(bilheteViagemId===id){ await abrirBilhete(id) }
+}
+
+async function excluirBilheteEmitido(id){
+  if(!isGestor()){alert('Somente gestor pode excluir o bilhete emitido.');return}
+  if(!confirm('Excluir o bilhete emitido desta viagem e voltar para aguardando emissão? A solicitação da viagem será mantida.'))return
+  const agora=new Date().toISOString()
+  const payload={
+    aeroporto_origem:null,
+    aeroporto_destino:null,
+    data_ida:null,
+    hora_saida_ida:null,
+    hora_chegada_ida:null,
+    companhia_ida:null,
+    numero_voo_ida:null,
+    data_volta:null,
+    hora_saida_volta:null,
+    hora_chegada_volta:null,
+    companhia_volta:null,
+    numero_voo_volta:null,
+    localizador:null,
+    valor_bilhete:null,
+    escolhido_por:null,
+    observacao_bilhete:null,
+    bilhete_preenchido_por:null,
+    bilhete_preenchido_em:null,
+    bilhete_pdf_url:null,
+    bilhete_pdf_nome:null,
+    bilhete_pdf_tamanho_kb:null,
+    status:'aguardando_bilhete',
+    updated_at:agora,
+    updated_by:perfil.id
+  }
+  const {error}=await sb.from('viagens').update(payload).eq('id',id)
+  if(error){alert('Erro ao excluir bilhete: '+error.message);return}
+  mostrarAviso('Bilhete excluído. A viagem voltou para aguardando emissão.')
+  await atualizarTudo('viagens')
 }
 
 async function salvarBilhete(){
@@ -3859,7 +3909,7 @@ function cardViagemOperacional(v){
     </div>
     <div class="card-footer"><span>${emitida?'Bilhete preenchido':'Falta preencher bilhete'}</span><div class="action-row">
       <button class="btn btn-sm" onclick="abrirDetalheViagem('${v.id}')">Abrir</button>
-      ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button><button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Remover</button>`:(isEmissorViagens()?`<button class="btn btn-sm btn-primary" onclick="abrirBilhete('${v.id}')">Anexar PDF do bilhete</button>`:'')}
+      ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button>${emitida?`<button class="btn btn-sm btn-reject" onclick="excluirBilheteEmitido('${v.id}')">Excluir bilhete</button>`:''}<button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Remover viagem</button>`:(isEmissorViagens()?`<button class="btn btn-sm btn-primary" onclick="abrirBilhete('${v.id}')">Anexar PDF do bilhete</button>${v.bilhete_pdf_url?`<button class="btn btn-sm btn-reject" onclick="removerPdfBilhete('${v.id}')">Remover PDF</button>`:''}`:'')}
     </div></div>
   </div>`
 }
