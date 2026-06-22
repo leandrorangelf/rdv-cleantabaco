@@ -938,10 +938,10 @@ body::before {
       <!-- BILHETE / PASSAGEM -->
       <div class="screen" id="screen-bilhete">
         <div class="page-title">Preencher bilhete</div>
-        <div class="page-sub" id="bilhete-sub">Dados principais da passagem</div>
+        <div class="page-sub" id="bilhete-sub">Anexe o PDF do bilhete. Os campos abaixo são opcionais e podem ser conferidos pelo gestor depois.</div>
         <div class="form-card">
           <div style="font-size:12px;color:var(--ink2);margin-bottom:12px">
-            Preencha só o essencial para agenda e controle de custo. Companhia, número do voo e chegada podem ir na observação se precisar.
+            Para o login VIAGENS, o obrigatório é anexar o PDF do bilhete. Os campos principais podem ser preenchidos se houver tempo, e o gestor pode editar/conferir depois.
           </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Origem *</label><input id="b-aero-origem" class="form-input" placeholder="ex: GIG ou Rio de Janeiro"></div>
@@ -972,10 +972,15 @@ body::before {
             </div>
             <div class="form-group"><label class="form-label">Observação</label><input id="b-observacao" class="form-input" placeholder="Companhia, voo, chegada ou detalhe opcional"></div>
           </div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">PDF do bilhete</label>
+            <input id="b-pdf" type="file" accept="application/pdf,image/*" class="form-input">
+            <div id="b-pdf-atual" style="font-size:11px;color:var(--ink2);margin-top:4px"></div>
+          </div>
           <div id="b-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn" onclick="showScreen('viagens',document.getElementById('nav-viagens'))">Cancelar</button>
-            <button class="btn btn-mint" onclick="salvarBilhete()">Salvar bilhete</button>
+            <button class="btn btn-mint" onclick="salvarBilhete()">Salvar / marcar emitido</button>
           </div>
         </div>
       </div>
@@ -1230,6 +1235,7 @@ function viagemComBilhete(v){ return viagemAtiva(v) && (statusNorm(v?.status)===
 function viagemAguardandoBilhete(v){ return viagemAtiva(v) && !viagemComBilhete(v) && ['autorizada','aguardando_bilhete'].includes(statusNorm(v?.status)) }
 function viagemFinanceiraNoPeriodo(v, ini, fim){ return viagemComBilhete(v) && Number(v?.valor_bilhete||0)>0 && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim) }
 function isGestor(){ return perfil?.papel==='aprovador' }
+function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
 function diasEntreHoje(dataISO){
   if(!dataISO)return null
@@ -1316,7 +1322,8 @@ function mostrarAviso(msg, tipo='ok'){
 }
 
 async function doLogin() {
-  const email=document.getElementById('login-email').value.trim()
+  let email=document.getElementById('login-email').value.trim()
+  if(email.toUpperCase()==='VIAGENS') email='viagens@cleantabaco.local'
   const senha=document.getElementById('login-senha').value
   const err=document.getElementById('login-err')
   err.style.display='none'
@@ -1345,6 +1352,27 @@ async function iniciarApp() {
   document.getElementById('app').classList.add('show')
   document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
   document.getElementById('nav-label-admin').style.display='none'
+
+  if(isEmissorViagens()){
+    // Perfil operacional: só emite/anexa bilhetes. Não vê RDV, dashboard financeiro, equipe ou categorias.
+    document.querySelectorAll('.nav-item').forEach(el=>el.style.display='none')
+    document.querySelectorAll('.nav-label').forEach(el=>el.style.display='none')
+    document.getElementById('nav-viagens').style.display='flex'
+    const btnNova=document.querySelector('#screen-viagens .btn.btn-primary')
+    if(btnNova) btnNova.style.display='none'
+    document.querySelectorAll('#screen-viagens .mod-tab').forEach(el=>el.style.display='none')
+    document.getElementById('tab-viagens-bilhete').style.display='inline-flex'
+    viagensTabAtual='bilhete'
+    showScreen('viagens',document.getElementById('nav-viagens'))
+    return
+  }
+
+  document.querySelectorAll('.nav-item').forEach(el=>el.style.display='flex')
+  document.querySelectorAll('.nav-label').forEach(el=>el.style.display='block')
+  document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
+  document.getElementById('nav-label-admin').style.display='none'
+  document.getElementById('nav-agenda').style.display='none'
+
   if(perfil.papel==='aprovador'){
     document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='flex')
     document.getElementById('nav-label-admin').style.display='block'
@@ -1984,7 +2012,7 @@ async function reprovarDemandaViagem(id){
 let bilheteViagemId=null
 
 async function abrirBilhete(vid){
-  if(!isGestor()){alert('Somente gestor/compras pode preencher bilhete.');return}
+  if(!isGestor()&&!isEmissorViagens()){alert('Somente gestor ou emissor de viagens pode preencher bilhete.');return}
   bilheteViagemId=vid
   const{data:v,error}=await sb.from('viagens').select('*').eq('id',vid).single()
   if(error||!v){alert('Erro ao carregar viagem.');return}
@@ -1999,17 +2027,31 @@ async function abrirBilhete(vid){
   document.getElementById('b-valor').value=v.valor_bilhete||''
   document.getElementById('b-escolhido-por').value=v.escolhido_por||'promotor'
   document.getElementById('b-observacao').value=v.observacao_bilhete||''
+  document.getElementById('b-pdf').value=''
+  document.getElementById('b-pdf-atual').innerHTML=v.bilhete_pdf_url?`PDF atual: <a href="${v.bilhete_pdf_url}" target="_blank">${safeTxt(v.bilhete_pdf_nome||'abrir bilhete')}</a>`:'Nenhum PDF anexado ainda.'
   document.getElementById('b-erro').style.display='none'
-  showScreen('bilhete',document.getElementById('nav-agenda'))
+  showScreen('bilhete',document.getElementById('nav-viagens'))
+}
+
+async function uploadPdfBilhete(viagemId){
+  const input=document.getElementById('b-pdf')
+  const file=input?.files?.[0]
+  if(!file) return null
+  const nomeLimpo=nomeSeguroZip(file.name||'bilhete.pdf')
+  const path=`bilhetes/${viagemId}/${Date.now()}_${nomeLimpo}`
+  const {error}=await sb.storage.from('comprovantes').upload(path,file,{contentType:file.type||'application/pdf',upsert:false})
+  if(error) throw error
+  const {data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
+  return {url:publicUrl,nome:file.name,tamanho_kb:Math.round(file.size/1024)}
 }
 
 async function salvarBilhete(){
   const err=document.getElementById('b-erro')
   err.style.display='none'
-  const aeroporto_origem=document.getElementById('b-aero-origem').value.trim().toUpperCase()
-  const aeroporto_destino=document.getElementById('b-aero-destino').value.trim().toUpperCase()
-  const data_ida=document.getElementById('b-data-ida').value
-  const hora_saida_ida=document.getElementById('b-hora-saida-ida').value
+  const aeroporto_origem=document.getElementById('b-aero-origem').value.trim().toUpperCase()||null
+  const aeroporto_destino=document.getElementById('b-aero-destino').value.trim().toUpperCase()||null
+  const data_ida=document.getElementById('b-data-ida').value||null
+  const hora_saida_ida=document.getElementById('b-hora-saida-ida').value||null
   const hora_chegada_ida=null
   const companhia_ida=null
   const numero_voo_ida=null
@@ -2018,13 +2060,30 @@ async function salvarBilhete(){
   const hora_chegada_volta=null
   const companhia_volta=null
   const numero_voo_volta=null
-  const localizador=document.getElementById('b-localizador').value.trim().toUpperCase()
-  const valor_bilhete=parseFloat(document.getElementById('b-valor').value)
-  const escolhido_por=document.getElementById('b-escolhido-por').value
+  const localizador=document.getElementById('b-localizador').value.trim().toUpperCase()||null
+  const valorRaw=document.getElementById('b-valor').value
+  const valor_bilhete=valorRaw?parseFloat(valorRaw):null
+  const escolhido_por=document.getElementById('b-escolhido-por').value||null
   const observacao_bilhete=document.getElementById('b-observacao').value.trim()||null
-  if(!aeroporto_origem||!aeroporto_destino||!data_ida||!hora_saida_ida||!localizador||!valor_bilhete){
-    err.textContent='Preencha origem, destino, ida, horário, localizador e valor.';err.style.display='block';return
+  const temPdf=!!document.getElementById('b-pdf')?.files?.[0]
+
+  const {data:viagemAtual}=await sb.from('viagens').select('bilhete_pdf_url,data_inicio,data_fim').eq('id',bilheteViagemId).single()
+
+  // Para o emissor, o mínimo é anexar PDF ou já existir PDF. Para gestor, pode salvar/conferir campos também.
+  if(isEmissorViagens() && !temPdf && !viagemAtual?.bilhete_pdf_url){
+    err.textContent='Anexe o PDF do bilhete para marcar como emitido.';err.style.display='block';return
   }
+
+  let pdfPayload={}
+  try{
+    const pdf=await uploadPdfBilhete(bilheteViagemId)
+    if(pdf){
+      pdfPayload={bilhete_pdf_url:pdf.url,bilhete_pdf_nome:pdf.nome,bilhete_pdf_tamanho_kb:pdf.tamanho_kb}
+    }
+  }catch(e){
+    err.textContent='Erro ao enviar PDF do bilhete: '+(e.message||e);err.style.display='block';return
+  }
+
   const payload={
     aeroporto_origem,aeroporto_destino,data_ida,hora_saida_ida,hora_chegada_ida,companhia_ida,numero_voo_ida,
     data_volta,hora_saida_volta,hora_chegada_volta,companhia_volta,numero_voo_volta,localizador,valor_bilhete,
@@ -2032,12 +2091,14 @@ async function salvarBilhete(){
     bilhete_preenchido_por:perfil.id,
     bilhete_preenchido_em:new Date().toISOString(),
     status:'bilhete_preenchido',
-    data_inicio:data_ida,
-    data_fim:data_volta||data_ida
+    ...pdfPayload
   }
+  if(data_ida) payload.data_inicio=data_ida
+  if(data_volta || data_ida) payload.data_fim=data_volta||data_ida
+
   const{error}=await sb.from('viagens').update(payload).eq('id',bilheteViagemId)
   if(error){err.textContent='Erro ao salvar bilhete: '+error.message;err.style.display='block';return}
-  mostrarAviso('Bilhete preenchido e viagem atualizada.')
+  mostrarAviso(isEmissorViagens()?'PDF anexado e bilhete marcado como emitido.':'Bilhete salvo e viagem atualizada.')
   await atualizarCamposIntegrados('agenda')
   showScreen('viagens',document.getElementById('nav-viagens'))
 }
@@ -3678,7 +3739,11 @@ async function carregarModuloViagens(){
   let qd=sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').order('created_at',{ascending:false})
   let qv=sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').order('data_inicio',{ascending:false})
   let qdesp=sb.from('despesas').select('usuario_id,viagem_id,valor,status,data_despesa').or('ativo.is.null,ativo.eq.true')
-  if(!isGestor()){
+  if(isEmissorViagens()){
+    qd=qd.eq('id','00000000-0000-0000-0000-000000000000')
+    qv=qv.in('status',['autorizada','aguardando_bilhete'])
+    qdesp=qdesp.eq('id','00000000-0000-0000-0000-000000000000')
+  } else if(!isGestor()){
     qd=qd.eq('usuario_id',perfil.id)
     qv=qv.eq('usuario_id',perfil.id)
     qdesp=qdesp.eq('usuario_id',perfil.id)
@@ -3700,6 +3765,13 @@ function renderViagensResumo(){
   const {ini,fim}=mesIntervalo()
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
+  if(isEmissorViagens()){
+    const aguard=viagens.filter(viagemAguardandoBilhete).length
+    document.getElementById('viagens-resumo').innerHTML=`
+      <div class="mod-card"><div class="mod-card-label">Bilhetes a emitir</div><div class="mod-card-value" style="color:var(--purple-dark)">${aguard}</div></div>
+      <div class="mod-card"><div class="mod-card-label">Ação necessária</div><div class="mod-card-value" style="font-size:18px;color:var(--ink)">Anexar PDF</div><div style="font-size:11px;color:var(--ink2);margin-top:6px">Depois clique em salvar/marcar emitido.</div></div>`
+    return
+  }
   const pend=demandas.filter(d=>demandaAtiva(d)&&['pendente','solicitada'].includes(statusNorm(d.status))).length
   const aguard=viagens.filter(viagemAguardandoBilhete).length
   const emitidas=viagens.filter(v=>viagemComBilhete(v) && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim)).length
@@ -3722,6 +3794,7 @@ function renderViagensConteudo(){
   const wrap=document.getElementById('viagens-conteudo')
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
+  if(isEmissorViagens()) viagensTabAtual='bilhete'
   if(viagensTabAtual==='pendentes'){
     const lista=demandas.filter(d=>demandaAtiva(d)&&['pendente','solicitada'].includes(statusNorm(d.status)))
     wrap.innerHTML=lista.length?lista.map(cardDemandaViagem).join(''):'<div class="empty">Nenhuma solicitação pendente.</div>'
@@ -3782,10 +3855,11 @@ function cardViagemOperacional(v){
       <span>Valor bilhete: <strong style="color:var(--ink)">${moeda(v.valor_bilhete||0)}</strong></span>
       ${v.escolhido_por?`<span>Escolha: <strong>${safeTxt(labelEscolhidoPor(v.escolhido_por))}</strong></span>`:''}
       ${v.localizador?`<span>Localizador: <strong>${safeTxt(v.localizador)}</strong></span>`:''}
+      ${v.bilhete_pdf_url?`<span>PDF: <a href="${v.bilhete_pdf_url}" target="_blank">abrir bilhete</a></span>`:''}
     </div>
     <div class="card-footer"><span>${emitida?'Bilhete preenchido':'Falta preencher bilhete'}</span><div class="action-row">
       <button class="btn btn-sm" onclick="abrirDetalheViagem('${v.id}')">Abrir</button>
-      ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button><button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Remover</button>`:''}
+      ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button><button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Remover</button>`:(isEmissorViagens()?`<button class="btn btn-sm btn-primary" onclick="abrirBilhete('${v.id}')">Anexar PDF do bilhete</button>`:'')}
     </div></div>
   </div>`
 }
