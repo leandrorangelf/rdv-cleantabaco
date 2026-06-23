@@ -1367,8 +1367,14 @@ async function iniciarApp() {
     return
   }
 
-  document.querySelectorAll('.nav-item').forEach(el=>el.style.display='flex')
-  document.querySelectorAll('.nav-label').forEach(el=>el.style.display='block')
+  document.querySelectorAll('.nav-item').forEach(el=>{
+    if(el.classList.contains('aprovador-only')) return
+    el.style.display='flex'
+  })
+  document.querySelectorAll('.nav-label').forEach(el=>{
+    if(el.classList.contains('aprovador-only')) return
+    el.style.display='block'
+  })
   document.getElementById('nav-agenda').style.display='none'
 
   if(perfil.papel==='aprovador'){
