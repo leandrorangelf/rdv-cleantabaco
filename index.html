@@ -4541,34 +4541,40 @@ async function gerarPdfAgenciaGeral() {
   }
   const { jsPDF } = window.jspdf || jspdf
 
-  // Busca demandas pendentes/autorizadas + viagens autorizadas
-  // Gestor vê todos; coordenador só vê o próprio
-  let qDemandas = sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').in('status', ['pendente','solicitada']).order('data_inicio')
-  let qViagens  = sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['autorizada','aguardando_bilhete','bilhete_preenchido']).order('data_inicio')
-  let qProfs    = sb.from('profiles').select('*')
-  if(!isGestor()){
-    qDemandas = qDemandas.eq('usuario_id', perfil.id)
-    qViagens  = qViagens.eq('usuario_id', perfil.id)
-    qProfs    = qProfs.eq('id', perfil.id)
-  }
-  const [{ data: demandas }, { data: viagens }, { data: profs }] = await Promise.all([qDemandas, qViagens, qProfs])
+  // Aprovador: busca demandas pendentes (ainda não autorizadas) pra cotar
+  // Login viagens: busca viagens aguardando bilhete (já autorizadas) pra emitir
+  const ehEmissor = isEmissorViagens()
+  let itensRaw = []
+  let qProfs = sb.from('profiles').select('*')
 
+  if(ehEmissor){
+    // Login viagens vê todas as viagens aguardando bilhete
+    const { data: viagens } = await sb.from('viagens').select('*')
+      .or('ativo.is.null,ativo.eq.true')
+      .in('status',['autorizada','aguardando_bilhete'])
+      .order('data_inicio')
+    itensRaw = viagens || []
+  } else {
+    // Aprovador vê demandas pendentes que ainda não viraram viagem
+    const [{ data: demandas }, { data: viagens }] = await Promise.all([
+      sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').in('status',['pendente','solicitada']).order('data_inicio'),
+      sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').in('status',['autorizada','aguardando_bilhete']).order('data_inicio')
+    ])
+    const demandaIdsNaViagem = new Set((viagens||[]).map(v => v.demanda_id).filter(Boolean))
+    const demandasSemViagem = (demandas||[]).filter(d => !demandaIdsNaViagem.has(d.id))
+    itensRaw = [...demandasSemViagem, ...(viagens||[])]
+  }
+
+  const { data: profs } = await qProfs
   const profMap = {}
   ;(profs||[]).forEach(p => profMap[p.id] = p)
 
-  // IDs de demandas que já viraram viagem (para não duplicar)
-  const demandaIdsNaViagem = new Set((viagens||[]).map(v => v.demanda_id).filter(Boolean))
-
-  // Agrupa por usuario_id — demandas que NÃO viraram viagem + viagens autorizadas
+  // Agrupa por usuario_id
   const porPessoa = {}
-  ;(demandas||[]).forEach(d => {
-    if(demandaIdsNaViagem.has(d.id)) return // já está como viagem, pula
-    if(!porPessoa[d.usuario_id]) porPessoa[d.usuario_id] = []
-    porPessoa[d.usuario_id].push(d)
-  })
-  ;(viagens||[]).forEach(v => {
-    if(!porPessoa[v.usuario_id]) porPessoa[v.usuario_id] = []
-    porPessoa[v.usuario_id].push(v)
+  itensRaw.forEach(item => {
+    const uid = item.usuario_id
+    if(!porPessoa[uid]) porPessoa[uid] = []
+    porPessoa[uid].push(item)
   })
 
   const pessoas = Object.keys(porPessoa).filter(uid => porPessoa[uid]?.length > 0)
