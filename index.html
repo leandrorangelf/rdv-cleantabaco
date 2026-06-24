@@ -1402,7 +1402,7 @@ async function iniciarApp() {
     const btnNova=document.getElementById('btn-solicitar-viagem')
     if(btnNova) btnNova.style.display='none'
     const btnPdfGeral=document.getElementById('btn-pdf-agencia-geral')
-    if(btnPdfGeral) btnPdfGeral.style.display='none'
+    if(btnPdfGeral) btnPdfGeral.style.display='inline-flex'
     document.querySelectorAll('#screen-viagens .mod-tab').forEach(el=>el.style.display='none')
     document.getElementById('tab-viagens-bilhete').style.display='inline-flex'
     viagensTabAtual='bilhete'
