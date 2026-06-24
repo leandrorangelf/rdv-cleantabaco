@@ -4281,19 +4281,42 @@ async function gerarPdfAgencia(tipo, id) {
 
   // ── DADOS DO PASSAGEIRO ──
   secao('Dados do Passageiro')
-  linha('Nome completo', prof.nome)
-  linha('CPF', prof.cpf || '(não cadastrado)', 'Data de nascimento', prof.data_nascimento ? dataFmt(prof.data_nascimento) : '(não cadastrado)')
+
+  // Nome em destaque
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(76, 29, 149)
+  doc.text(prof.nome || '—', 16, y)
+  y += 8
+
+  linha('CPF', prof.cpf || '(não cadastrado)', 'Data de nascimento', prof.data_nascimento ? fmtDataPdf(prof.data_nascimento) : '(não cadastrado)')
   linha('E-mail', prof.email || '—', 'Telefone', prof.telefone || '(não cadastrado)')
   if(prof.passaporte) linha('Passaporte', prof.passaporte)
-  y += 2
+  y += 4
 
   // ── DADOS DA VIAGEM ──
   secao('Dados da Viagem Solicitada')
   const dataIni = ref.data_inicio || ref.data_sugerida || ''
   const dataFim = ref.data_fim || ref.data_sugerida || dataIni
+  const horaIda = viag?.hora_saida_ida ? String(viag.hora_saida_ida).slice(0,5) : null
+  const horaVolta = viag?.hora_saida_volta ? String(viag.hora_saida_volta).slice(0,5) : null
+
   linha('Destino', `${ref.destino || ''}${ref.estado ? ' – ' + ref.estado : ''}`)
-  linha('Data de ida', dataIni ? fmtDataPdf(dataIni) : '—', 'Data de volta', dataFim ? fmtDataPdf(dataFim) : '—')
-  linha('Motivo da visita', ref.motivo || '—')
+
+  // Datas em destaque
+  doc.setFillColor(246, 242, 234)
+  doc.rect(14, y - 4, pw - 28, 14, 'F')
+  doc.setDrawColor(91, 33, 182)
+  doc.rect(14, y - 4, pw - 28, 14, 'S')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(76, 29, 149)
+  const txtIda = 'IDA: ' + (dataIni ? fmtDataPdf(dataIni) : '—') + (horaIda ? '   ' + horaIda : '')
+  const txtVolta = 'VOLTA: ' + (dataFim ? fmtDataPdf(dataFim) : '—') + (horaVolta ? '   ' + horaVolta : '')
+  doc.text(txtIda, 18, y + 3)
+  doc.text(txtVolta, pw/2 + 5, y + 3)
+  y += 16
+
   linha('Preferência de horário', obs.preferencia || 'Indiferente')
   if(obs.justificativa && obs.justificativa !== 'n/a')
     linha('Justificativa', obs.justificativa)
