@@ -4543,7 +4543,7 @@ async function gerarPdfAgenciaGeral() {
 
   // Busca demandas pendentes/autorizadas + viagens autorizadas
   // Gestor vê todos; coordenador só vê o próprio
-  let qDemandas = sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').in('status', ['pendente','solicitada','autorizada']).order('data_inicio')
+  let qDemandas = sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').in('status', ['pendente','solicitada']).order('data_inicio')
   let qViagens  = sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['autorizada','aguardando_bilhete','bilhete_preenchido']).order('data_inicio')
   let qProfs    = sb.from('profiles').select('*')
   if(!isGestor()){
@@ -4687,7 +4687,7 @@ async function gerarPdfAgenciaGeral() {
       const aeroDes = item.aeroporto_destino || obs.destStr?.split('–')[1]?.trim() || ''
       const estOri  = item.estado_origem || obs.origem?.split('–')[0]?.trim() || ''
       doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(28,25,23)
-      const rotaTxt = (estOri||'?') + (aeroOri?' ('+aeroOri+')':'') + '  →  ' + (item.destino||'') + (item.estado?' – '+item.estado:'') + (aeroDes?' ('+aeroDes+')':'')
+      const rotaTxt = (estOri||'?') + (aeroOri?' ('+aeroOri+')':'') + '  >>  ' + (item.destino||'') + (item.estado?' - '+item.estado:'') + (aeroDes?' ('+aeroDes+')':'')
       doc.text(rotaTxt, 16, y)
       y += 7
 
@@ -4698,8 +4698,8 @@ async function gerarPdfAgenciaGeral() {
       doc.rect(14, y-4, pw-28, 13, 'S')
       doc.setDrawColor(200,200,200)
       doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(76,29,149)
-      const txtIda = 'IDA: ' + (dataIni ? fmtD(dataIni) : '—') + (horaIda ? '   ' + horaIda : '')
-      const txtVolta = 'VOLTA: ' + (dataFim ? fmtD(dataFim) : '—') + (horaVolta ? '   ' + horaVolta : '')
+      const txtIda = 'IDA: ' + (dataIni ? fmtD(dataIni) : '-') + (horaIda ? '   ' + horaIda : '')
+      const txtVolta = 'VOLTA: ' + (dataFim ? fmtD(dataFim) : '-') + (horaVolta ? '   ' + horaVolta : '')
       doc.text(txtIda, 18, y+2)
       doc.text(txtVolta, pw/2+5, y+2)
       y += 15
@@ -4871,8 +4871,8 @@ async function gerarPdfAgencia(tipo, id) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.setTextColor(76, 29, 149)
-  const txtIda = 'IDA: ' + (dataIni ? fmtDataPdf(dataIni) : '—') + (horaIda ? '   ' + horaIda : '')
-  const txtVolta = 'VOLTA: ' + (dataFim ? fmtDataPdf(dataFim) : '—') + (horaVolta ? '   ' + horaVolta : '')
+  const txtIda = 'IDA: ' + (dataIni ? fmtDataPdf(dataIni) : '-') + (horaIda ? '   ' + horaIda : '')
+  const txtVolta = 'VOLTA: ' + (dataFim ? fmtDataPdf(dataFim) : '-') + (horaVolta ? '   ' + horaVolta : '')
   doc.text(txtIda, 18, y + 3)
   doc.text(txtVolta, pw/2 + 5, y + 3)
   y += 16
