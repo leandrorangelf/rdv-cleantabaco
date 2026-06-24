@@ -4238,6 +4238,15 @@ async function gerarPdfAgencia(tipo, id) {
 
   let y = 36
 
+  // Formata data seguro pra PDF (aceita YYYY-MM-DD ou Date)
+  function fmtDataPdf(s){
+    if(!s) return '—'
+    const str = String(s).slice(0,10) // pega só YYYY-MM-DD
+    const parts = str.split('-')
+    if(parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+    return str
+  }
+
   // Função auxiliar: seção
   function secao(titulo) {
     doc.setFillColor(237, 233, 254)
@@ -4282,8 +4291,8 @@ async function gerarPdfAgencia(tipo, id) {
   secao('Dados da Viagem Solicitada')
   const dataIni = ref.data_inicio || ref.data_sugerida || ''
   const dataFim = ref.data_fim || ref.data_sugerida || dataIni
-  linha('Destino', `${ref.destino || ''}${ref.estado ? ' – ' + ref.estado : ''}`, 'Cliente / Empresa', ref.cliente || '—')
-  linha('Data de ida', dataIni ? dataFmt(dataIni) : '—', 'Data de volta', dataFim ? dataFmt(dataFim) : '—')
+  linha('Destino', `${ref.destino || ''}${ref.estado ? ' – ' + ref.estado : ''}`)
+  linha('Data de ida', dataIni ? fmtDataPdf(dataIni) : '—', 'Data de volta', dataFim ? fmtDataPdf(dataFim) : '—')
   linha('Motivo da visita', ref.motivo || '—')
   linha('Preferência de horário', obs.preferencia || 'Indiferente')
   if(obs.justificativa && obs.justificativa !== 'n/a')
