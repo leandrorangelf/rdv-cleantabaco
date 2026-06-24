@@ -6,6 +6,7 @@
 <title>RDV · Cleantabaco</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --purple: #7C3AED; --purple-light: #EDE9FE; --purple-dark: #4C1D95;
@@ -710,6 +711,7 @@ body::before {
         <div class="avatar" id="topbar-avatar"></div>
       </div>
       <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;color:#EDE9FE;font-size:11px">Sair</button>
+      <button onclick="abrirMeuPerfil()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);cursor:pointer;color:white;font-size:11px;padding:4px 10px;border-radius:8px">👤 Meus dados</button>
     </div>
   </div>
 
@@ -3890,6 +3892,7 @@ function cardDemandaViagem(d){
     </div>
     <div class="card-footer"><span></span><div class="action-row">
       ${isGestor()?`<button class="btn btn-sm" onclick="editarSolicitacaoViagem('${d.id}')">Editar</button><button class="btn btn-sm btn-approve" onclick="aprovarDemandaViagem('${d.id}')">Autorizar</button><button class="btn btn-sm btn-reject" onclick="mostrarReprovarDemanda('${d.id}')">Reprovar</button><button class="btn btn-sm btn-reject" onclick="excluirSolicitacaoViagem('${d.id}')">Excluir</button>`:''}
+      <button class="btn btn-sm" style="background:var(--purple-light);color:var(--purple-dark);border-color:#C4B5FD" onclick="gerarPdfAgencia('demanda','${d.id}')">📄 PDF p/ agência</button>
     </div></div>
     <div id="dem-rej-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5"><div style="display:flex;gap:8px"><input id="dem-rej-motivo-${d.id}" class="form-input" placeholder="Motivo da reprovação" style="flex:1"><button class="btn btn-sm btn-reject" onclick="reprovarDemandaViagem('${d.id}')">Confirmar</button></div></div>
   </div>`
@@ -3915,6 +3918,7 @@ function cardViagemOperacional(v){
     </div>
     <div class="card-footer"><span>${emitida?'Bilhete preenchido':'Falta preencher bilhete'}</span><div class="action-row">
       <button class="btn btn-sm" onclick="abrirDetalheViagem('${v.id}')">Abrir</button>
+      <button class="btn btn-sm" style="background:var(--purple-light);color:var(--purple-dark);border-color:#C4B5FD" onclick="gerarPdfAgencia('viagem','${v.id}')">📄 PDF p/ agência</button>
       ${isGestor()?`<button class="btn btn-sm" onclick="abrirBilhete('${v.id}')">${emitida?'Editar bilhete':'Preencher bilhete'}</button>${emitida?`<button class="btn btn-sm btn-reject" onclick="excluirBilheteEmitido('${v.id}')">Excluir bilhete</button>`:''}<button class="btn btn-sm" onclick="editarViagemBasica('${v.id}')">Editar</button><button class="btn btn-sm btn-reject" onclick="cancelarViagem('${v.id}')">Cancelar</button><button class="btn btn-sm btn-reject" onclick="excluirViagemDefinitivo('${v.id}')">Remover viagem</button>`:(isEmissorViagens()?`<button class="btn btn-sm btn-primary" onclick="abrirBilhete('${v.id}')">Anexar PDF do bilhete</button>${v.bilhete_pdf_url?`<button class="btn btn-sm btn-reject" onclick="removerPdfBilhete('${v.id}')">Remover PDF</button>`:''}`:'')}
     </div></div>
   </div>`
@@ -4181,6 +4185,229 @@ async function abrirPessoa360(uid){
     </div>
   </div>`
   showScreen('equipe',document.getElementById('nav-equipe'),true)
+}
+
+// ── PDF para Agência de Viagens ──────────────────────────────
+async function gerarPdfAgencia(tipo, id) {
+  if(typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined'){
+    alert('Biblioteca PDF não carregou ainda. Aguarde um segundo e tente novamente.')
+    return
+  }
+  const { jsPDF } = window.jspdf || jspdf
+
+  // 1. Busca dados da solicitação/viagem
+  let viag = null, demanda = null
+  if(tipo === 'demanda'){
+    const { data } = await sb.from('demandas_viagem').select('*').eq('id', id).single()
+    demanda = data
+  } else {
+    const { data } = await sb.from('viagens').select('*').eq('id', id).single()
+    viag = data
+    // tenta pegar demanda de origem
+    const dId = viag?.demanda_id
+    if(dId){ const { data: d2 } = await sb.from('demandas_viagem').select('*').eq('id', dId).single(); demanda = d2 }
+  }
+
+  const ref = viag || demanda
+  if(!ref){ alert('Solicitação não encontrada.'); return }
+
+  // 2. Busca perfil do passageiro (com campos pessoais)
+  const uid = ref.usuario_id
+  const { data: prof } = await sb.from('profiles').select('*').eq('id', uid).single()
+  if(!prof){ alert('Perfil do passageiro não encontrado.'); return }
+
+  // 3. Extrai obs
+  const obs = extrairObsDemanda(ref.observacao || demanda?.observacao || '')
+
+  // 4. Monta PDF
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pw = doc.internal.pageSize.getWidth()
+  const ph = doc.internal.pageSize.getHeight()
+
+  // Cabeçalho roxo
+  doc.setFillColor(91, 33, 182)
+  doc.rect(0, 0, pw, 28, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Solicitação de Cotação de Passagem Aérea', 14, 11)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Cleantabaco · RDV — documento gerado automaticamente', 14, 18)
+  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}`, 14, 23)
+
+  let y = 36
+
+  // Função auxiliar: seção
+  function secao(titulo) {
+    doc.setFillColor(237, 233, 254)
+    doc.rect(14, y - 4, pw - 28, 7, 'F')
+    doc.setTextColor(76, 29, 149)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text(titulo.toUpperCase(), 16, y + 1)
+    doc.setTextColor(28, 25, 23)
+    y += 9
+  }
+
+  function linha(label, valor, col2label = null, col2val = null) {
+    if(!valor && !col2val) return
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(87, 83, 78)
+    doc.text(label + ':', 16, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(28, 25, 23)
+    doc.text(String(valor || '—'), 55, y)
+    if(col2label && col2val !== null){
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(87, 83, 78)
+      doc.text(col2label + ':', pw/2 + 2, y)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(28, 25, 23)
+      doc.text(String(col2val || '—'), pw/2 + 35, y)
+    }
+    y += 6
+  }
+
+  // ── DADOS DO PASSAGEIRO ──
+  secao('Dados do Passageiro')
+  linha('Nome completo', prof.nome)
+  linha('CPF', prof.cpf || '(não cadastrado)', 'Data de nascimento', prof.data_nascimento ? dataFmt(prof.data_nascimento) : '(não cadastrado)')
+  linha('E-mail', prof.email || '—', 'Telefone', prof.telefone || '(não cadastrado)')
+  if(prof.passaporte) linha('Passaporte', prof.passaporte)
+  y += 2
+
+  // ── DADOS DA VIAGEM ──
+  secao('Dados da Viagem Solicitada')
+  const dataIni = ref.data_inicio || ref.data_sugerida || ''
+  const dataFim = ref.data_fim || ref.data_sugerida || dataIni
+  linha('Destino', `${ref.destino || ''}${ref.estado ? ' – ' + ref.estado : ''}`, 'Cliente / Empresa', ref.cliente || '—')
+  linha('Data de ida', dataIni ? dataFmt(dataIni) : '—', 'Data de volta', dataFim ? dataFmt(dataFim) : '—')
+  linha('Motivo da visita', ref.motivo || '—')
+  linha('Preferência de horário', obs.preferencia || 'Indiferente')
+  if(obs.justificativa && obs.justificativa !== 'n/a')
+    linha('Justificativa', obs.justificativa)
+  y += 2
+
+  // ── INSTRUÇÕES PARA AGÊNCIA ──
+  secao('Instruções para a Agência')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(28, 25, 23)
+  const instrucoes = [
+    '• Cotar ida e volta com as melhores opções de preço × horário.',
+    '• Enviar no mínimo 2 opções de voo por trecho (se disponível).',
+    '• Considerar bagagem despachada de 23kg.',
+    '• Preferência por voos diretos quando a diferença de preço for inferior a 20%.',
+    '• Aguardar aprovação antes de emitir.',
+  ]
+  instrucoes.forEach(txt => { doc.text(txt, 16, y); y += 5.5 })
+  y += 3
+
+  // ── APROVAÇÃO / ASSINATURA ──
+  secao('Aprovação Interna')
+  linha('Solicitado por', prof.nome, 'Data da solicitação', new Date().toLocaleDateString('pt-BR'))
+  y += 8
+  doc.setDrawColor(180, 180, 180)
+  doc.line(16, y, 90, y)
+  doc.line(pw/2 + 10, y, pw - 14, y)
+  y += 4
+  doc.setFontSize(7.5)
+  doc.setTextColor(120, 120, 120)
+  doc.text('Assinatura do aprovador', 16, y)
+  doc.text('Assinatura da agência / cotação recebida em:', pw/2 + 10, y)
+
+  // Rodapé
+  doc.setFontSize(7)
+  doc.setTextColor(160, 160, 160)
+  doc.text('RDV Cleantabaco · documento interno · não é um bilhete emitido', pw/2, ph - 8, { align: 'center' })
+
+  // 5. Nome do arquivo e download
+  const nomeArq = `Cotacao_${(prof.nome||'passageiro').split(' ')[0]}_${ref.destino||'destino'}_${dataIni||'data'}.pdf`
+    .replace(/\s+/g,'_').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  doc.save(nomeArq)
+  mostrarAviso('PDF gerado com sucesso! Verifique seus downloads.')
+}
+
+// ── Perfil pessoal (dados para passagem) ─────────────────────
+async function abrirMeuPerfil(){
+  const { data: p } = await sb.from('profiles').select('*').eq('id', perfil.id).single()
+  if(!p) return
+  const modal = document.createElement('div')
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px'
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+      <div style="background:linear-gradient(135deg,#32105F,#5B21B6);padding:16px 20px;color:white">
+        <div style="font-size:15px;font-weight:700">Meus dados de viagem</div>
+        <div style="font-size:11px;opacity:.8;margin-top:2px">Usados no PDF enviado à agência de viagens</div>
+      </div>
+      <div style="padding:20px">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nome completo</label>
+            <input id="mp-nome" class="form-input" value="${p.nome||''}" readonly style="background:#f5f5f4;color:#888">
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail</label>
+            <input id="mp-email" class="form-input" value="${p.email||''}" readonly style="background:#f5f5f4;color:#888">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">CPF *</label>
+            <input id="mp-cpf" class="form-input" placeholder="000.000.000-00" value="${p.cpf||''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data de nascimento *</label>
+            <input id="mp-nascimento" type="date" class="form-input" value="${p.data_nascimento||''}">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Telefone / WhatsApp</label>
+            <input id="mp-telefone" class="form-input" placeholder="(21) 99999-9999" value="${p.telefone||''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passaporte (se tiver)</label>
+            <input id="mp-passaporte" class="form-input" placeholder="Número do passaporte" value="${p.passaporte||''}">
+          </div>
+        </div>
+        <div id="mp-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+          <button class="btn" onclick="this.closest('[style*=fixed]').remove()">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarMeuPerfil()">Salvar dados</button>
+        </div>
+      </div>
+    </div>`
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e => { if(e.target === modal) modal.remove() })
+}
+
+async function salvarMeuPerfil(){
+  const cpf = document.getElementById('mp-cpf')?.value.trim()
+  const nascimento = document.getElementById('mp-nascimento')?.value
+  const telefone = document.getElementById('mp-telefone')?.value.trim()
+  const passaporte = document.getElementById('mp-passaporte')?.value.trim()
+  const err = document.getElementById('mp-erro')
+  if(err) err.style.display = 'none'
+  const { error } = await sb.from('profiles').update({
+    cpf: cpf || null,
+    data_nascimento: nascimento || null,
+    telefone: telefone || null,
+    passaporte: passaporte || null
+  }).eq('id', perfil.id)
+  if(error){
+    if(err){ err.textContent = 'Erro ao salvar: ' + error.message; err.style.display='block' }
+    return
+  }
+  // Atualiza perfil local
+  perfil.cpf = cpf || null
+  perfil.data_nascimento = nascimento || null
+  perfil.telefone = telefone || null
+  perfil.passaporte = passaporte || null
+  document.querySelector('[style*=fixed][style*=z-index:9000]')?.remove()
+  mostrarAviso('Dados de viagem salvos com sucesso!')
 }
 
 ;(async()=>{
