@@ -4212,13 +4212,125 @@ async function editarViagemBasica(id){
   if(!isGestor())return
   const v=viagensCache.viagens.find(x=>x.id===id) || (await sb.from('viagens').select('*').eq('id',id).single()).data
   if(!v)return
-  const destino=prompt('Destino:', v.destino||''); if(destino===null)return
-  const cliente=prompt('Cliente:', v.cliente||''); if(cliente===null)return
-  const inicio=prompt('Data início (AAAA-MM-DD):', v.data_inicio||v.data_ida||''); if(inicio===null)return
-  const fim=prompt('Data fim (AAAA-MM-DD):', v.data_fim||v.data_volta||inicio); if(fim===null)return
-  const motivo=prompt('Motivo:', v.motivo||''); if(motivo===null)return
-  const {error}=await sb.from('viagens').update({destino,cliente,data_inicio:inicio,data_fim:fim,motivo,updated_at:new Date().toISOString()}).eq('id',id)
-  if(error){alert('Erro ao editar viagem: '+error.message);return}
+
+  function optsEstado(sel){
+    const ests=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+    return '<option value="">Selecione</option>'+ests.map(e=>`<option value="${e}" ${e===sel?'selected':''}>${e}</option>`).join('')
+  }
+  function optsAero(estado, selCod){
+    const lista=(typeof AEROPORTOS_BR!=='undefined'&&AEROPORTOS_BR[estado])||[]
+    if(!lista.length) return '<option value="">Nenhum cadastrado</option>'
+    return (lista.length>1?'<option value="">Selecione</option>':'')+lista.map(a=>`<option value="${a.c}" ${a.c===selCod?'selected':''}>${a.c} – ${a.n}</option>`).join('')
+  }
+
+  const modal=document.createElement('div')
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto'
+  modal.innerHTML=`
+    <div style="background:white;border-radius:16px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+      <div style="background:linear-gradient(135deg,#32105F,#5B21B6);padding:16px 20px;color:white">
+        <div style="font-size:15px;font-weight:700">Editar viagem</div>
+        <div style="font-size:11px;opacity:.8;margin-top:2px">${safeTxt(v.destino||'')} · ${safeTxt(v.data_inicio||'')}</div>
+      </div>
+      <div style="padding:20px;max-height:75vh;overflow-y:auto">
+
+        <div style="font-size:10px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Origem</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Estado de origem</label>
+            <select id="evb-estado-origem" class="form-select" onchange="evbAtualizarAero('origem')">${optsEstado(v.estado_origem||'')}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Aeroporto de origem</label>
+            <select id="evb-aero-origem" class="form-select">${optsAero(v.estado_origem||'', v.aeroporto_origem||'')}</select>
+          </div>
+        </div>
+
+        <div style="font-size:10px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Destino</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Cidade destino</label>
+            <input id="evb-destino" class="form-input" value="${safeTxt(v.destino||'')}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado destino</label>
+            <select id="evb-estado" class="form-select" onchange="evbAtualizarAero('destino')">${optsEstado(v.estado||'')}</select>
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Aeroporto de destino</label>
+            <select id="evb-aero-destino" class="form-select">${optsAero(v.estado||'', v.aeroporto_destino||'')}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cliente</label>
+            <input id="evb-cliente" class="form-input" value="${safeTxt(v.cliente||'')}">
+          </div>
+        </div>
+
+        <div style="font-size:10px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Datas</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Data ida</label>
+            <input id="evb-inicio" type="date" class="form-input" value="${v.data_inicio||v.data_ida||''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data volta</label>
+            <input id="evb-fim" type="date" class="form-input" value="${v.data_fim||v.data_volta||''}">
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Motivo</label>
+            <input id="evb-motivo" class="form-input" value="${safeTxt(v.motivo||'')}">
+          </div>
+        </div>
+
+        <div id="evb-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" onclick="this.closest('[style*=fixed]').remove()">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarEdicaoViagem('${id}')">Salvar</button>
+        </div>
+      </div>
+    </div>`
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove() })
+}
+
+function evbAtualizarAero(lado){
+  const estadoId = lado==='origem' ? 'evb-estado-origem' : 'evb-estado'
+  const aeroId   = lado==='origem' ? 'evb-aero-origem'   : 'evb-aero-destino'
+  const estado   = document.getElementById(estadoId)?.value
+  const sel      = document.getElementById(aeroId)
+  if(!sel) return
+  const lista=(typeof AEROPORTOS_BR!=='undefined'&&AEROPORTOS_BR[estado])||[]
+  if(!lista.length){ sel.innerHTML='<option value="">Nenhum cadastrado</option>'; return }
+  sel.innerHTML=(lista.length>1?'<option value="">Selecione</option>':'')+lista.map(a=>`<option value="${a.c}">${a.c} – ${a.n}</option>`).join('')
+  if(lista.length===1) sel.value=lista[0].c
+}
+
+async function salvarEdicaoViagem(id){
+  const destino   = document.getElementById('evb-destino')?.value.trim()
+  const estado    = document.getElementById('evb-estado')?.value
+  const estadoOri = document.getElementById('evb-estado-origem')?.value
+  const aeroOri   = document.getElementById('evb-aero-origem')?.value
+  const aeroDes   = document.getElementById('evb-aero-destino')?.value
+  const cliente   = document.getElementById('evb-cliente')?.value.trim()
+  const inicio    = document.getElementById('evb-inicio')?.value
+  const fim       = document.getElementById('evb-fim')?.value
+  const motivo    = document.getElementById('evb-motivo')?.value.trim()
+  const err       = document.getElementById('evb-erro')
+  if(!destino||!inicio){ err.textContent='Preencha ao menos destino e data de ida.'; err.style.display='block'; return }
+  const {error}=await sb.from('viagens').update({
+    destino, estado: estado||null, cliente, motivo,
+    data_inicio:inicio, data_fim:fim||null,
+    aeroporto_origem: aeroOri||null,
+    aeroporto_destino: aeroDes||null,
+    estado_origem: estadoOri||null,
+    updated_at: new Date().toISOString()
+  }).eq('id',id)
+  if(error){ err.textContent='Erro ao salvar: '+error.message; err.style.display='block'; return }
+  document.querySelector('[style*="z-index:9000"]')?.remove()
   mostrarAviso('Viagem atualizada.'); await atualizarTudo('viagens')
 }
 
