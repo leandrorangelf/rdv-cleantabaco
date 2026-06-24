@@ -4861,7 +4861,15 @@ async function gerarPdfAgencia(tipo, id) {
   const horaIda = viag?.hora_saida_ida ? String(viag.hora_saida_ida).slice(0,5) : null
   const horaVolta = viag?.hora_saida_volta ? String(viag.hora_saida_volta).slice(0,5) : null
 
-  linha('Destino', `${ref.destino || ''}${ref.estado ? ' – ' + ref.estado : ''}`)
+  // Origem
+  const aeroOriInd = ref.aeroporto_origem || obs.origem?.split('-')[1]?.trim() || ''
+  const estOriInd  = ref.estado_origem || obs.origem?.split('-')[0]?.trim() || ''
+  const aeroDesInd = ref.aeroporto_destino || obs.destStr?.split('-')[1]?.trim() || ''
+
+  // Rota: origem >> destino
+  const rotaInd = (estOriInd ? estOriInd + (aeroOriInd ? ' (' + aeroOriInd + ')' : '') + '  >>  ' : '') +
+                  (ref.destino || '') + (ref.estado ? ' - ' + ref.estado : '') + (aeroDesInd ? ' (' + aeroDesInd + ')' : '')
+  linha('Rota', rotaInd || (ref.destino + (ref.estado ? ' - ' + ref.estado : '')))
 
   // Datas em destaque
   doc.setFillColor(246, 242, 234)
