@@ -821,7 +821,8 @@ body::before {
             <div class="page-title">Viagens</div>
             <div class="page-sub">Solicitações, bilhetes, valores e pendências por profissional</div>
           </div>
-          <button class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">+ Solicitar viagem</button>
+          <button id="btn-solicitar-viagem" class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">+ Solicitar viagem</button>
+          <button id="btn-pdf-agencia-geral" class="btn" style="background:var(--purple-light);color:var(--purple-dark);border-color:#C4B5FD" onclick="gerarPdfAgenciaGeral()">📄 PDF p/ agência</button>
         </div>
         <div id="viagens-resumo" class="mod-grid"></div>
         <div class="mod-tabs">
@@ -1360,8 +1361,10 @@ async function iniciarApp() {
     document.querySelectorAll('.nav-item').forEach(el=>el.style.display='none')
     document.querySelectorAll('.nav-label').forEach(el=>el.style.display='none')
     document.getElementById('nav-viagens').style.display='flex'
-    const btnNova=document.querySelector('#screen-viagens .btn.btn-primary')
+    const btnNova=document.getElementById('btn-solicitar-viagem')
     if(btnNova) btnNova.style.display='none'
+    const btnPdfGeral=document.getElementById('btn-pdf-agencia-geral')
+    if(btnPdfGeral) btnPdfGeral.style.display='none'
     document.querySelectorAll('#screen-viagens .mod-tab').forEach(el=>el.style.display='none')
     document.getElementById('tab-viagens-bilhete').style.display='inline-flex'
     viagensTabAtual='bilhete'
@@ -4185,6 +4188,213 @@ async function abrirPessoa360(uid){
     </div>
   </div>`
   showScreen('equipe',document.getElementById('nav-equipe'),true)
+}
+
+// ── PDF Geral p/ Agência (todas as viagens, agrupado por pessoa) ──
+async function gerarPdfAgenciaGeral() {
+  if(typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined'){
+    alert('Biblioteca PDF não carregou ainda. Aguarde um segundo e tente novamente.')
+    return
+  }
+  const { jsPDF } = window.jspdf || jspdf
+
+  // Busca demandas pendentes/autorizadas + viagens autorizadas
+  const [{ data: demandas }, { data: viagens }, { data: profs }] = await Promise.all([
+    sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').in('status', ['pendente','solicitada','autorizada']).order('data_inicio'),
+    sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['autorizada','aguardando_bilhete','bilhete_preenchido']).order('data_inicio'),
+    sb.from('profiles').select('*')
+  ])
+
+  const profMap = {}
+  ;(profs||[]).forEach(p => profMap[p.id] = p)
+
+  // Agrupa tudo por usuario_id
+  const porPessoa = {}
+  ;(demandas||[]).forEach(d => {
+    if(!porPessoa[d.usuario_id]) porPessoa[d.usuario_id] = { demandas: [], viagens: [] }
+    porPessoa[d.usuario_id].demandas.push(d)
+  })
+  ;(viagens||[]).forEach(v => {
+    if(!porPessoa[v.usuario_id]) porPessoa[v.usuario_id] = { demandas: [], viagens: [] }
+    porPessoa[v.usuario_id].viagens.push(v)
+  })
+
+  const pessoas = Object.keys(porPessoa)
+  if(!pessoas.length) { mostrarAviso('Nenhuma viagem/solicitação ativa encontrada.', 'erro'); return }
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pw = doc.internal.pageSize.getWidth()
+  const ph = doc.internal.pageSize.getHeight()
+
+  function fmtD(s){
+    if(!s) return '—'
+    const str = String(s).slice(0,10)
+    const p = str.split('-')
+    return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : str
+  }
+
+  function cabecalho(){
+    doc.setFillColor(91, 33, 182)
+    doc.rect(0, 0, pw, 26, 'F')
+    doc.setTextColor(255,255,255)
+    doc.setFont('helvetica','bold')
+    doc.setFontSize(13)
+    doc.text('Solicitação de Cotação de Passagens Aéreas', 14, 10)
+    doc.setFont('helvetica','normal')
+    doc.setFontSize(8)
+    doc.text('Cleantabaco · RDV — documento gerado automaticamente', 14, 16)
+    doc.text('Gerado em: ' + new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}), 14, 21)
+  }
+
+  cabecalho()
+  let y = 33
+  let primeiraPessoa = true
+
+  for(const uid of pessoas) {
+    const prof = profMap[uid]
+    if(!prof) continue
+    const grupo = porPessoa[uid]
+    const itens = [...(grupo.demandas||[]), ...(grupo.viagens||[])]
+    if(!itens.length) continue
+
+    // Nova página pra cada pessoa (exceto a primeira)
+    if(!primeiraPessoa) {
+      doc.addPage()
+      cabecalho()
+      y = 33
+    }
+    primeiraPessoa = false
+
+    // ── PASSAGEIRO ──
+    doc.setFillColor(237,233,254)
+    doc.rect(14, y-4, pw-28, 7, 'F')
+    doc.setTextColor(76,29,149)
+    doc.setFontSize(9)
+    doc.setFont('helvetica','bold')
+    doc.text('DADOS DO PASSAGEIRO', 16, y+1)
+    y += 9
+
+    // Nome em destaque
+    doc.setFont('helvetica','bold')
+    doc.setFontSize(13)
+    doc.setTextColor(76,29,149)
+    doc.text(prof.nome || '—', 16, y)
+    y += 7
+
+    // Dados pessoais
+    function linhaPdf(label, val, l2, v2){
+      if(!val && !v2) return
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(87,83,78)
+      doc.text(label+':', 16, y)
+      doc.setFont('helvetica','normal'); doc.setTextColor(28,25,23)
+      doc.text(String(val||'—'), 52, y)
+      if(l2 && v2 !== null && v2 !== undefined){
+        doc.setFont('helvetica','bold'); doc.setTextColor(87,83,78)
+        doc.text(l2+':', pw/2+2, y)
+        doc.setFont('helvetica','normal'); doc.setTextColor(28,25,23)
+        doc.text(String(v2||'—'), pw/2+32, y)
+      }
+      y += 5.5
+    }
+
+    linhaPdf('CPF', prof.cpf||'(não cadastrado)', 'Nascimento', prof.data_nascimento ? fmtD(prof.data_nascimento) : '(não cadastrado)')
+    linhaPdf('E-mail', prof.email||'—', 'Telefone', prof.telefone||'—')
+    y += 3
+
+    // ── VIAGENS DA PESSOA ──
+    doc.setFillColor(237,233,254)
+    doc.rect(14, y-4, pw-28, 7, 'F')
+    doc.setTextColor(76,29,149)
+    doc.setFontSize(9)
+    doc.setFont('helvetica','bold')
+    doc.text('VIAGENS SOLICITADAS', 16, y+1)
+    y += 9
+
+    itens.forEach((item, idx) => {
+      // Verifica se precisa de nova página
+      if(y > ph - 50) { doc.addPage(); cabecalho(); y = 33 }
+
+      const dataIni = item.data_inicio || item.data_sugerida || ''
+      const dataFim = item.data_fim || item.data_sugerida || dataIni
+      const horaIda = item.hora_saida_ida ? String(item.hora_saida_ida).slice(0,5) : null
+      const horaVolta = item.hora_saida_volta ? String(item.hora_saida_volta).slice(0,5) : null
+      const origem = item.aeroporto_origem || ''
+      const destino_aero = item.aeroporto_destino || ''
+      const obs = (() => {
+        const raw = String(item.observacao||'')
+        const pref = (raw.match(/Preferência:\s*([^|]+)/i)||[])[1]?.trim()||''
+        return { preferencia: pref }
+      })()
+
+      // Separador numerado entre viagens
+      if(itens.length > 1) {
+        doc.setFillColor(246,242,234)
+        doc.rect(14, y-3, pw-28, 6, 'F')
+        doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(91,33,182)
+        doc.text(`Viagem ${idx+1}`, 16, y+1)
+        y += 8
+      }
+
+      // Destino
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(28,25,23)
+      const destinoTxt = `${item.destino||''}${item.estado ? ' – ' + item.estado : ''}${origem&&destino_aero ? '   (' + origem + ' → ' + destino_aero + ')' : ''}`
+      doc.text(destinoTxt, 16, y)
+      y += 6
+
+      // Datas em caixa destacada
+      doc.setFillColor(246,242,234)
+      doc.rect(14, y-4, pw-28, 13, 'F')
+      doc.setDrawColor(91,33,182)
+      doc.rect(14, y-4, pw-28, 13, 'S')
+      doc.setDrawColor(200,200,200)
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(76,29,149)
+      const txtIda = 'IDA: ' + (dataIni ? fmtD(dataIni) : '—') + (horaIda ? '   ' + horaIda : '')
+      const txtVolta = 'VOLTA: ' + (dataFim ? fmtD(dataFim) : '—') + (horaVolta ? '   ' + horaVolta : '')
+      doc.text(txtIda, 18, y+2)
+      doc.text(txtVolta, pw/2+5, y+2)
+      y += 15
+
+      linhaPdf('Preferência', obs.preferencia||'Indiferente')
+      y += 3
+
+      // Linha separadora entre viagens
+      if(idx < itens.length - 1) {
+        doc.setDrawColor(220,216,207)
+        doc.line(14, y, pw-14, y)
+        y += 5
+      }
+    })
+
+    y += 4
+
+    // ── INSTRUÇÕES ──
+    doc.setFillColor(237,233,254)
+    doc.rect(14, y-4, pw-28, 7, 'F')
+    doc.setTextColor(76,29,149); doc.setFontSize(9); doc.setFont('helvetica','bold')
+    doc.text('INSTRUÇÕES PARA A AGÊNCIA', 16, y+1)
+    y += 9
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(28,25,23)
+    const inst = [
+      '• Cotar ida e volta com as melhores opções de preço × horário.',
+      '• Enviar no mínimo 2 opções de voo por trecho (se disponível).',
+      '• Considerar bagagem despachada de 23kg.',
+      '• Preferência por voos diretos quando a diferença de preço for inferior a 20%.',
+      '• Aguardar aprovação antes de emitir.',
+    ]
+    inst.forEach(txt => { doc.text(txt, 16, y); y += 5.5 })
+  }
+
+  // Rodapé
+  const totalPgs = doc.internal.getNumberOfPages()
+  for(let i=1; i<=totalPgs; i++){
+    doc.setPage(i)
+    doc.setFontSize(7); doc.setTextColor(160,160,160)
+    doc.text(`RDV Cleantabaco · documento interno · não é um bilhete emitido · pág ${i}/${totalPgs}`, pw/2, ph-6, {align:'center'})
+  }
+
+  const nomeArq = `Cotacoes_Cleantabaco_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`
+  doc.save(nomeArq)
+  mostrarAviso(`PDF gerado com ${pessoas.length} passageiro(s)!`)
 }
 
 // ── PDF para Agência de Viagens ──────────────────────────────
