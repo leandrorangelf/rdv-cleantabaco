@@ -4043,13 +4043,150 @@ async function editarSolicitacaoViagem(id){
   if(!isGestor())return
   const d=viagensCache.demandas.find(x=>x.id===id) || (await sb.from('demandas_viagem').select('*').eq('id',id).single()).data
   if(!d)return
-  const destino=prompt('Destino:', d.destino||''); if(destino===null)return
-  const cliente=prompt('Cliente/motivo comercial:', d.cliente||''); if(cliente===null)return
-  const inicio=prompt('Data ida (AAAA-MM-DD):', d.data_inicio||d.data_sugerida||''); if(inicio===null)return
-  const fim=prompt('Data volta (AAAA-MM-DD):', d.data_fim||d.data_sugerida||inicio); if(fim===null)return
-  const motivo=prompt('Motivo:', d.motivo||''); if(motivo===null)return
-  const {error}=await sb.from('demandas_viagem').update({destino,cliente,data_inicio:inicio,data_sugerida:inicio,data_fim:fim,motivo,updated_at:new Date().toISOString()}).eq('id',id)
-  if(error){alert('Erro ao editar: '+error.message);return}
+
+  const obs = extrairObsDemanda(d.observacao||'')
+  // Tenta recuperar origem/destino dos campos diretos ou da observação
+  const estadoOrigemAtual = d.estado_origem || obs.origem?.split('–')[0]?.trim() || ''
+  const aeroOrigemAtual   = d.aeroporto_origem || obs.origem?.split('–')[1]?.trim() || ''
+  const aeroDestinoAtual  = d.aeroporto_destino || obs.destStr?.split('–')[1]?.trim() || ''
+  const prefAtual = obs.preferencia || 'indiferente'
+
+  function optsEstado(sel=''){
+    const ests=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+    return '<option value="">Selecione</option>'+ests.map(e=>`<option value="${e}" ${e===sel?'selected':''}>${e}</option>`).join('')
+  }
+  function optsAero(estado, selCod=''){
+    const lista = (typeof AEROPORTOS_BR !== 'undefined' && AEROPORTOS_BR[estado]) || []
+    if(!lista.length) return '<option value="">Nenhum cadastrado</option>'
+    return (lista.length>1?'<option value="">Selecione</option>':'')+lista.map(a=>`<option value="${a.c}" ${a.c===selCod?'selected':''}>${a.c} – ${a.n}</option>`).join('')
+  }
+
+  const modal = document.createElement('div')
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto'
+  modal.innerHTML=`
+    <div style="background:white;border-radius:16px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+      <div style="background:linear-gradient(135deg,#32105F,#5B21B6);padding:16px 20px;color:white">
+        <div style="font-size:15px;font-weight:700">Editar solicitação de viagem</div>
+        <div style="font-size:11px;opacity:.8;margin-top:2px">${safeTxt(d.destino||'')} · ${safeTxt(d.data_inicio||'')}</div>
+      </div>
+      <div style="padding:20px;max-height:75vh;overflow-y:auto">
+
+        <div style="font-size:10px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Origem</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Estado de origem</label>
+            <select id="ed-estado-origem" class="form-select" onchange="edAtualizarAero('origem')">${optsEstado(estadoOrigemAtual)}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Aeroporto de origem</label>
+            <select id="ed-aero-origem" class="form-select">${optsAero(estadoOrigemAtual, aeroOrigemAtual)}</select>
+          </div>
+        </div>
+
+        <div style="font-size:10px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Destino</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Cidade destino</label>
+            <input id="ed-destino" class="form-input" value="${safeTxt(d.destino||'')}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado destino</label>
+            <select id="ed-estado" class="form-select" onchange="edAtualizarAero('destino')">${optsEstado(d.estado||'')}</select>
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Aeroporto de destino</label>
+            <select id="ed-aero-destino" class="form-select">${optsAero(d.estado||'', aeroDestinoAtual)}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cliente</label>
+            <input id="ed-cliente" class="form-input" value="${safeTxt(d.cliente||'')}">
+          </div>
+        </div>
+
+        <div style="font-size:10px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Datas</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Data ida</label>
+            <input id="ed-inicio" type="date" class="form-input" value="${d.data_inicio||d.data_sugerida||''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data volta</label>
+            <input id="ed-fim" type="date" class="form-input" value="${d.data_fim||''}">
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group">
+            <label class="form-label">Preferência de horário</label>
+            <select id="ed-preferencia" class="form-select">
+              <option value="indiferente" ${prefAtual==='indiferente'?'selected':''}>Indiferente</option>
+              <option value="manha" ${prefAtual==='manha'?'selected':''}>Manhã</option>
+              <option value="tarde" ${prefAtual==='tarde'?'selected':''}>Tarde</option>
+              <option value="noite" ${prefAtual==='noite'?'selected':''}>Noite</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Motivo</label>
+            <input id="ed-motivo" class="form-input" value="${safeTxt(d.motivo||'')}">
+          </div>
+        </div>
+
+        <div id="ed-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" onclick="this.closest('[style*=fixed]').remove()">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarEdicaoSolicitacao('${id}')">Salvar</button>
+        </div>
+      </div>
+    </div>`
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e => { if(e.target===modal) modal.remove() })
+}
+
+function edAtualizarAero(lado){
+  const estadoId = lado==='origem' ? 'ed-estado-origem' : 'ed-estado'
+  const aeroId   = lado==='origem' ? 'ed-aero-origem'   : 'ed-aero-destino'
+  const estado   = document.getElementById(estadoId)?.value
+  const sel      = document.getElementById(aeroId)
+  if(!sel) return
+  const lista = (typeof AEROPORTOS_BR !== 'undefined' && AEROPORTOS_BR[estado]) || []
+  if(!lista.length){ sel.innerHTML='<option value="">Nenhum cadastrado</option>'; return }
+  sel.innerHTML = (lista.length>1?'<option value="">Selecione</option>':'')+lista.map(a=>`<option value="${a.c}">${a.c} – ${a.n}</option>`).join('')
+  if(lista.length===1) sel.value=lista[0].c
+}
+
+async function salvarEdicaoSolicitacao(id){
+  const destino   = document.getElementById('ed-destino')?.value.trim()
+  const estado    = document.getElementById('ed-estado')?.value
+  const estadoOri = document.getElementById('ed-estado-origem')?.value
+  const aeroOri   = document.getElementById('ed-aero-origem')?.value
+  const aeroDes   = document.getElementById('ed-aero-destino')?.value
+  const cliente   = document.getElementById('ed-cliente')?.value.trim()
+  const inicio    = document.getElementById('ed-inicio')?.value
+  const fim       = document.getElementById('ed-fim')?.value
+  const motivo    = document.getElementById('ed-motivo')?.value.trim()
+  const pref      = document.getElementById('ed-preferencia')?.value||'indiferente'
+  const err       = document.getElementById('ed-erro')
+  if(!destino||!estado||!inicio||!fim){ err.textContent='Preencha destino, estado e datas.'; err.style.display='block'; return }
+
+  // Reconstrói observação mantendo estrutura original
+  const obsAtual = viagensCache.demandas.find(x=>x.id===id)?.observacao||''
+  const antec = (obsAtual.match(/Antecedência:\s*([^|]+)/i)||[])[1]?.trim()||''
+  const just  = (obsAtual.match(/Justificativa:\s*([^|]+)/i)||[])[1]?.trim()||'n/a'
+  const novaObs = `Preferência: ${pref} | Justificativa: ${just} | Antecedência: ${antec}${estadoOri&&aeroOri?' | Origem: '+estadoOri+' – '+aeroOri:''} | Destino: ${estado}${aeroDes?' – '+aeroDes:''}`
+
+  const {error}=await sb.from('demandas_viagem').update({
+    destino, estado, cliente, motivo,
+    data_inicio:inicio, data_sugerida:inicio, data_fim:fim,
+    aeroporto_origem: aeroOri||null,
+    aeroporto_destino: aeroDes||null,
+    estado_origem: estadoOri||null,
+    observacao: novaObs,
+    updated_at: new Date().toISOString()
+  }).eq('id',id)
+  if(error){ err.textContent='Erro ao salvar: '+error.message; err.style.display='block'; return }
+  document.querySelector('[style*="z-index:9000"]')?.remove()
   mostrarAviso('Solicitação atualizada.'); await carregarModuloViagens()
 }
 
