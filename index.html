@@ -822,7 +822,7 @@ body::before {
             <div class="page-sub">Solicitações, bilhetes, valores e pendências por profissional</div>
           </div>
           <button id="btn-solicitar-viagem" class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">+ Solicitar viagem</button>
-          <button id="btn-pdf-agencia-geral" class="btn" style="background:var(--purple-light);color:var(--purple-dark);border-color:#C4B5FD" onclick="gerarPdfAgenciaGeral()">📄 PDF p/ agência</button>
+          <button id="btn-pdf-agencia-geral" class="btn aprovador-only" style="display:none;background:var(--purple-light);color:var(--purple-dark);border-color:#C4B5FD" onclick="gerarPdfAgenciaGeral()">📄 PDF p/ agência</button>
         </div>
         <div id="viagens-resumo" class="mod-grid"></div>
         <div class="mod-tabs">
@@ -862,11 +862,36 @@ body::before {
         <div class="page-title">Solicitar viagem</div>
         <div class="page-sub">A viagem fica pendente até aprovação do gestor</div>
         <div class="form-card">
+          <!-- ORIGEM -->
+          <div style="font-size:11px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Origem</div>
           <div class="form-row">
-            <div class="form-group"><label class="form-label">Destino (cidade) *</label><input id="v-destino" class="form-input" placeholder="ex: São Paulo"></div>
             <div class="form-group">
-              <label class="form-label">Estado *</label>
-              <select id="v-estado" class="form-select">
+              <label class="form-label">Estado de origem *</label>
+              <select id="v-estado-origem" class="form-select" onchange="atualizarAeroportos('origem')">
+                <option value="">Selecione</option>
+                <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+                <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+                <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+                <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+                <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+                <option>SP</option><option>SE</option><option>TO</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Aeroporto de origem *</label>
+              <select id="v-aeroporto-origem" class="form-select">
+                <option value="">Selecione o estado primeiro</option>
+              </select>
+            </div>
+          </div>
+          <!-- DESTINO -->
+          <div style="font-size:11px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:4px">Destino</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Cidade destino *</label><input id="v-destino" class="form-input" placeholder="ex: São Paulo"></div>
+            <div class="form-group">
+              <label class="form-label">Estado destino *</label>
+              <select id="v-estado" class="form-select" onchange="atualizarAeroportos('destino')">
                 <option value="">Selecione</option>
                 <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
                 <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
@@ -879,9 +904,16 @@ body::before {
             </div>
           </div>
           <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Aeroporto de destino *</label>
+              <select id="v-aeroporto-destino" class="form-select">
+                <option value="">Selecione o estado primeiro</option>
+              </select>
+            </div>
             <div class="form-group"><label class="form-label">Cliente visitado *</label><input id="v-cliente" class="form-input" placeholder="ex: Atacadão SP"></div>
-            <div class="form-group"><label class="form-label">Motivo da visita *</label><input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang"></div>
           </div>
+          <!-- DATAS E DETALHES -->
+          <div style="font-size:11px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:4px">Datas</div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Data ida desejada *</label><input id="v-inicio" type="date" class="form-input" onchange="atualizarPrazoViagem()"></div>
             <div class="form-group"><label class="form-label">Data volta desejada *</label><input id="v-fim" type="date" class="form-input"></div>
@@ -897,9 +929,13 @@ body::before {
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Justificativa se estiver fora dos 15 dias</label>
-              <input id="v-justificativa" class="form-input" placeholder="Obrigatório se pedir com menos de 15 dias">
+              <label class="form-label">Motivo da visita *</label>
+              <input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang">
             </div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Justificativa se estiver fora dos 15 dias</label>
+            <input id="v-justificativa" class="form-input" placeholder="Obrigatório se pedir com menos de 15 dias">
           </div>
           <div id="v-prazo-info" style="display:none;margin-bottom:10px;font-size:11px;padding:8px 10px;border-radius:8px"></div>
           <div id="v-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
@@ -1268,8 +1304,10 @@ function extrairObsDemanda(obs){
   const raw=String(obs||'')
   const pref=(raw.match(/Preferência:\s*([^|]+)/i)||[])[1]?.trim()||''
   const just=(raw.match(/Justificativa:\s*([^|]+)/i)||[])[1]?.trim()||''
-  const obsLimpa=raw.replace(/Preferência:\s*[^|]+\|?/i,'').replace(/Justificativa:\s*[^|]+\|?/i,'').replace(/Obs:\s*/i,'').trim()
-  return {preferencia:pref,justificativa:just,obs:obsLimpa}
+  const origem=(raw.match(/Origem:\s*([^|]+)/i)||[])[1]?.trim()||''
+  const destStr=(raw.match(/Destino:\s*([^|]+)/i)||[])[1]?.trim()||''
+  const obsLimpa=raw.replace(/Preferência:\s*[^|]+\|?/i,'').replace(/Justificativa:\s*[^|]+\|?/i,'').replace(/Obs:\s*/i,'').replace(/Origem:\s*[^|]+\|?/i,'').replace(/Destino:\s*[^|]+\|?/i,'').trim()
+  return {preferencia:pref,justificativa:just,obs:obsLimpa,origem,destStr}
 }
 function resumoBilhete(v){
   if(!v || !v.localizador) return ''
@@ -1384,6 +1422,8 @@ async function iniciarApp() {
 
   if(perfil.papel==='aprovador'){
     document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='flex')
+    const btnPdfEl=document.getElementById('btn-pdf-agencia-geral')
+    if(btnPdfEl) btnPdfEl.style.display='inline-flex'
     document.getElementById('nav-label-admin').style.display='block'
   }
   await carregarDashboard()
@@ -1910,9 +1950,60 @@ function atualizarPrazoViagem(){
   box.textContent=p.label+(p.nivel==='ok'?'':' · justificativa obrigatória')
 }
 
+// ── Mapa de aeroportos por estado ────────────────────────────
+const AEROPORTOS_BR = {
+  AC: [{c:'RBR',n:'Rio Branco – Plácido de Castro'}],
+  AL: [{c:'MCZ',n:'Maceió – Zumbi dos Palmares'}],
+  AM: [{c:'MAO',n:'Manaus – Eduardo Gomes'},{c:'TEF',n:'Tefé'},{c:'STM',n:'Santarém – Master'}],
+  AP: [{c:'MCP',n:'Macapá – Alberto Alcolumbre'}],
+  BA: [{c:'SSA',n:'Salvador – Luís Eduardo Magalhães'},{c:'IOS',n:'Ilhéus – Jorge Amado'},{c:'BPS',n:'Porto Seguro'},{c:'VDC',n:'Vitória da Conquista – Pedro Otacílio Figueiredo'},{c:'FEC',n:'Feira de Santana'}],
+  CE: [{c:'FOR',n:'Fortaleza – Pinto Martins'},{c:'JDO',n:'Juazeiro do Norte – Orlando Bezerra'},{c:'QCP',n:'Campina Grande'}],
+  DF: [{c:'BSB',n:'Brasília – Presidente JK'}],
+  ES: [{c:'VIX',n:'Vitória – Eurico de Aguiar Salles'},{c:'BVM',n:'Belmonte'}],
+  GO: [{c:'GYN',n:'Goiânia – Santa Genoveva'},{c:'AQA',n:'Anápolis'}],
+  MA: [{c:'SLZ',n:'São Luís – Marechal Cunha Machado'},{c:'IMP',n:'Imperatriz – Prefeito Renato Moreira'}],
+  MG: [{c:'CNF',n:'Belo Horizonte – Confins'},{c:'PLU',n:'Belo Horizonte – Pampulha'},{c:'UDI',n:'Uberlândia – Ten. Col. Av. César Bombonato'},{c:'IPN',n:'Ipatinga – Usiminas'},{c:'MOC',n:'Montes Claros – Mário Ribeiro'},{c:'GVR',n:'Governador Valadares'},{c:'JDF',n:'Juiz de Fora – Francisco de Assis'}],
+  MS: [{c:'CGR',n:'Campo Grande'},{c:'CGB',n:'Corumbá'}],
+  MT: [{c:'CGB',n:'Cuiabá – Marechal Rondon'},{c:'ROO',n:'Rondonópolis'},{c:'SNC',n:'Sinop'}],
+  PA: [{c:'BEL',n:'Belém – Val de Cans'},{c:'SJK',n:'Santarém – Maestro Wilson Fonseca'},{c:'MAB',n:'Marabá – João Coroliano'},{c:'PHB',n:'Parauapebas'}],
+  PB: [{c:'JPA',n:'João Pessoa – Presidente Castro Pinto'},{c:'CPV',n:'Campina Grande – Presidente João Suassuna'}],
+  PE: [{c:'REC',n:'Recife – Guararapes'},{c:'PNZ',n:'Petrolina – Senador Nilo Coelho'}],
+  PI: [{c:'THE',n:'Teresina – Senador Petrônio Portella'}],
+  PR: [{c:'CWB',n:'Curitiba – Afonso Pena'},{c:'LDB',n:'Londrina – Governador José Richa'},{c:'MGF',n:'Maringá – Silvio Name Júnior'},{c:'FOZ',n:'Foz do Iguaçu – Cataratas'}],
+  RJ: [{c:'GIG',n:'Rio de Janeiro – Galeão'},{c:'SDU',n:'Rio de Janeiro – Santos Dumont'}],
+  RN: [{c:'NAT',n:'Natal – Governador Aluísio Alves'},{c:'MOB',n:'Mossoró – Dix-Sept Rosado'}],
+  RO: [{c:'PVH',n:'Porto Velho – Belmonte'},{c:'BVH',n:'Vilhena'}],
+  RR: [{c:'BVB',n:'Boa Vista – Atlas Brasil Cantanhede'}],
+  RS: [{c:'POA',n:'Porto Alegre – Salgado Filho'},{c:'CXJ',n:'Caxias do Sul – Hugo Cantergiani'},{c:'PFB',n:'Passo Fundo – Lauro Kortz'},{c:'UGB',n:'Uruguaiana – Rubem Berta'}],
+  SC: [{c:'FLN',n:'Florianópolis – Hercílio Luz'},{c:'JOI',n:'Joinville – Lauro Carneiro de Loyola'},{c:'NVT',n:'Navegantes – Ministro Victor Konder'},{c:'XAP',n:'Chapecó – Serafin Enoss Bertaso'}],
+  SE: [{c:'AJU',n:'Aracaju – Santa Maria'}],
+  SP: [{c:'GRU',n:'São Paulo – Guarulhos'},{c:'CGH',n:'São Paulo – Congonhas'},{c:'VCP',n:'Campinas – Viracopos'},{c:'SJP',n:'São José do Rio Preto'},{c:'RAO',n:'Ribeirão Preto – Leite Lopes'},{c:'BAU',n:'Bauru – Arealva'},{c:'MGF',n:'Marília'},{c:'PPB',n:'Presidente Prudente'}],
+  TO: [{c:'PMW',n:'Palmas – Brigadeiro Lysias Rodrigues'},{c:'AUX',n:'Araguaína'}]
+}
+
+function atualizarAeroportos(lado){
+  const estadoId = lado==='origem' ? 'v-estado-origem' : 'v-estado'
+  const aeroId   = lado==='origem' ? 'v-aeroporto-origem' : 'v-aeroporto-destino'
+  const estado   = document.getElementById(estadoId)?.value
+  const sel      = document.getElementById(aeroId)
+  if(!sel) return
+  const lista    = AEROPORTOS_BR[estado] || []
+  if(!lista.length){
+    sel.innerHTML = '<option value="">Nenhum aeroporto cadastrado</option>'
+    return
+  }
+  sel.innerHTML = lista.length===1
+    ? `<option value="${lista[0].c}">${lista[0].c} – ${lista[0].n}</option>`
+    : '<option value="">Selecione</option>' + lista.map(a=>`<option value="${a.c}">${a.c} – ${a.n}</option>`).join('')
+  if(lista.length===1) sel.value = lista[0].c
+}
+
 async function salvarViagem(){
   const destino=document.getElementById('v-destino').value.trim()
   const estado=document.getElementById('v-estado').value
+  const estadoOrigem=document.getElementById('v-estado-origem')?.value||''
+  const aeroportoOrigem=document.getElementById('v-aeroporto-origem')?.value||''
+  const aeroportoDestino=document.getElementById('v-aeroporto-destino')?.value||''
   const cliente=document.getElementById('v-cliente').value.trim()
   const inicio=document.getElementById('v-inicio').value
   const fim=document.getElementById('v-fim').value
@@ -1921,11 +2012,11 @@ async function salvarViagem(){
   const justificativa=document.getElementById('v-justificativa')?.value.trim()||''
   const err=document.getElementById('v-erro')
   err.style.display='none'
-  if(!destino||!estado||!cliente||!inicio||!fim||!motivo){err.textContent='Preencha todos os campos obrigatórios.';err.style.display='block';return}
+  if(!destino||!estado||!estadoOrigem||!aeroportoOrigem||!aeroportoDestino||!cliente||!inicio||!fim||!motivo){err.textContent='Preencha todos os campos obrigatórios, incluindo estados e aeroportos de origem e destino.';err.style.display='block';return}
   if(fim<inicio){err.textContent='Data de volta não pode ser anterior à data de ida.';err.style.display='block';return}
   const prazo=politicaPrazoViagem(inicio)
   if(prazo.nivel!=='ok'&&!justificativa){err.textContent='Solicitação fora da política de 15 dias. Informe a justificativa.';err.style.display='block';return}
-  const observacao=`Preferência: ${preferencia} | Justificativa: ${justificativa||'n/a'} | Antecedência: ${prazo.dias} dias`
+  const observacao=`Preferência: ${preferencia} | Justificativa: ${justificativa||'n/a'} | Antecedência: ${prazo.dias} dias | Origem: ${estadoOrigem} – ${aeroportoOrigem} | Destino: ${estado} – ${aeroportoDestino}`
   const payload={
     usuario_id:perfil.id,
     created_by:perfil.id,
@@ -1937,12 +2028,15 @@ async function salvarViagem(){
     data_inicio:inicio,
     data_fim:fim,
     observacao,
-    status:'pendente'
+    status:'pendente',
+    aeroporto_origem: aeroportoOrigem,
+    aeroporto_destino: aeroportoDestino,
+    estado_origem: estadoOrigem
   }
   const{error}=await sb.from('demandas_viagem').insert(payload)
   if(error){err.textContent='Erro ao enviar solicitação: '+error.message;err.style.display='block';return}
   ;['v-destino','v-cliente','v-inicio','v-fim','v-motivo','v-justificativa'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
-  document.getElementById('v-estado').value=''
+  ;['v-estado','v-estado-origem','v-aeroporto-origem','v-aeroporto-destino'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
   if(document.getElementById('v-preferencia'))document.getElementById('v-preferencia').value='indiferente'
   if(document.getElementById('v-prazo-info'))document.getElementById('v-prazo-info').style.display='none'
   mostrarAviso('Solicitação enviada para aprovação do gestor.')
@@ -4199,27 +4293,36 @@ async function gerarPdfAgenciaGeral() {
   const { jsPDF } = window.jspdf || jspdf
 
   // Busca demandas pendentes/autorizadas + viagens autorizadas
-  const [{ data: demandas }, { data: viagens }, { data: profs }] = await Promise.all([
-    sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').in('status', ['pendente','solicitada','autorizada']).order('data_inicio'),
-    sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['autorizada','aguardando_bilhete','bilhete_preenchido']).order('data_inicio'),
-    sb.from('profiles').select('*')
-  ])
+  // Gestor vê todos; coordenador só vê o próprio
+  let qDemandas = sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').in('status', ['pendente','solicitada','autorizada']).order('data_inicio')
+  let qViagens  = sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['autorizada','aguardando_bilhete','bilhete_preenchido']).order('data_inicio')
+  let qProfs    = sb.from('profiles').select('*')
+  if(!isGestor()){
+    qDemandas = qDemandas.eq('usuario_id', perfil.id)
+    qViagens  = qViagens.eq('usuario_id', perfil.id)
+    qProfs    = qProfs.eq('id', perfil.id)
+  }
+  const [{ data: demandas }, { data: viagens }, { data: profs }] = await Promise.all([qDemandas, qViagens, qProfs])
 
   const profMap = {}
   ;(profs||[]).forEach(p => profMap[p.id] = p)
 
-  // Agrupa tudo por usuario_id
+  // IDs de demandas que já viraram viagem (para não duplicar)
+  const demandaIdsNaViagem = new Set((viagens||[]).map(v => v.demanda_id).filter(Boolean))
+
+  // Agrupa por usuario_id — demandas que NÃO viraram viagem + viagens autorizadas
   const porPessoa = {}
   ;(demandas||[]).forEach(d => {
-    if(!porPessoa[d.usuario_id]) porPessoa[d.usuario_id] = { demandas: [], viagens: [] }
-    porPessoa[d.usuario_id].demandas.push(d)
+    if(demandaIdsNaViagem.has(d.id)) return // já está como viagem, pula
+    if(!porPessoa[d.usuario_id]) porPessoa[d.usuario_id] = []
+    porPessoa[d.usuario_id].push(d)
   })
   ;(viagens||[]).forEach(v => {
-    if(!porPessoa[v.usuario_id]) porPessoa[v.usuario_id] = { demandas: [], viagens: [] }
-    porPessoa[v.usuario_id].viagens.push(v)
+    if(!porPessoa[v.usuario_id]) porPessoa[v.usuario_id] = []
+    porPessoa[v.usuario_id].push(v)
   })
 
-  const pessoas = Object.keys(porPessoa)
+  const pessoas = Object.keys(porPessoa).filter(uid => porPessoa[uid]?.length > 0)
   if(!pessoas.length) { mostrarAviso('Nenhuma viagem/solicitação ativa encontrada.', 'erro'); return }
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -4253,8 +4356,7 @@ async function gerarPdfAgenciaGeral() {
   for(const uid of pessoas) {
     const prof = profMap[uid]
     if(!prof) continue
-    const grupo = porPessoa[uid]
-    const itens = [...(grupo.demandas||[]), ...(grupo.viagens||[])]
+    const itens = porPessoa[uid] || []
     if(!itens.length) continue
 
     // Nova página pra cada pessoa (exceto a primeira)
@@ -4320,11 +4422,7 @@ async function gerarPdfAgenciaGeral() {
       const horaVolta = item.hora_saida_volta ? String(item.hora_saida_volta).slice(0,5) : null
       const origem = item.aeroporto_origem || ''
       const destino_aero = item.aeroporto_destino || ''
-      const obs = (() => {
-        const raw = String(item.observacao||'')
-        const pref = (raw.match(/Preferência:\s*([^|]+)/i)||[])[1]?.trim()||''
-        return { preferencia: pref }
-      })()
+      const obs = extrairObsDemanda(item.observacao||'')
 
       // Separador numerado entre viagens
       if(itens.length > 1) {
@@ -4335,11 +4433,14 @@ async function gerarPdfAgenciaGeral() {
         y += 8
       }
 
-      // Destino
-      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(28,25,23)
-      const destinoTxt = `${item.destino||''}${item.estado ? ' – ' + item.estado : ''}${origem&&destino_aero ? '   (' + origem + ' → ' + destino_aero + ')' : ''}`
-      doc.text(destinoTxt, 16, y)
-      y += 6
+      // Rota origem → destino
+      const aeroOri = item.aeroporto_origem || obs.origem?.split('–')[1]?.trim() || ''
+      const aeroDes = item.aeroporto_destino || obs.destStr?.split('–')[1]?.trim() || ''
+      const estOri  = item.estado_origem || obs.origem?.split('–')[0]?.trim() || ''
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(28,25,23)
+      const rotaTxt = (estOri||'?') + (aeroOri?' ('+aeroOri+')':'') + '  →  ' + (item.destino||'') + (item.estado?' – '+item.estado:'') + (aeroDes?' ('+aeroDes+')':'')
+      doc.text(rotaTxt, 16, y)
+      y += 7
 
       // Datas em caixa destacada
       doc.setFillColor(246,242,234)
