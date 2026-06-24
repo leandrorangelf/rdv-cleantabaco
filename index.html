@@ -1274,6 +1274,8 @@ function viagemComBilhete(v){ return viagemAtiva(v) && (statusNorm(v?.status)===
 function viagemAguardandoBilhete(v){ return viagemAtiva(v) && !viagemComBilhete(v) && ['autorizada','aguardando_bilhete'].includes(statusNorm(v?.status)) }
 function viagemFinanceiraNoPeriodo(v, ini, fim){ return viagemComBilhete(v) && Number(v?.valor_bilhete||0)>0 && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim) }
 function isGestor(){ return perfil?.papel==='aprovador' }
+function isGerente(){ return perfil?.papel==='gerente' }
+function podesolicitarViagem(){ return ['aprovador','gerente','coordenador'].includes(perfil?.papel) }
 function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
 function diasEntreHoje(dataISO){
@@ -1420,11 +1422,18 @@ async function iniciarApp() {
   })
   document.getElementById('nav-agenda').style.display='none'
 
-  if(perfil.papel==='aprovador'){
+  if(isGestor()){
     document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='flex')
     const btnPdfEl=document.getElementById('btn-pdf-agencia-geral')
     if(btnPdfEl) btnPdfEl.style.display='inline-flex'
     document.getElementById('nav-label-admin').style.display='block'
+  }
+  // Gerente (Vagner): solicita viagem, vê próprias viagens, sem autorizar/aprovar
+  if(isGerente()){
+    document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
+    const btnPdfGer=document.getElementById('btn-pdf-agencia-geral')
+    if(btnPdfGer) btnPdfGer.style.display='none'
+    document.getElementById('nav-agenda').style.display='none'
   }
   await carregarDashboard()
   await contarPendentes()
@@ -1528,12 +1537,12 @@ function renderViagensDash(){
 async function carregarDashboard() {
   const mes=mesAtual()
   let q=sb.from('despesas').select('valor,status,usuario_id,ativo').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
-  if(perfil.papel!=='aprovador')q=q.eq('usuario_id',perfil.id)
+  if(!isGestor())q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
   const ds=despesas||[]
   const dsAtivas=ds.filter(despesaComputavel)
 
-  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${perfil.papel==='aprovador'?'todos':'meu RDV'}`
+  document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${isGestor()?'todos':'meu RDV'}`
   document.getElementById('m-total').textContent=moeda(dsAtivas.reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-aprov').textContent=moeda(dsAtivas.filter(d=>statusNorm(d.status)==='aprovado').reduce((s,d)=>s+Number(d.valor||0),0))
   document.getElementById('m-pend').textContent=moeda(dsAtivas.filter(d=>statusNorm(d.status)==='pendente').reduce((s,d)=>s+Number(d.valor||0),0))
@@ -1550,7 +1559,7 @@ async function carregarDashboard() {
     document.getElementById('dash-viagens-wrap').style.display='none'
   }
 
-  if(perfil.papel==='aprovador'){
+  if(isGestor()){
     // Perfis
     const{data:profs}=await sb.from('profiles').select('id,nome')
     todosProfs=profs||[]
@@ -1878,14 +1887,14 @@ async function carregarAvulsas(){
     .lte('data_despesa',fimMes(mes))
     .order('data_despesa',{ascending:false})
 
-  if(perfil.papel!=='aprovador') q=q.eq('usuario_id',perfil.id)
+  if(!isGestor()) q=q.eq('usuario_id',perfil.id)
   const{data:avulsas}=await q
 
   const{data:catsA}=await sb.from('categorias').select('id,nome')
   const catPorIdA={};(catsA||[]).forEach(c=>catPorIdA[c.id]=c.nome)
 
   let nomePorIdA={}
-  if(perfil.papel==='aprovador'){
+  if(isGestor()){
     const{data:profs}=await sb.from('profiles').select('id,nome')
     ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
   }
@@ -1907,8 +1916,8 @@ async function carregarAvulsas(){
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
     const editBtn=(d.status==='pendente'||d.status==='rejeitado')
       ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`
-      :perfil.papel==='aprovador'?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
-    const quemLabel=perfil.papel==='aprovador'?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
+      :isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
+    const quemLabel=isGestor()?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
     return`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)">
       <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
@@ -3613,7 +3622,7 @@ async function carregarSemanal(){
   }
 
   // Busca registros da semana
-  const pessoaId = perfil.papel==='aprovador'
+  const pessoaId = isGestor()
     ? (document.getElementById('semanal-pessoa')?.value || null)
     : perfil.id
 
@@ -3846,7 +3855,7 @@ async function salvarDiaSemanal(uid, data){
   }
   fecharModalSemanal()
   await carregarSemanal()
-  if(perfil.papel==='aprovador') await carregarDashboard()
+  if(isGestor()) await carregarDashboard()
   mostrarAviso('Agenda semanal salva com sucesso.')
 }
 
@@ -3856,7 +3865,7 @@ async function excluirDiaSemanal(uid, data){
   if(error){ mostrarAviso('Erro ao excluir: '+error.message, 'erro'); return }
   fecharModalSemanal()
   await carregarSemanal()
-  if(perfil.papel==='aprovador') await carregarDashboard()
+  if(isGestor()) await carregarDashboard()
   mostrarAviso('Registro excluído.')
 }
 
