@@ -1082,10 +1082,13 @@ body::before {
       <div class="screen" id="screen-avulsas">
         <div class="sec-header">
           <div>
-            <div class="page-title">Despesas avulsas</div>
-            <div class="page-sub" id="avulsas-sub">Mês atual · sem viagem vinculada</div>
+            <div class="page-title">Meus lançamentos</div>
+            <div class="page-sub" id="avulsas-sub">Carregando...</div>
           </div>
-          <button class="btn btn-primary" onclick="showScreen('lancarmultiplo',document.getElementById('nav-lancarmultiplo'));setTimeout(()=>setMultiTipo('avulso'),300)">+ Nova avulsa</button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input id="avulsas-mes" type="month" class="form-input" style="min-height:34px;padding:5px 8px;font-size:12px" onchange="carregarAvulsas()">
+            <button class="btn btn-primary" onclick="showScreen('lancarmultiplo',document.getElementById('nav-lancarmultiplo'));setTimeout(()=>setMultiTipo('avulso'),300)">+ Novo lançamento</button>
+          </div>
         </div>
         <div id="avulsas-lista"><div class="loading">Carregando...</div></div>
       </div>
@@ -2023,7 +2026,11 @@ function lancarParaViagem(vid){
 }
 
 async function carregarAvulsas(){
-  const mes=mesAtual()
+  const inputMes=document.getElementById('avulsas-mes')
+  if(inputMes && !inputMes.value) inputMes.value=mesAtual()
+  const mes=inputMes?.value||mesAtual()
+  const mesLabel=new Date(mes+'-02').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  const ehMesAtual=mes===mesAtual()
   let q=sb.from('despesas')
     .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id,ativo')
     .is('viagem_id',null)
@@ -2032,10 +2039,31 @@ async function carregarAvulsas(){
     .order('data_despesa',{ascending:false})
 
   if(!isGestor()) q=q.eq('usuario_id',perfil.id)
-  const{data:avulsas}=await q
 
-  const{data:catsA}=await sb.from('categorias').select('id,nome')
+  // Despesas de viagem do mesmo período
+  let qViag=sb.from('despesas')
+    .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id,ativo,viagem_id')
+    .not('viagem_id','is',null)
+    .gte('data_despesa',`${mes}-01`)
+    .lte('data_despesa',fimMes(mes))
+    .order('data_despesa',{ascending:false})
+  if(!isGestor()) qViag=qViag.eq('usuario_id',perfil.id)
+
+  const[{data:avulsasRaw},{data:viagemDesps},{data:catsA}]=await Promise.all([
+    q,qViag,
+    sb.from('categorias').select('id,nome')
+  ])
+  const avulsas=[...(avulsasRaw||[]),...(viagemDesps||[])].sort((a,b)=>b.data_despesa.localeCompare(a.data_despesa))
+
   const catPorIdA={};(catsA||[]).forEach(c=>catPorIdA[c.id]=c.nome)
+
+  // Busca nomes de viagens para as despesas vinculadas
+  const viagIds=[...new Set((viagemDesps||[]).map(d=>d.viagem_id).filter(Boolean))]
+  let viagPorId={}
+  if(viagIds.length){
+    const{data:viags}=await sb.from('viagens').select('id,destino,cliente').in('id',viagIds)
+    ;(viags||[]).forEach(v=>viagPorId[v.id]=v)
+  }
 
   let nomePorIdA={}
   if(isGestor()){
@@ -2046,11 +2074,10 @@ async function carregarAvulsas(){
   const avulsasAtivasTela=(avulsas||[]).filter(despesaComputavel)
   const total=avulsasAtivasTela.reduce((s,d)=>s+Number(d.valor||0),0)
   const pend=avulsasAtivasTela.filter(d=>statusNorm(d.status)==='pendente').reduce((s,d)=>s+Number(d.valor||0),0)
-  const rej=0
-  document.getElementById('avulsas-sub').textContent=`${avulsasAtivasTela.length} itens ativos · Total ativo: ${moeda(total)} · Pendente: ${moeda(pend)}${rej>0?' · Rejeitado: '+moeda(rej):''}`
+  document.getElementById('avulsas-sub').textContent=`${mesLabel} · ${avulsasAtivasTela.length} lançamento(s) · Total: ${moeda(total)}${pend>0?' · Pendente: '+moeda(pend):''}`
 
   if(!avulsasAtivasTela.length){
-    document.getElementById('avulsas-lista').innerHTML='<div class="empty">Nenhuma despesa avulsa esse mês.</div>'
+    document.getElementById('avulsas-lista').innerHTML=`<div class="empty">Nenhum lançamento em ${mesLabel}.</div>`
     return
   }
 
@@ -2058,7 +2085,8 @@ async function carregarAvulsas(){
     const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
-    const editBtn=(d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')
+    const podeEditar=ehMesAtual&&(d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')
+    const editBtn=podeEditar
       ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`
       :isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
     const quemLabel=isGestor()?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
@@ -2066,7 +2094,7 @@ async function carregarAvulsas(){
       <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;color:var(--ink);font-weight:500">${catPorIdA[d.categoria_id]||'?'}${d.descricao?' · <span style="font-weight:400;color:var(--ink2)">'+d.descricao+'</span>':''}${quemLabel}</div>
-        <div style="font-size:11px;color:var(--ink2);margin-top:1px">${dataFmt(d.data_despesa)} · ${statusBadge(d.status)}</div>
+        <div style="font-size:11px;color:var(--ink2);margin-top:1px">${dataFmt(d.data_despesa)}${d.viagem_id&&viagPorId[d.viagem_id]?' · '+viagPorId[d.viagem_id].destino+' – '+viagPorId[d.viagem_id].cliente:' · avulso'} · ${statusBadge(d.status)}</div>
         ${rejNote}
       </div>
       <span style="font-size:12px;font-weight:500;color:var(--ink);flex-shrink:0">${moeda(d.valor)}</span>
