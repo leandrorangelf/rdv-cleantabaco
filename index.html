@@ -3367,11 +3367,11 @@ async function carregarFinanceiro(){
   document.getElementById('fin-lista').innerHTML='<div class="loading">Carregando...</div>'
   document.getElementById('fin-resumo').innerHTML=''
 
-  // Busca despesas aprovadas e pendentes do mês
+  // Busca só despesas aprovadas do mês
   const { data: despesas } = await sb.from('despesas')
     .select('usuario_id,valor,status,ativo')
     .gte('data_despesa', ini).lte('data_despesa', fim)
-  const dsAtivas = (despesas||[]).filter(d=>registroAtivo(d) && ['aprovado','pendente'].includes(statusNorm(d.status)))
+  const dsAprov = (despesas||[]).filter(d=>registroAtivo(d) && statusNorm(d.status)==='aprovado')
 
   // Busca perfis
   const { data: profs } = await sb.from('profiles').select('id,nome,papel,ativo').order('nome')
@@ -3384,36 +3384,33 @@ async function carregarFinanceiro(){
 
   const profsAtivos = (profs||[]).filter(p=>p.ativo!==false && ['coordenador','gerente'].includes(p.papel))
 
-  // Agrupa despesas por usuário
+  // Agrupa aprovado por usuário
   const porUsuario = {}
-  dsAtivas.forEach(d=>{
-    if(!porUsuario[d.usuario_id]) porUsuario[d.usuario_id]={aprovado:0,pendente:0}
-    if(statusNorm(d.status)==='aprovado') porUsuario[d.usuario_id].aprovado+=Number(d.valor||0)
-    else porUsuario[d.usuario_id].pendente+=Number(d.valor||0)
+  dsAprov.forEach(d=>{
+    if(!porUsuario[d.usuario_id]) porUsuario[d.usuario_id]=0
+    porUsuario[d.usuario_id]+=Number(d.valor||0)
   })
 
-  // Monta linhas
+  // Monta linhas — só quem tem despesa aprovada
   const linhas = profsAtivos.map(p=>{
-    const vals = porUsuario[p.id]||{aprovado:0,pendente:0}
+    const aprovado = porUsuario[p.id]||0
+    if(!aprovado) return null
     const verba = (verbas||[]).find(v=>v.usuario_id===p.id)
     const pag = (pagamentos||[]).find(g=>g.usuario_id===p.id)
     const verbVal = Number(verba?.valor||0)
-    const areemb = vals.aprovado - verbVal
+    const apagar = Math.max(0, aprovado - verbVal)
     const pago = !!pag
-    const statusCor = pago ? 'b-mint' : areemb>0 ? 'b-orange' : areemb<0 ? 'b-red' : 'b-gray'
-    const statusTxt = pago ? 'Pago' : areemb>0 ? 'A reembolsar' : areemb<0 ? 'Deve devolver' : 'Zerado'
-    return {p, vals, verbVal, areemb, pago, pag, statusCor, statusTxt}
-  }).filter(r=>r.vals.aprovado>0||r.vals.pendente>0||r.verbVal>0)
+    return {p, aprovado, verbVal, apagar, pago, pag}
+  }).filter(Boolean)
 
   // Cards de resumo
-  const totalAprov = linhas.reduce((s,r)=>s+r.vals.aprovado,0)
+  const totalAprov = linhas.reduce((s,r)=>s+r.aprovado,0)
   const totalVerba = linhas.reduce((s,r)=>s+r.verbVal,0)
-  const totalReemb = linhas.reduce((s,r)=>s+(r.areemb>0?r.areemb:0),0)
+  const totalApagar = linhas.reduce((s,r)=>s+r.apagar,0)
   const totalPago = linhas.filter(r=>r.pago).reduce((s,r)=>s+Number(r.pag?.valor_pago||0),0)
   document.getElementById('fin-resumo').innerHTML=`
-    <div class="metric m-purple" style="flex:1;min-width:130px"><div class="metric-label">Despesas aprovadas</div><div class="metric-value">${moeda(totalAprov)}</div></div>
-    <div class="metric m-mint" style="flex:1;min-width:130px"><div class="metric-label">Verbas entregues</div><div class="metric-value">${moeda(totalVerba)}</div></div>
-    <div class="metric m-orange" style="flex:1;min-width:130px"><div class="metric-label">A reembolsar</div><div class="metric-value">${moeda(totalReemb)}</div></div>
+    <div class="metric m-purple" style="flex:1;min-width:130px"><div class="metric-label">Total aprovado</div><div class="metric-value">${moeda(totalAprov)}</div></div>
+    <div class="metric m-orange" style="flex:1;min-width:130px"><div class="metric-label">A pagar</div><div class="metric-value">${moeda(totalApagar)}</div></div>
     <div class="metric m-mint" style="flex:1;min-width:130px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
 
   if(!linhas.length){
@@ -3421,28 +3418,20 @@ async function carregarFinanceiro(){
     return
   }
 
-  const rows = linhas.map(({p,vals,verbVal,areemb,pago,pag,statusCor,statusTxt})=>`<tr>
-    <td>
-      <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div>
-    </td>
-    <td>${moeda(vals.aprovado)}</td>
-    <td>${vals.pendente>0?`<span style="color:var(--orange-dark)">${moeda(vals.pendente)}</span>`:'—'}</td>
+  const rows = linhas.map(({p,aprovado,verbVal,apagar,pago,pag})=>`<tr>
+    <td><div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div></td>
+    <td>${moeda(aprovado)}</td>
     <td>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="number" id="fin-verba-${p.id}" class="form-input" style="width:100px;min-height:28px;padding:4px 8px;font-size:12px" value="${verbVal||''}" placeholder="0,00" step="0.01" min="0">
         <button class="btn btn-sm" onclick="salvarVerba('${p.id}','${mes}')">OK</button>
       </div>
     </td>
-    <td style="font-weight:700;color:${areemb>0?'var(--orange-dark)':areemb<0?'var(--red-dark)':'var(--ink2)'}">
-      ${areemb>0?moeda(areemb):areemb<0?'Devolve '+moeda(-areemb):'—'}
-    </td>
-    <td>
-      <span class="badge ${statusCor}">${statusTxt}</span>
-    </td>
+    <td style="font-weight:800;color:var(--orange-dark);font-size:14px">${apagar>0?moeda(apagar):'—'}</td>
     <td>
       ${pago
-        ? `<button class="btn btn-sm btn-reject" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
-        : `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${areemb})">Marcar pago</button>`
+        ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
+        : `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${apagar})">Marcar pago</button>`
       }
     </td>
   </tr>`).join('')
@@ -3452,11 +3441,9 @@ async function carregarFinanceiro(){
       <thead><tr>
         <th>Coordenador</th>
         <th>Aprovado</th>
-        <th>Pendente</th>
         <th>Verba em mãos</th>
-        <th>A reembolsar</th>
-        <th>Status</th>
-        <th style="text-align:right">Ação</th>
+        <th>A pagar</th>
+        <th style="text-align:right">Status</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
