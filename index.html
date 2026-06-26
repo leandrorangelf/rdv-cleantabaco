@@ -1962,7 +1962,7 @@ async function carregarAgenda() {
         const linhas=ds.map(d=>{
           const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
           const rejNote=despesaRejeitada(d)&&d.motivo_rejeicao?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
-          const editBtn=(d.status==='pendente'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:''
+          const editBtn=(d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:''
           return`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line)">
             <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
             <div style="flex:1;min-width:0">
@@ -2058,7 +2058,7 @@ async function carregarAvulsas(){
     const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
-    const editBtn=(d.status==='pendente'||d.status==='rejeitado')
+    const editBtn=(d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')
       ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`
       :isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
     const quemLabel=isGestor()?`<span style="color:var(--ink2)"> · ${nomePorIdA[d.usuario_id]||'?'}</span>`:''
@@ -2605,7 +2605,7 @@ async function editarDespesa(id, origem='agenda'){
   // Busca despesa
   const{data:d}=await sb.from('despesas').select('*').eq('id',id).single()
   if(!d)return
-  if(d.status==='aprovado'){alert('Despesas aprovadas não podem ser editadas.');return}
+  if(d.status==='aprovado'){alert('Despesas já aprovadas não podem ser editadas.');return}
 
   despesaEditandoId=id
   document.getElementById('d-titulo').textContent='Editar despesa'
