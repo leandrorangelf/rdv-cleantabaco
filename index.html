@@ -3367,11 +3367,17 @@ async function carregarFinanceiro(){
   document.getElementById('fin-lista').innerHTML='<div class="loading">Carregando...</div>'
   document.getElementById('fin-resumo').innerHTML=''
 
-  // Busca só despesas aprovadas do mês
+  // Busca despesas aprovadas do mês
   const { data: despesas } = await sb.from('despesas')
     .select('usuario_id,valor,status,ativo')
     .gte('data_despesa', ini).lte('data_despesa', fim)
   const dsAprov = (despesas||[]).filter(d=>registroAtivo(d) && statusNorm(d.status)==='aprovado')
+
+  // Busca viagens com bilhete no período
+  const { data: viagens } = await sb.from('viagens')
+    .select('usuario_id,valor_bilhete,status,ativo,data_ida,data_inicio,localizador')
+    .or('ativo.is.null,ativo.eq.true')
+  const bilhetesNoMes = (viagens||[]).filter(v=>viagemFinanceiraNoPeriodo(v, ini, fim))
 
   // Busca perfis
   const { data: profs } = await sb.from('profiles').select('id,nome,papel,ativo').order('nome')
@@ -3384,50 +3390,60 @@ async function carregarFinanceiro(){
 
   const profsAtivos = (profs||[]).filter(p=>p.ativo!==false && ['coordenador','gerente'].includes(p.papel))
 
-  // Agrupa aprovado por usuário
-  const porUsuario = {}
+  // Agrupa por usuário
+  const porRdv = {}
   dsAprov.forEach(d=>{
-    if(!porUsuario[d.usuario_id]) porUsuario[d.usuario_id]=0
-    porUsuario[d.usuario_id]+=Number(d.valor||0)
+    porRdv[d.usuario_id] = (porRdv[d.usuario_id]||0) + Number(d.valor||0)
+  })
+  const porBilhete = {}
+  bilhetesNoMes.forEach(v=>{
+    porBilhete[v.usuario_id] = (porBilhete[v.usuario_id]||0) + Number(v.valor_bilhete||0)
   })
 
-  // Monta linhas — só quem tem despesa aprovada
+  // Monta linhas — quem tem RDV aprovado OU bilhete no mês
   const linhas = profsAtivos.map(p=>{
-    const aprovado = porUsuario[p.id]||0
-    if(!aprovado) return null
+    const aprovado = porRdv[p.id]||0
+    const bilhetes = porBilhete[p.id]||0
+    if(!aprovado && !bilhetes) return null
     const verba = (verbas||[]).find(v=>v.usuario_id===p.id)
     const pag = (pagamentos||[]).find(g=>g.usuario_id===p.id)
     const verbVal = Number(verba?.valor||0)
     const apagar = Math.max(0, aprovado - verbVal)
+    const custoTotal = aprovado + bilhetes
     const pago = !!pag
-    return {p, aprovado, verbVal, apagar, pago, pag}
+    return {p, aprovado, bilhetes, custoTotal, verbVal, apagar, pago, pag}
   }).filter(Boolean)
 
   // Cards de resumo
-  const totalAprov = linhas.reduce((s,r)=>s+r.aprovado,0)
-  const totalVerba = linhas.reduce((s,r)=>s+r.verbVal,0)
-  const totalApagar = linhas.reduce((s,r)=>s+r.apagar,0)
-  const totalPago = linhas.filter(r=>r.pago).reduce((s,r)=>s+Number(r.pag?.valor_pago||0),0)
+  const totalRdv     = linhas.reduce((s,r)=>s+r.aprovado,0)
+  const totalBilhetes = linhas.reduce((s,r)=>s+r.bilhetes,0)
+  const totalCusto   = linhas.reduce((s,r)=>s+r.custoTotal,0)
+  const totalApagar  = linhas.reduce((s,r)=>s+r.apagar,0)
+  const totalPago    = linhas.filter(r=>r.pago).reduce((s,r)=>s+Number(r.pag?.valor_pago||0),0)
   document.getElementById('fin-resumo').innerHTML=`
-    <div class="metric m-purple" style="flex:1;min-width:130px"><div class="metric-label">Total aprovado</div><div class="metric-value">${moeda(totalAprov)}</div></div>
-    <div class="metric m-orange" style="flex:1;min-width:130px"><div class="metric-label">A pagar</div><div class="metric-value">${moeda(totalApagar)}</div></div>
-    <div class="metric m-mint" style="flex:1;min-width:130px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
+    <div class="metric m-purple" style="flex:1;min-width:120px"><div class="metric-label">RDV aprovado</div><div class="metric-value">${moeda(totalRdv)}</div></div>
+    <div class="metric m-purple" style="flex:1;min-width:120px"><div class="metric-label">Bilhetes</div><div class="metric-value">${moeda(totalBilhetes)}</div></div>
+    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Custo total</div><div class="metric-value">${moeda(totalCusto)}</div></div>
+    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">A pagar (RDV)</div><div class="metric-value">${moeda(totalApagar)}</div></div>
+    <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
 
   if(!linhas.length){
-    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhuma despesa aprovada neste mês.</div>'
+    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhuma movimentação neste mês.</div>'
     return
   }
 
-  const rows = linhas.map(({p,aprovado,verbVal,apagar,pago,pag})=>`<tr>
+  const rows = linhas.map(({p,aprovado,bilhetes,custoTotal,verbVal,apagar,pago,pag})=>`<tr>
     <td><div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div></td>
-    <td>${moeda(aprovado)}</td>
+    <td>${aprovado>0?moeda(aprovado):'—'}</td>
+    <td>${bilhetes>0?moeda(bilhetes):'—'}</td>
+    <td style="font-weight:800">${moeda(custoTotal)}</td>
     <td>
       <div style="display:flex;gap:6px;align-items:center">
-        <input type="number" id="fin-verba-${p.id}" class="form-input" style="width:100px;min-height:28px;padding:4px 8px;font-size:12px" value="${verbVal||''}" placeholder="0,00" step="0.01" min="0">
+        <input type="number" id="fin-verba-${p.id}" class="form-input" style="width:90px;min-height:28px;padding:4px 8px;font-size:12px" value="${verbVal||''}" placeholder="0,00" step="0.01" min="0">
         <button class="btn btn-sm" onclick="salvarVerba('${p.id}','${mes}')">OK</button>
       </div>
     </td>
-    <td style="font-weight:800;color:var(--orange-dark);font-size:14px">${apagar>0?moeda(apagar):'—'}</td>
+    <td style="font-weight:800;color:var(--orange-dark)">${apagar>0?moeda(apagar):'—'}</td>
     <td>
       ${pago
         ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
@@ -3440,9 +3456,11 @@ async function carregarFinanceiro(){
     <table class="tbl">
       <thead><tr>
         <th>Coordenador</th>
-        <th>Aprovado</th>
+        <th>RDV aprovado</th>
+        <th>Bilhetes</th>
+        <th>Custo total</th>
         <th>Verba em mãos</th>
-        <th>A pagar</th>
+        <th>A pagar (RDV)</th>
         <th style="text-align:right">Status</th>
       </tr></thead>
       <tbody>${rows}</tbody>
