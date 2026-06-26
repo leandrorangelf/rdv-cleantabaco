@@ -1277,7 +1277,8 @@ body::before {
                 <option value="gerente">Gerente visualizador</option>
                 <option value="viagens">VIAGENS / emitir bilhete</option>
                 <option value="financeiro">Financeiro / pagamentos</option>
-                <option value="aprovador">Gestor / aprovador</option>
+                <option value="gestor">Gestor / aprovação 1</option>
+                <option value="aprovador">Gestor / aprovação final</option>
               </select>
             </div>
           </div>
@@ -1359,13 +1360,13 @@ function mesAtual() { const n=new Date(); return`${n.getFullYear()}-${String(n.g
 function ultimoDiaMes(mesStr) { const[y,m]=mesStr.split('-'); return new Date(y,m,0).getDate() }
 function fimMes(mesStr) { return`${mesStr}-${ultimoDiaMes(mesStr)}` }
 function statusBadge(s) {
-  const m={pendente:'b-orange',solicitada:'b-orange',aprovado:'b-mint',aprovada:'b-mint',autorizada:'b-mint',aguardando_bilhete:'b-orange',bilhete_preenchido:'b-purple',rejeitado:'b-red',reprovada:'b-red',agendada:'b-gray',em_andamento:'b-purple',concluida:'b-mint',cancelada:'b-gray'}
-  const l={pendente:'Pendente',solicitada:'Pendente',aprovado:'Aprovado',aprovada:'Aprovada',autorizada:'Autorizada',aguardando_bilhete:'Aguardando bilhete',bilhete_preenchido:'Bilhete preenchido',rejeitado:'Rejeitado',reprovada:'Reprovada',agendada:'Agendada',em_andamento:'Em andamento',concluida:'Concluída',cancelada:'Cancelada'}
+  const m={pendente:'b-orange',solicitada:'b-orange',aprovado:'b-mint',aprovada:'b-mint',autorizada:'b-mint',aguardando_aprovacao_2:'b-orange',aguardando_bilhete:'b-orange',bilhete_preenchido:'b-purple',rejeitado:'b-red',reprovada:'b-red',agendada:'b-gray',em_andamento:'b-purple',concluida:'b-mint',cancelada:'b-gray'}
+  const l={pendente:'Pendente',solicitada:'Pendente',aprovado:'Aprovado',aprovada:'Aprovada',autorizada:'Autorizada',aguardando_aprovacao_2:'Aguard. aprovação final',aguardando_bilhete:'Aguardando bilhete',bilhete_preenchido:'Bilhete preenchido',rejeitado:'Rejeitado',reprovada:'Reprovada',agendada:'Agendada',em_andamento:'Em andamento',concluida:'Concluída',cancelada:'Cancelada'}
   return`<span class="badge ${m[s]||'b-gray'}">${l[s]||s}</span>`
 }
 function statusNorm(s){ return String(s||'').trim().toLowerCase() }
 function registroAtivo(r){ return !r || r.ativo !== false }
-function despesaComputavel(d){ return registroAtivo(d) && ['pendente','aprovado'].includes(statusNorm(d?.status)) }
+function despesaComputavel(d){ return registroAtivo(d) && ['pendente','aguardando_aprovacao_2','aprovado'].includes(statusNorm(d?.status)) }
 function despesaRejeitada(d){ return registroAtivo(d) && statusNorm(d?.status).startsWith('rejeit') }
 function demandaAtiva(d){ return registroAtivo(d) && !['cancelada','cancelado','excluida','excluído','excluido'].includes(statusNorm(d?.status)) }
 function viagemAtiva(v){ return registroAtivo(v) && statusNorm(v?.status) !== 'cancelada' }
@@ -1373,9 +1374,10 @@ function viagemComBilhete(v){ return viagemAtiva(v) && (statusNorm(v?.status)===
 function viagemAguardandoBilhete(v){ return viagemAtiva(v) && !viagemComBilhete(v) && ['autorizada','aguardando_bilhete'].includes(statusNorm(v?.status)) }
 function viagemFinanceiraNoPeriodo(v, ini, fim){ return viagemComBilhete(v) && Number(v?.valor_bilhete||0)>0 && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim) }
 function isGestor(){ return perfil?.papel==='aprovador' }
+function isGestor1(){ return perfil?.papel==='gestor' }
 function isGerente(){ return perfil?.papel==='gerente' }
 function isFinanceiro(){ return perfil?.papel==='financeiro' }
-function podesolicitarViagem(){ return ['aprovador','gerente','coordenador'].includes(perfil?.papel) }
+function podesolicitarViagem(){ return ['aprovador','gestor','gerente','coordenador'].includes(perfil?.papel) }
 function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
 function diasEntreHoje(dataISO){
@@ -1556,7 +1558,13 @@ async function iniciarApp() {
     document.getElementById('nav-label-admin').style.display='block'
     document.getElementById('nav-financeiro').style.display='flex'
   }
-  // Gerente (Vagner): solicita viagem, vê próprias viagens, sem autorizar/aprovar
+  // Gestor1 (Vagner / Aprovação 1): vê dashboard, viagens, agenda equipe e tela aprovar (1ª etapa)
+  if(isGestor1()){
+    document.getElementById('nav-aprovar').style.display='flex'
+    document.getElementById('nav-agendaequipe').style.display='flex'
+    document.getElementById('nav-label-admin').style.display='block'
+  }
+  // Gerente: solicita viagem, vê próprias viagens, sem autorizar/aprovar
   if(isGerente()){
     document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
     const btnPdfGer=document.getElementById('btn-pdf-agencia-geral')
@@ -2230,9 +2238,24 @@ function mostrarReprovarDemanda(id){
 }
 
 async function aprovarDemandaViagem(id){
-  if(!isGestor()){alert('Somente gestor pode autorizar viagem.');return}
+  if(!isGestor()&&!isGestor1()){alert('Sem permissão para autorizar viagem.');return}
   const{data:d,error:demErr}=await sb.from('demandas_viagem').select('*').eq('id',id).single()
   if(demErr||!d){alert('Erro ao carregar solicitação.');return}
+
+  // Aprovação 1 (gestor1): avança para aguardar aprovação final
+  if(isGestor1()){
+    const{error}=await sb.from('demandas_viagem').update({
+      status:'aguardando_aprovacao_2',
+      aprovado_por:perfil.id,
+      aprovado_em:new Date().toISOString()
+    }).eq('id',id)
+    if(error){alert('Erro ao aprovar (1ª etapa): '+error.message);return}
+    mostrarAviso('Aprovação 1 registrada. Aguardando aprovação final.')
+    await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
+    return
+  }
+
+  // Aprovação 2 / final (aprovador): cria viagem e autoriza
   const inicio=d.data_inicio||d.data_sugerida
   const somenteIda=viagemSomenteIda(d)
   const fim=somenteIda?null:(d.data_fim||d.data_sugerida||inicio)
@@ -2266,7 +2289,7 @@ async function aprovarDemandaViagem(id){
 }
 
 async function reprovarDemandaViagem(id){
-  if(!isGestor()){alert('Somente gestor pode reprovar viagem.');return}
+  if(!isGestor()&&!isGestor1()){alert('Sem permissão para reprovar viagem.');return}
   const motivo=(document.getElementById('dem-rej-motivo-'+id)?.value||'').trim()
   if(!motivo){alert('Informe o motivo da reprovação.');return}
   const{error}=await sb.from('demandas_viagem').update({
@@ -2898,12 +2921,24 @@ async function baixarZipRDV(){
 }
 
 async function contarPendentes(){
-  if(perfil?.papel!=='aprovador')return
-  const[{count:despCount},{count:viagCount}]=await Promise.all([
-    sb.from('despesas').select('*',{count:'exact',head:true}).eq('status','pendente'),
-    sb.from('demandas_viagem').select('*',{count:'exact',head:true}).in('status',['pendente','solicitada'])
-  ])
-  const total=(despCount||0)+(viagCount||0)
+  if(!isGestor()&&!isGestor1())return
+  let despCount=0, viagCount=0
+  if(isGestor1()){
+    // Gestor1 (Vagner): vê itens pendentes de 1ª aprovação
+    const[r1,r2]=await Promise.all([
+      sb.from('despesas').select('*',{count:'exact',head:true}).eq('status','pendente'),
+      sb.from('demandas_viagem').select('*',{count:'exact',head:true}).in('status',['pendente','solicitada'])
+    ])
+    despCount=r1.count||0; viagCount=r2.count||0
+  } else {
+    // Aprovador final: vê itens aguardando aprovação 2
+    const[r1,r2]=await Promise.all([
+      sb.from('despesas').select('*',{count:'exact',head:true}).eq('status','aguardando_aprovacao_2'),
+      sb.from('demandas_viagem').select('*',{count:'exact',head:true}).eq('status','aguardando_aprovacao_2')
+    ])
+    despCount=r1.count||0; viagCount=r2.count||0
+  }
+  const total=despCount+viagCount
   const badge=document.getElementById('badge-pendentes')
   if(total>0){badge.textContent=total;badge.style.display='inline-block'}
   else badge.style.display='none'
@@ -2911,9 +2946,12 @@ async function contarPendentes(){
 
 async function carregarAprovacoes(){
   await carregarFiltrosZipComprovantes()
+  // Gestor1 vê pendentes (1ª etapa); aprovador final vê aguardando_aprovacao_2 (2ª etapa)
+  const statusDespesa = isGestor1() ? 'pendente' : 'aguardando_aprovacao_2'
+  const statusDemanda = isGestor1() ? ['pendente','solicitada'] : ['aguardando_aprovacao_2']
   const [despRes, demRes, profRes, catsRes] = await Promise.all([
-    sb.from('despesas').select('*').eq('status','pendente').order('data_despesa'),
-    sb.from('demandas_viagem').select('*').in('status',['pendente','solicitada']).order('created_at',{ascending:true}),
+    sb.from('despesas').select('*').eq('status',statusDespesa).order('data_despesa'),
+    sb.from('demandas_viagem').select('*').in('status',statusDemanda).order('created_at',{ascending:true}),
     sb.from('profiles').select('id,nome'),
     sb.from('categorias').select('id,nome,tipo')
   ])
@@ -2929,7 +2967,8 @@ async function carregarAprovacoes(){
     return
   }
 
-  document.getElementById('aprovar-sub').textContent=`${demandas.length} viagem(ns) e ${despesas.length} RDV(s) aguardando revisão`
+  const etapaLabel = isGestor1() ? '1ª aprovação' : 'aprovação final'
+  document.getElementById('aprovar-sub').textContent=`${demandas.length} viagem(ns) e ${despesas.length} RDV(s) aguardando ${etapaLabel}`
   let html=''
 
   if(demandas.length){
@@ -2945,7 +2984,7 @@ async function carregarAprovacoes(){
           <div style="font-size:10px;color:var(--ink2);margin-top:2px">Preferência: ${obs.preferencia||'não informada'}${obs.justificativa&&obs.justificativa!=='n/a'?` · Justificativa: ${obs.justificativa}`:''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-sm btn-approve" onclick="aprovarDemandaViagem('${d.id}')">Autorizar</button>
+          <button class="btn btn-sm btn-approve" onclick="aprovarDemandaViagem('${d.id}')">${isGestor1()?'Aprovar (1ª)':'Autorizar (final)'}</button>
           <button class="btn btn-sm btn-reject" onclick="mostrarReprovarDemanda('${d.id}')">Reprovar</button>
         </div>
       </div>
@@ -2957,7 +2996,7 @@ async function carregarAprovacoes(){
         </div>
       </div>`
     }).join('')
-    html+=`<div class="card" style="margin-bottom:10px"><div class="card-header"><div class="card-title">Viagens pendentes</div><span class="badge b-orange">${demandas.length}</span></div>${rows}</div>`
+    html+=`<div class="card" style="margin-bottom:10px"><div class="card-header"><div class="card-title">Viagens · ${isGestor1()?'aguard. 1ª aprovação':'aguard. aprovação final'}</div><span class="badge b-orange">${demandas.length}</span></div>${rows}</div>`
   }
 
   if(despesas.length){
@@ -3009,7 +3048,7 @@ async function carregarAprovacoes(){
             ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
           </div>
           <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
-          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="baixarZipDespesa('${d.id}')">Baixar</button><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">Aprovar</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button></div>
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="baixarZipDespesa('${d.id}')">Baixar</button><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">${isGestor1()?'Aprovar (1ª)':'Aprovar (final)'}</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button></div>
         </div>
         <div id="rej-form-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5">
           <div style="display:flex;gap:8px;align-items:center"><input id="rej-motivo-${d.id}" class="form-input" placeholder="Motivo da rejeição *" style="flex:1;font-size:11px;padding:5px 8px"><button class="btn btn-sm btn-reject" onclick="rejeitar('${d.id}')">Confirmar</button><button class="btn btn-sm" onclick="document.getElementById('rej-form-${d.id}').style.display='none'">Cancelar</button></div>
@@ -3036,10 +3075,12 @@ async function atualizarCamposIntegrados(origemAtual=null){
 }
 
 async function aprovar(id){
+  const novoStatus = isGestor1() ? 'aguardando_aprovacao_2' : 'aprovado'
   const{error}=await sb.from('despesas')
-    .update({status:'aprovado',motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .update({status:novoStatus,motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
     .eq('id',id)
   if(error){alert('Erro ao aprovar: '+error.message);return}
+  if(isGestor1()) mostrarAviso('Aprovação 1 registrada. Aguardando aprovação final.')
   await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
 }
 
@@ -3204,7 +3245,8 @@ async function toggleSku(id,ativo){
 // ── Funcionários / Logins ─────────────────────
 function labelPapel(papel){
   return {
-    aprovador:'Gestor / aprovador',
+    aprovador:'Gestor / aprovação final',
+    gestor:'Gestor / aprovação 1',
     coordenador:'Coordenador',
     gerente:'Gerente visualizador',
     viagens:'VIAGENS / bilhetes',
@@ -3287,7 +3329,8 @@ async function carregarFuncionarios(){
           <option value="gerente" ${p.papel==='gerente'?'selected':''}>Gerente visualizador</option>
           <option value="viagens" ${(p.papel==='viagens'||p.papel==='emissor_viagens')?'selected':''}>VIAGENS / bilhetes</option>
           <option value="financeiro" ${p.papel==='financeiro'?'selected':''}>Financeiro / pagamentos</option>
-          <option value="aprovador" ${p.papel==='aprovador'?'selected':''}>Gestor / aprovador</option>
+          <option value="gestor" ${p.papel==='gestor'?'selected':''}>Gestor / aprovação 1</option>
+          <option value="aprovador" ${p.papel==='aprovador'?'selected':''}>Gestor / aprovação final</option>
         </select>
       </td>
       <td>
