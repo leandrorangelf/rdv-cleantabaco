@@ -2931,10 +2931,10 @@ async function contarPendentes(){
     ])
     despCount=r1.count||0; viagCount=r2.count||0
   } else {
-    // Aprovador final: vê itens aguardando aprovação 2
+    // Aprovador final: vê todas as filas (pendente + aguardando_aprovacao_2)
     const[r1,r2]=await Promise.all([
-      sb.from('despesas').select('*',{count:'exact',head:true}).eq('status','aguardando_aprovacao_2'),
-      sb.from('demandas_viagem').select('*',{count:'exact',head:true}).eq('status','aguardando_aprovacao_2')
+      sb.from('despesas').select('*',{count:'exact',head:true}).in('status',['pendente','aguardando_aprovacao_2']),
+      sb.from('demandas_viagem').select('*',{count:'exact',head:true}).in('status',['pendente','solicitada','aguardando_aprovacao_2'])
     ])
     despCount=r1.count||0; viagCount=r2.count||0
   }
@@ -2946,11 +2946,11 @@ async function contarPendentes(){
 
 async function carregarAprovacoes(){
   await carregarFiltrosZipComprovantes()
-  // Gestor1 vê pendentes (1ª etapa); aprovador final vê aguardando_aprovacao_2 (2ª etapa)
-  const statusDespesa = isGestor1() ? 'pendente' : 'aguardando_aprovacao_2'
-  const statusDemanda = isGestor1() ? ['pendente','solicitada'] : ['aguardando_aprovacao_2']
+  // Gestor1 vê pendentes (1ª etapa); aprovador final vê ambas as filas
+  const statusDespesa = isGestor1() ? ['pendente'] : ['aguardando_aprovacao_2','pendente']
+  const statusDemanda = isGestor1() ? ['pendente','solicitada'] : ['aguardando_aprovacao_2','pendente','solicitada']
   const [despRes, demRes, profRes, catsRes] = await Promise.all([
-    sb.from('despesas').select('*').eq('status',statusDespesa).order('data_despesa'),
+    sb.from('despesas').select('*').in('status',statusDespesa).order('data_despesa'),
     sb.from('demandas_viagem').select('*').in('status',statusDemanda).order('created_at',{ascending:true}),
     sb.from('profiles').select('id,nome'),
     sb.from('categorias').select('id,nome,tipo')
@@ -2967,7 +2967,7 @@ async function carregarAprovacoes(){
     return
   }
 
-  const etapaLabel = isGestor1() ? '1ª aprovação' : 'aprovação final'
+  const etapaLabel = isGestor1() ? '1ª aprovação' : 'revisão'
   document.getElementById('aprovar-sub').textContent=`${demandas.length} viagem(ns) e ${despesas.length} RDV(s) aguardando ${etapaLabel}`
   let html=''
 
@@ -2984,7 +2984,7 @@ async function carregarAprovacoes(){
           <div style="font-size:10px;color:var(--ink2);margin-top:2px">Preferência: ${obs.preferencia||'não informada'}${obs.justificativa&&obs.justificativa!=='n/a'?` · Justificativa: ${obs.justificativa}`:''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-sm btn-approve" onclick="aprovarDemandaViagem('${d.id}')">${isGestor1()?'Aprovar (1ª)':'Autorizar (final)'}</button>
+          <button class="btn btn-sm btn-approve" onclick="aprovarDemandaViagem('${d.id}')">${isGestor1()?'Aprovar (1ª)':d.status==='aguardando_aprovacao_2'?'Autorizar (final)':'Autorizar'}</button>
           <button class="btn btn-sm btn-reject" onclick="mostrarReprovarDemanda('${d.id}')">Reprovar</button>
         </div>
       </div>
@@ -3048,7 +3048,7 @@ async function carregarAprovacoes(){
             ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
           </div>
           <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
-          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="baixarZipDespesa('${d.id}')">Baixar</button><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">${isGestor1()?'Aprovar (1ª)':'Aprovar (final)'}</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button></div>
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="baixarZipDespesa('${d.id}')">Baixar</button><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">${isGestor1()?'Aprovar (1ª)':d.status==='aguardando_aprovacao_2'?'Aprovar (final)':'Aprovar'}</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button></div>
         </div>
         <div id="rej-form-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5">
           <div style="display:flex;gap:8px;align-items:center"><input id="rej-motivo-${d.id}" class="form-input" placeholder="Motivo da rejeição *" style="flex:1;font-size:11px;padding:5px 8px"><button class="btn btn-sm btn-reject" onclick="rejeitar('${d.id}')">Confirmar</button><button class="btn btn-sm" onclick="document.getElementById('rej-form-${d.id}').style.display='none'">Cancelar</button></div>
