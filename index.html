@@ -743,6 +743,10 @@ body::before {
         Aprovar RDV
         <span class="badge-pill" id="badge-pendentes" style="display:none">0</span>
       </div>
+      <div class="nav-item financeiro-vis" onclick="showScreen('financeiro',this)" id="nav-financeiro" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Financeiro
+      </div>
       <div class="nav-label aprovador-only" id="nav-label-admin" style="display:none">Gestão</div>
       <div class="nav-item aprovador-only" onclick="showScreen('equipe',this)" id="nav-equipe" style="display:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1272,6 +1276,7 @@ body::before {
                 <option value="coordenador">Coordenador / usuário comum</option>
                 <option value="gerente">Gerente visualizador</option>
                 <option value="viagens">VIAGENS / emitir bilhete</option>
+                <option value="financeiro">Financeiro / pagamentos</option>
                 <option value="aprovador">Gestor / aprovador</option>
               </select>
             </div>
@@ -1303,6 +1308,21 @@ body::before {
           <button class="btn" onclick="carregarFuncionarios()">Atualizar</button>
         </div>
         <div id="func-lista"><div class="loading">Carregando funcionários...</div></div>
+      </div>
+
+      <div class="screen" id="screen-financeiro">
+        <div class="page-title">Financeiro</div>
+        <div class="page-sub" id="fin-sub">Fechamento mensal de reembolsos</div>
+
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <button class="btn" onclick="finNavMes(-1)">‹</button>
+          <span id="fin-mes-label" style="font-size:13px;font-weight:700;min-width:130px;text-align:center"></span>
+          <button class="btn" onclick="finNavMes(1)">›</button>
+          <button class="btn" style="margin-left:8px" onclick="carregarFinanceiro()">Atualizar</button>
+        </div>
+
+        <div id="fin-resumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+        <div id="fin-lista"><div class="loading">Carregando...</div></div>
       </div>
 
       <div class="screen" id="screen-categorias">
@@ -1354,6 +1374,7 @@ function viagemAguardandoBilhete(v){ return viagemAtiva(v) && !viagemComBilhete(
 function viagemFinanceiraNoPeriodo(v, ini, fim){ return viagemComBilhete(v) && Number(v?.valor_bilhete||0)>0 && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim) }
 function isGestor(){ return perfil?.papel==='aprovador' }
 function isGerente(){ return perfil?.papel==='gerente' }
+function isFinanceiro(){ return perfil?.papel==='financeiro' }
 function podesolicitarViagem(){ return ['aprovador','gerente','coordenador'].includes(perfil?.papel) }
 function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
@@ -1533,6 +1554,7 @@ async function iniciarApp() {
     const btnPdfEl=document.getElementById('btn-pdf-agencia-geral')
     if(btnPdfEl) btnPdfEl.style.display='inline-flex'
     document.getElementById('nav-label-admin').style.display='block'
+    document.getElementById('nav-financeiro').style.display='flex'
   }
   // Gerente (Vagner): solicita viagem, vê próprias viagens, sem autorizar/aprovar
   if(isGerente()){
@@ -1540,6 +1562,14 @@ async function iniciarApp() {
     const btnPdfGer=document.getElementById('btn-pdf-agencia-geral')
     if(btnPdfGer) btnPdfGer.style.display='none'
     document.getElementById('nav-agenda').style.display='none'
+  }
+  // Financeiro (Manu): só vê a tela financeiro
+  if(isFinanceiro()){
+    document.querySelectorAll('.nav-item').forEach(el=>el.style.display='none')
+    document.querySelectorAll('.nav-label').forEach(el=>el.style.display='none')
+    document.getElementById('nav-financeiro').style.display='flex'
+    showScreen('financeiro',document.getElementById('nav-financeiro'))
+    return
   }
   await carregarDashboard()
   await contarPendentes()
@@ -1550,7 +1580,7 @@ function showScreen(nome,navEl,skipLoader=false) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,viagens:carregarModuloViagens,agendaequipe:carregarAgendaEquipe,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,funcionarios:carregarFuncionarios,avulsas:carregarAvulsas,semanal:carregarSemanal}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,viagens:carregarModuloViagens,agendaequipe:carregarAgendaEquipe,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,funcionarios:carregarFuncionarios,avulsas:carregarAvulsas,semanal:carregarSemanal,financeiro:carregarFinanceiro}
   if(!skipLoader && loaders[nome])loaders[nome]()
 }
 
@@ -3196,6 +3226,18 @@ function erroFuncionario(msg){
   el.style.display='block'
 }
 
+async function adminFunc(action, payload){
+  const { data:{ session } } = await sb.auth.getSession()
+  const res = await fetch(SUPABASE_URL+'/functions/v1/admin-funcionarios', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token },
+    body: JSON.stringify({ action, ...payload })
+  })
+  const json = await res.json()
+  if(!res.ok) return { error: json.error || 'Erro desconhecido.' }
+  return { error: null }
+}
+
 async function criarFuncionario(){
   if(!isGestor()){ erroFuncionario('Apenas gestor pode cadastrar funcionário.'); return }
   const nome=document.getElementById('func-nome')?.value.trim()
@@ -3212,18 +3254,9 @@ async function criarFuncionario(){
 
   const btn=[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Cadastrar funcionário'))
   if(btn){btn.disabled=true;btn.textContent='Cadastrando...'}
-  const { error } = await sb.rpc('criar_funcionario_app', {
-    p_nome: nome,
-    p_email: email,
-    p_senha: senha,
-    p_papel: papel,
-    p_estado_base: estado
-  })
+  const { error } = await adminFunc('criar', { nome, email, senha, papel, estado_base: estado })
   if(btn){btn.disabled=false;btn.textContent='Cadastrar funcionário'}
-  if(error){
-    erroFuncionario('Erro ao cadastrar: '+error.message+'\n\nSe aparecer “function criar_funcionario_app does not exist”, rode o SQL que te passei no Supabase.')
-    return
-  }
+  if(error){ erroFuncionario('Erro ao cadastrar: '+error); return }
   document.getElementById('func-nome').value=''
   document.getElementById('func-email').value=''
   document.getElementById('func-senha').value=''
@@ -3253,6 +3286,7 @@ async function carregarFuncionarios(){
           <option value="coordenador" ${p.papel==='coordenador'?'selected':''}>Coordenador</option>
           <option value="gerente" ${p.papel==='gerente'?'selected':''}>Gerente visualizador</option>
           <option value="viagens" ${(p.papel==='viagens'||p.papel==='emissor_viagens')?'selected':''}>VIAGENS / bilhetes</option>
+          <option value="financeiro" ${p.papel==='financeiro'?'selected':''}>Financeiro / pagamentos</option>
           <option value="aprovador" ${p.papel==='aprovador'?'selected':''}>Gestor / aprovador</option>
         </select>
       </td>
@@ -3283,13 +3317,8 @@ async function salvarFuncionario(id){
   if(!isGestor())return
   const papel=document.getElementById('func-papel-'+id)?.value
   const estado=document.getElementById('func-estado-'+id)?.value || null
-  const { error } = await sb.rpc('atualizar_funcionario_app', {
-    p_user_id:id,
-    p_papel:papel,
-    p_estado_base:estado,
-    p_ativo:null
-  })
-  if(error){ mostrarAviso('Erro ao salvar funcionário: '+error.message,'erro'); return }
+  const { error } = await adminFunc('atualizar', { user_id:id, papel, estado_base:estado, ativo:null })
+  if(error){ mostrarAviso('Erro ao salvar funcionário: '+error,'erro'); return }
   mostrarAviso('Funcionário atualizado.')
   await carregarFuncionarios()
 }
@@ -3300,13 +3329,8 @@ async function alternarFuncionario(id, ativoAtual){
   const novo=!ativoAtual
   const papel=document.getElementById('func-papel-'+id)?.value || null
   const estado=document.getElementById('func-estado-'+id)?.value || null
-  const { error } = await sb.rpc('atualizar_funcionario_app', {
-    p_user_id:id,
-    p_papel:papel,
-    p_estado_base:estado,
-    p_ativo:novo
-  })
-  if(error){ mostrarAviso('Erro ao alterar status: '+error.message,'erro'); return }
+  const { error } = await adminFunc('atualizar', { user_id:id, papel, estado_base:estado, ativo:novo })
+  if(error){ mostrarAviso('Erro ao alterar status: '+error,'erro'); return }
   mostrarAviso(novo?'Funcionário ativado.':'Funcionário inativado.')
   await carregarFuncionarios()
 }
@@ -3316,9 +3340,163 @@ async function resetarSenhaFuncionario(id){
   const nova=prompt('Digite a nova senha temporária para este funcionário:')
   if(!nova)return
   if(nova.length<6){ mostrarAviso('A senha precisa ter pelo menos 6 caracteres.','erro'); return }
-  const { error } = await sb.rpc('resetar_senha_funcionario_app', { p_user_id:id, p_senha:nova })
-  if(error){ mostrarAviso('Erro ao trocar senha: '+error.message,'erro'); return }
+  const { error } = await adminFunc('resetar_senha', { user_id:id, senha:nova })
+  if(error){ mostrarAviso('Erro ao trocar senha: '+error,'erro'); return }
   mostrarAviso('Senha alterada com sucesso.')
+}
+
+// ── Financeiro ────────────────────────────────
+let finMesAtual = mesAtual()
+
+function finNavMes(delta){
+  const [y,m] = finMesAtual.split('-').map(Number)
+  const d = new Date(y, m-1+delta, 1)
+  finMesAtual = d.toISOString().slice(0,7)
+  document.getElementById('fin-mes-label').textContent = d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  carregarFinanceiro()
+}
+
+async function carregarFinanceiro(){
+  if(!isGestor() && !isFinanceiro()){ return }
+  const mes = finMesAtual
+  const ini = mes+'-01'
+  const fim = fimMes(mes)
+  const label = new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  document.getElementById('fin-mes-label').textContent = label
+  document.getElementById('fin-sub').textContent = 'Fechamento · '+label
+  document.getElementById('fin-lista').innerHTML='<div class="loading">Carregando...</div>'
+  document.getElementById('fin-resumo').innerHTML=''
+
+  // Busca despesas aprovadas e pendentes do mês
+  const { data: despesas } = await sb.from('despesas')
+    .select('usuario_id,valor,status,ativo')
+    .gte('data_despesa', ini).lte('data_despesa', fim)
+  const dsAtivas = (despesas||[]).filter(d=>registroAtivo(d) && ['aprovado','pendente'].includes(statusNorm(d.status)))
+
+  // Busca perfis
+  const { data: profs } = await sb.from('profiles').select('id,nome,papel,ativo').order('nome')
+
+  // Busca verbas do mês
+  const { data: verbas } = await sb.from('verbas').select('*').eq('mes', mes)
+
+  // Busca pagamentos do mês
+  const { data: pagamentos } = await sb.from('pagamentos_rdv').select('*').eq('mes', mes)
+
+  const profsAtivos = (profs||[]).filter(p=>p.ativo!==false && ['coordenador','gerente'].includes(p.papel))
+
+  // Agrupa despesas por usuário
+  const porUsuario = {}
+  dsAtivas.forEach(d=>{
+    if(!porUsuario[d.usuario_id]) porUsuario[d.usuario_id]={aprovado:0,pendente:0}
+    if(statusNorm(d.status)==='aprovado') porUsuario[d.usuario_id].aprovado+=Number(d.valor||0)
+    else porUsuario[d.usuario_id].pendente+=Number(d.valor||0)
+  })
+
+  // Monta linhas
+  const linhas = profsAtivos.map(p=>{
+    const vals = porUsuario[p.id]||{aprovado:0,pendente:0}
+    const verba = (verbas||[]).find(v=>v.usuario_id===p.id)
+    const pag = (pagamentos||[]).find(g=>g.usuario_id===p.id)
+    const verbVal = Number(verba?.valor||0)
+    const areemb = vals.aprovado - verbVal
+    const pago = !!pag
+    const statusCor = pago ? 'b-mint' : areemb>0 ? 'b-orange' : areemb<0 ? 'b-red' : 'b-gray'
+    const statusTxt = pago ? 'Pago' : areemb>0 ? 'A reembolsar' : areemb<0 ? 'Deve devolver' : 'Zerado'
+    return {p, vals, verbVal, areemb, pago, pag, statusCor, statusTxt}
+  }).filter(r=>r.vals.aprovado>0||r.vals.pendente>0||r.verbVal>0)
+
+  // Cards de resumo
+  const totalAprov = linhas.reduce((s,r)=>s+r.vals.aprovado,0)
+  const totalVerba = linhas.reduce((s,r)=>s+r.verbVal,0)
+  const totalReemb = linhas.reduce((s,r)=>s+(r.areemb>0?r.areemb:0),0)
+  const totalPago = linhas.filter(r=>r.pago).reduce((s,r)=>s+Number(r.pag?.valor_pago||0),0)
+  document.getElementById('fin-resumo').innerHTML=`
+    <div class="metric m-purple" style="flex:1;min-width:130px"><div class="metric-label">Despesas aprovadas</div><div class="metric-value">${moeda(totalAprov)}</div></div>
+    <div class="metric m-mint" style="flex:1;min-width:130px"><div class="metric-label">Verbas entregues</div><div class="metric-value">${moeda(totalVerba)}</div></div>
+    <div class="metric m-orange" style="flex:1;min-width:130px"><div class="metric-label">A reembolsar</div><div class="metric-value">${moeda(totalReemb)}</div></div>
+    <div class="metric m-mint" style="flex:1;min-width:130px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
+
+  if(!linhas.length){
+    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhuma despesa aprovada neste mês.</div>'
+    return
+  }
+
+  const rows = linhas.map(({p,vals,verbVal,areemb,pago,pag,statusCor,statusTxt})=>`<tr>
+    <td>
+      <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div>
+    </td>
+    <td>${moeda(vals.aprovado)}</td>
+    <td>${vals.pendente>0?`<span style="color:var(--orange-dark)">${moeda(vals.pendente)}</span>`:'—'}</td>
+    <td>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" id="fin-verba-${p.id}" class="form-input" style="width:100px;min-height:28px;padding:4px 8px;font-size:12px" value="${verbVal||''}" placeholder="0,00" step="0.01" min="0">
+        <button class="btn btn-sm" onclick="salvarVerba('${p.id}','${mes}')">OK</button>
+      </div>
+    </td>
+    <td style="font-weight:700;color:${areemb>0?'var(--orange-dark)':areemb<0?'var(--red-dark)':'var(--ink2)'}">
+      ${areemb>0?moeda(areemb):areemb<0?'Devolve '+moeda(-areemb):'—'}
+    </td>
+    <td>
+      <span class="badge ${statusCor}">${statusTxt}</span>
+    </td>
+    <td>
+      ${pago
+        ? `<button class="btn btn-sm btn-reject" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
+        : `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${areemb})">Marcar pago</button>`
+      }
+    </td>
+  </tr>`).join('')
+
+  document.getElementById('fin-lista').innerHTML=`<div class="card" style="overflow:auto">
+    <table class="tbl">
+      <thead><tr>
+        <th>Coordenador</th>
+        <th>Aprovado</th>
+        <th>Pendente</th>
+        <th>Verba em mãos</th>
+        <th>A reembolsar</th>
+        <th>Status</th>
+        <th style="text-align:right">Ação</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`
+}
+
+async function salvarVerba(userId, mes){
+  const val = parseFloat(document.getElementById('fin-verba-'+userId)?.value||'0')||0
+  // upsert na tabela verbas
+  const { error } = await sb.from('verbas').upsert({
+    usuario_id: userId,
+    mes,
+    valor: val,
+    atualizado_por: perfil.id,
+    atualizado_em: new Date().toISOString()
+  }, { onConflict: 'usuario_id,mes' })
+  if(error){ mostrarAviso('Erro ao salvar verba: '+error.message,'erro'); return }
+  mostrarAviso('Verba salva.')
+  await carregarFinanceiro()
+}
+
+async function marcarPago(userId, mes, valor){
+  const { error } = await sb.from('pagamentos_rdv').upsert({
+    usuario_id: userId,
+    mes,
+    valor_pago: valor > 0 ? valor : 0,
+    pago_em: new Date().toISOString(),
+    pago_por: perfil.id
+  }, { onConflict: 'usuario_id,mes' })
+  if(error){ mostrarAviso('Erro ao registrar pagamento: '+error.message,'erro'); return }
+  mostrarAviso('Pagamento registrado.')
+  await carregarFinanceiro()
+}
+
+async function desmarcarPago(userId, mes){
+  if(!confirm('Desfazer o pagamento deste coordenador?')) return
+  const { error } = await sb.from('pagamentos_rdv').delete().eq('usuario_id', userId).eq('mes', mes)
+  if(error){ mostrarAviso('Erro: '+error.message,'erro'); return }
+  mostrarAviso('Pagamento desfeito.')
+  await carregarFinanceiro()
 }
 
 // ── Equipe ────────────────────────────────────
