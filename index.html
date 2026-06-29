@@ -2919,13 +2919,19 @@ async function carregarAprovacoes(){
   let demandas=demRes.data||[]
   const profs=profRes.data||[]
 
-  // Popular dropdown de coordenadores (só na primeira carga ou se vazio)
+  // Popular dropdown de coordenadores (sempre atualiza mantendo seleção atual)
   const filtroEl=document.getElementById('aprovar-filtro-coord')
-  if(filtroEl && filtroEl.options.length<=1){
-    const usuariosComItens=new Set([...despesas.map(d=>d.usuario_id),...demandas.map(d=>d.usuario_id)])
-    profs.filter(p=>usuariosComItens.has(p.id)).forEach(p=>{
+  if(filtroEl){
+    const valorAtual=filtroEl.value
+    // Usa todos os profiles, não só quem tem itens pendentes agora
+    filtroEl.innerHTML='<option value="">Todos os coordenadores</option>'
+    profs.forEach(p=>{
       const opt=document.createElement('option'); opt.value=p.id; opt.textContent=p.nome; filtroEl.appendChild(opt)
     })
+    filtroEl.value=valorAtual
+    // Sincroniza com o zip-coord
+    const zipCoord=document.getElementById('zip-coord')
+    if(zipCoord) zipCoord.value=valorAtual
   }
   // Aplicar filtro por coordenador
   const coordFiltro=filtroEl?.value||''
