@@ -1042,8 +1042,11 @@ body::before {
               <select id="d-categoria" class="form-select" onchange="setSugestaoManual()"><option value="">Selecione</option></select>
               <div id="ai-sugestao" class="ai-pill" style="display:none">✦ IA sugeriu esta categoria</div>
             </div>
-            <div class="form-group"><label class="form-label">Data início *</label><input id="d-data" type="date" class="form-input"></div>
-            <div class="form-group"><label class="form-label">Data fim <span style="font-weight:400;color:var(--ink2)">(opcional — para lançamentos semanais)</span></label><input id="d-data-fim" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Data *</label><input id="d-data" type="date" class="form-input"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Data fim <span style="font-weight:400;color:var(--ink2)">(opcional — preencha para lançamento semanal)</span></label><input id="d-data-fim" type="date" class="form-input"></div>
+            <div class="form-group"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Valor (R$) *</label><input id="d-valor" type="number" step="0.01" class="form-input" placeholder="0,00" onblur="sugerirCategoria()"></div>
