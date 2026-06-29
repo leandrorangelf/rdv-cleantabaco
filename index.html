@@ -1181,8 +1181,17 @@ body::before {
       </div>
 
       <div class="screen" id="screen-aprovar">
-        <div class="page-title">Aprovações pendentes</div>
-        <div class="page-sub" id="aprovar-sub">Carregando...</div>
+        <div class="sec-header" style="margin-bottom:4px">
+          <div>
+            <div class="page-title">Aprovações pendentes</div>
+            <div class="page-sub" id="aprovar-sub">Carregando...</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="aprovar-filtro-coord" class="form-select" style="min-height:34px;padding:5px 8px;font-size:12px;min-width:160px" onchange="carregarAprovacoes()">
+              <option value="">Todos os coordenadores</option>
+            </select>
+          </div>
+        </div>
 
         <div class="form-card" id="zip-comprovantes-card" style="margin-bottom:14px">
           <div class="sec-header" style="margin-bottom:10px">
@@ -2038,7 +2047,8 @@ async function carregarAvulsas(){
     .lte('data_despesa',fimMes(mes))
     .order('data_despesa',{ascending:false})
 
-  if(!isGestor()) q=q.eq('usuario_id',perfil.id)
+  // Sempre filtra pelo usuário logado — "Meus lançamentos" é pessoal
+  q=q.eq('usuario_id',perfil.id)
 
   // Despesas de viagem do mesmo período
   let qViag=sb.from('despesas')
@@ -2047,7 +2057,7 @@ async function carregarAvulsas(){
     .gte('data_despesa',`${mes}-01`)
     .lte('data_despesa',fimMes(mes))
     .order('data_despesa',{ascending:false})
-  if(!isGestor()) qViag=qViag.eq('usuario_id',perfil.id)
+    .eq('usuario_id',perfil.id)
 
   const[{data:avulsasRaw},{data:viagemDesps},{data:catsA}]=await Promise.all([
     q,qViag,
@@ -2065,11 +2075,7 @@ async function carregarAvulsas(){
     ;(viags||[]).forEach(v=>viagPorId[v.id]=v)
   }
 
-  let nomePorIdA={}
-  if(isGestor()){
-    const{data:profs}=await sb.from('profiles').select('id,nome')
-    ;(profs||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
-  }
+  const nomePorIdA={}
 
   const avulsasAtivasTela=(avulsas||[]).filter(despesaComputavel)
   const total=avulsasAtivasTela.reduce((s,d)=>s+Number(d.valor||0),0)
@@ -2081,7 +2087,7 @@ async function carregarAvulsas(){
     return
   }
 
-  const linhas=avulsas.map(d=>{
+  const linhas=avulsasAtivasTela.map(d=>{
     const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
@@ -2974,18 +2980,32 @@ async function contarPendentes(){
 
 async function carregarAprovacoes(){
   await carregarFiltrosZipComprovantes()
-  // Gestor1 vê pendentes (1ª etapa); aprovador final vê ambas as filas
   const statusDespesa = isGestor1() ? ['pendente'] : ['aguardando_aprovacao_2','pendente']
   const statusDemanda = isGestor1() ? ['pendente','solicitada'] : ['aguardando_aprovacao_2','pendente','solicitada']
   const [despRes, demRes, profRes, catsRes] = await Promise.all([
     sb.from('despesas').select('*').in('status',statusDespesa).order('data_despesa'),
     sb.from('demandas_viagem').select('*').in('status',statusDemanda).order('created_at',{ascending:true}),
-    sb.from('profiles').select('id,nome'),
+    sb.from('profiles').select('id,nome').order('nome'),
     sb.from('categorias').select('id,nome,tipo')
   ])
-  const despesas=despRes.data||[]
-  const demandas=demRes.data||[]
+  let despesas=despRes.data||[]
+  let demandas=demRes.data||[]
   const profs=profRes.data||[]
+
+  // Popular dropdown de coordenadores (só na primeira carga ou se vazio)
+  const filtroEl=document.getElementById('aprovar-filtro-coord')
+  if(filtroEl && filtroEl.options.length<=1){
+    const usuariosComItens=new Set([...despesas.map(d=>d.usuario_id),...demandas.map(d=>d.usuario_id)])
+    profs.filter(p=>usuariosComItens.has(p.id)).forEach(p=>{
+      const opt=document.createElement('option'); opt.value=p.id; opt.textContent=p.nome; filtroEl.appendChild(opt)
+    })
+  }
+  // Aplicar filtro por coordenador
+  const coordFiltro=filtroEl?.value||''
+  if(coordFiltro){
+    despesas=despesas.filter(d=>d.usuario_id===coordFiltro)
+    demandas=demandas.filter(d=>d.usuario_id===coordFiltro)
+  }
   const cats=catsRes.data||[]
   const nomePorId={};profs.forEach(p=>nomePorId[p.id]=p.nome)
 
