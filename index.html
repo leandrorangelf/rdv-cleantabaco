@@ -3060,7 +3060,7 @@ async function carregarAprovacoes(){
         return`<div style="border:1px solid var(--line);border-radius:8px;margin:6px 0;overflow:hidden">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);cursor:pointer" onclick="const b=document.getElementById('${blockId}');const ic=this.querySelector('.cat-ic');b.style.display=b.style.display==='none'?'block':'none';ic.textContent=b.style.display==='none'?'▸':'▾'">
             <div style="display:flex;align-items:center;gap:8px">
-              <span class="cat-ic" style="font-size:11px;color:var(--ink2)">▾</span>
+              <span class="cat-ic" style="font-size:11px;color:var(--ink2)">▸</span>
               <span style="font-size:13px;font-weight:600;color:var(--purple-dark)">${catLabel}</span>
               <span style="font-size:11px;color:var(--ink2)">${gc.items.length} item${gc.items.length>1?'s':''}</span>
             </div>
@@ -3069,7 +3069,7 @@ async function carregarAprovacoes(){
               <button class="btn btn-sm btn-approve" onclick="event.stopPropagation();aprovarTodos([${catIds}])">✓ Aprovar categoria</button>
             </div>
           </div>
-          <div id="${blockId}">${rows}</div>
+          <div id="${blockId}" style="display:none">${rows}</div>
         </div>`
       }).join('')
       const ids=g.items.map(d=>`'${d.id}'`).join(',')
