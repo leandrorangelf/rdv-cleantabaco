@@ -3014,40 +3014,77 @@ async function carregarAprovacoes(){
     })
     Object.entries(por).forEach(([uid,g])=>{
       const total=g.items.reduce((s,d)=>s+d.valor,0)
-      const rows=g.items.map(d=>{
-        const cat=catPorId[d.categoria_id]
-        const viag=d.viagem_id?viagPorId[d.viagem_id]:null
-        const extrasTabela = compPorDespesa[d.id]||[]
-        let compHtml = ''
-        if(d.comprovante_url){
-          const isPdf = d.comprovante_nome?.toLowerCase().endsWith('.pdf')
-          compHtml += isPdf
-            ? `<a href="${d.comprovante_url}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD">📄 ${d.comprovante_nome||'PDF'}</a>`
-            : `<a href="${d.comprovante_url}" target="_blank"><img src="${d.comprovante_url}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--line)" title="${d.comprovante_nome||'foto'}"></a>`
-        }
-        extrasTabela.forEach(c=>{
-          const isPdf = c.tipo==='pdf'
-          compHtml += isPdf
-            ? `<a href="${c.url}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD">📄 ${c.nome||'PDF'}</a>`
-            : `<a href="${c.url}" target="_blank"><img src="${c.url}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--line)" title="${c.nome||'foto'}"></a>`
-        })
-        const totalComps = (d.comprovante_url?1:0) + extrasTabela.length
-        const semComp = !d.comprovante_url && !extrasTabela.length
-        return`<div class="approve-row" id="row-${d.id}">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:500">${cat?.nome||'?'}${d.descricao?` · <span style="font-weight:400;color:var(--ink2)">${d.descricao}</span>`:''}</div>
-            <div style="font-size:11px;color:var(--ink2);margin-top:2px">${periodoFmt(d.data_despesa,d.data_fim)}${viag?` · ${viag.destino} – ${viag.cliente}`:' · avulso'}</div>
-            ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
+      // Agrupar por categoria
+      const porCat={}
+      g.items.forEach(d=>{
+        const cid=d.categoria_id
+        if(!porCat[cid])porCat[cid]={cat:catPorId[cid],items:[],total:0}
+        porCat[cid].items.push(d)
+        porCat[cid].total+=d.valor
+      })
+      const catBlocks=Object.entries(porCat).map(([cid,gc])=>{
+        const catLabel=gc.cat?.nome||'Sem categoria'
+        const catIds=gc.items.map(d=>`'${d.id}'`).join(',')
+        const rows=gc.items.map(d=>{
+          const viag=d.viagem_id?viagPorId[d.viagem_id]:null
+          const extrasTabela=compPorDespesa[d.id]||[]
+          let compHtml=''
+          if(d.comprovante_url){
+            const isPdf=d.comprovante_nome?.toLowerCase().endsWith('.pdf')
+            compHtml+=isPdf
+              ?`<a href="${d.comprovante_url}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD">📄 ${d.comprovante_nome||'PDF'}</a>`
+              :`<a href="${d.comprovante_url}" target="_blank"><img src="${d.comprovante_url}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--line)" title="${d.comprovante_nome||'foto'}"></a>`
+          }
+          extrasTabela.forEach(c=>{
+            const isPdf=c.tipo==='pdf'
+            compHtml+=isPdf
+              ?`<a href="${c.url}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD">📄 ${c.nome||'PDF'}</a>`
+              :`<a href="${c.url}" target="_blank"><img src="${c.url}" style="width:36px;height:36px;object-fit:cover;border-radius:5px;border:1px solid var(--line)" title="${c.nome||'foto'}"></a>`
+          })
+          const totalComps=(d.comprovante_url?1:0)+extrasTabela.length
+          const semComp=!d.comprovante_url&&!extrasTabela.length
+          return`<div class="approve-row" id="row-${d.id}" style="padding-left:12px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:500">${d.descricao||'—'}</div>
+              <div style="font-size:11px;color:var(--ink2);margin-top:2px">${periodoFmt(d.data_despesa,d.data_fim)}${viag?` · ${viag.destino} – ${viag.cliente}`:' · avulso'}</div>
+              ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
+            </div>
+            <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
+            <div style="display:flex;gap:6px;flex-shrink:0"><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">${isGestor1()?'✓ Ap.1':'✓ Aprovar'}</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">✕</button></div>
           </div>
-          <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
-          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">${isGestor1()?'✓ Aprovar (1ª)':d.status==='aguardando_aprovacao_2'?'✓ Aprovar (final)':'✓ Aprovar'}</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">✕ Rejeitar</button></div>
-        </div>
-        <div id="rej-form-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5">
-          <div style="display:flex;gap:8px;align-items:center"><input id="rej-motivo-${d.id}" class="form-input" placeholder="Motivo da rejeição *" style="flex:1;font-size:11px;padding:5px 8px"><button class="btn btn-sm btn-reject" onclick="rejeitar('${d.id}')">Confirmar</button><button class="btn btn-sm" onclick="document.getElementById('rej-form-${d.id}').style.display='none'">Cancelar</button></div>
+          <div id="rej-form-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5">
+            <div style="display:flex;gap:8px;align-items:center"><input id="rej-motivo-${d.id}" class="form-input" placeholder="Motivo da rejeição *" style="flex:1;font-size:11px;padding:5px 8px"><button class="btn btn-sm btn-reject" onclick="rejeitar('${d.id}')">Confirmar</button><button class="btn btn-sm" onclick="document.getElementById('rej-form-${d.id}').style.display='none'">Cancelar</button></div>
+          </div>`
+        }).join('')
+        const blockId=`cat-block-${uid}-${cid}`
+        return`<div style="border:1px solid var(--line);border-radius:8px;margin:6px 0;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);cursor:pointer" onclick="const b=document.getElementById('${blockId}');const ic=this.querySelector('.cat-ic');b.style.display=b.style.display==='none'?'block':'none';ic.textContent=b.style.display==='none'?'▸':'▾'">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="cat-ic" style="font-size:11px;color:var(--ink2)">▾</span>
+              <span style="font-size:13px;font-weight:600;color:var(--purple-dark)">${catLabel}</span>
+              <span style="font-size:11px;color:var(--ink2)">${gc.items.length} item${gc.items.length>1?'s':''}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:13px;font-weight:600">${moeda(gc.total)}</span>
+              <button class="btn btn-sm btn-approve" onclick="event.stopPropagation();aprovarTodos([${catIds}])">✓ Aprovar categoria</button>
+            </div>
+          </div>
+          <div id="${blockId}">${rows}</div>
         </div>`
       }).join('')
       const ids=g.items.map(d=>`'${d.id}'`).join(',')
-      html+=`<div class="card" style="margin-bottom:10px"><div class="card-header"><div class="card-title">RDV · ${g.nome}</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span class="badge b-orange">${g.items.length} pendente${g.items.length>1?'s':''}</span><button class="btn btn-sm btn-approve" onclick="aprovarTodos([${ids}])">✓ Aprovar todos</button><button class="btn btn-sm" onclick="document.getElementById('zip-coord').value='${uid}';const b=document.getElementById('zip-body');b.style.display='block';document.getElementById('zip-toggle-ic').textContent='▾';baixarZipRDV()">📦 Baixar ZIP</button></div></div>${rows}<div class="card-footer"><span>Total pendente</span><strong>${moeda(total)}</strong></div></div>`
+      html+=`<div class="card" style="margin-bottom:10px">
+        <div class="card-header">
+          <div class="card-title">RDV · ${g.nome}</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+            <span class="badge b-orange">${g.items.length} pendente${g.items.length>1?'s':''}</span>
+            <button class="btn btn-sm btn-approve" onclick="aprovarTodos([${ids}])">✓ Aprovar todos</button>
+            <button class="btn btn-sm" onclick="document.getElementById('zip-coord').value='${uid}';const b=document.getElementById('zip-body');b.style.display='block';document.getElementById('zip-toggle-ic').textContent='▾';baixarZipRDV()">📦 Baixar ZIP</button>
+          </div>
+        </div>
+        ${catBlocks}
+        <div class="card-footer"><span>Total pendente</span><strong>${moeda(total)}</strong></div>
+      </div>`
     })
   }
   document.getElementById('aprovar-lista').innerHTML=html
