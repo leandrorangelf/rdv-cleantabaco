@@ -869,84 +869,20 @@ body::before {
 
       <div class="screen" id="screen-novaviagem">
         <div class="page-title">Solicitar viagem</div>
-        <div class="page-sub">A viagem fica pendente até aprovação do gestor</div>
+        <div class="page-sub">Pesquise o voo na agência, tire um print e anexe abaixo</div>
         <div class="form-card">
-          <!-- ORIGEM -->
-          <div style="font-size:11px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Origem</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Estado de origem *</label>
-              <select id="v-estado-origem" class="form-select" onchange="atualizarAeroportos('origem')">
-                <option value="">Selecione</option>
-                <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
-                <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
-                <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
-                <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
-                <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
-                <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
-                <option>SP</option><option>SE</option><option>TO</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Aeroporto de origem *</label>
-              <select id="v-aeroporto-origem" class="form-select">
-                <option value="">Selecione o estado primeiro</option>
-              </select>
-            </div>
-          </div>
-          <!-- DESTINO -->
-          <div style="font-size:11px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:4px">Destino</div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Cidade destino *</label><input id="v-destino" class="form-input" placeholder="ex: São Paulo"></div>
-            <div class="form-group">
-              <label class="form-label">Estado destino *</label>
-              <select id="v-estado" class="form-select" onchange="atualizarAeroportos('destino')">
-                <option value="">Selecione</option>
-                <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
-                <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
-                <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
-                <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
-                <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
-                <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
-                <option>SP</option><option>SE</option><option>TO</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Aeroporto de destino *</label>
-              <select id="v-aeroporto-destino" class="form-select">
-                <option value="">Selecione o estado primeiro</option>
-              </select>
-            </div>
             <div class="form-group"><label class="form-label">Cliente visitado *</label><input id="v-cliente" class="form-input" placeholder="ex: Atacadão SP"></div>
           </div>
-          <!-- DATAS E DETALHES -->
-          <div style="font-size:11px;font-weight:700;color:var(--purple-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;margin-top:4px">Datas</div>
           <div class="form-row">
-            <div class="form-group"><label class="form-label">Data ida desejada *</label><input id="v-inicio" type="date" class="form-input" onchange="atualizarPrazoViagem()"></div>
-            <div class="form-group" id="v-volta-wrap"><label class="form-label" id="v-fim-label">Data volta desejada *</label><input id="v-fim" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Data ida *</label><input id="v-inicio" type="date" class="form-input" onchange="atualizarPrazoViagem()"></div>
+            <div class="form-group"><label class="form-label">Data volta <span style="font-weight:400;color:var(--ink2)">(opcional)</span></label><input id="v-fim" type="date" class="form-input"></div>
           </div>
-          <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--purple-dark)">
-              <input id="v-so-ida" type="checkbox" onchange="toggleSomenteIdaViagem()" style="width:16px;height:16px">
-              Somente ida, sem voo de volta
-            </label>
+          <div class="form-group">
+            <label class="form-label">Motivo da visita *</label>
+            <input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang">
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Preferência de horário</label>
-              <select id="v-preferencia" class="form-select">
-                <option value="indiferente">Indiferente</option>
-                <option value="manha">Manhã</option>
-                <option value="tarde">Tarde</option>
-                <option value="noite">Noite</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Motivo da visita *</label>
-              <input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang">
-            </div>
           </div>
           <div class="form-group" style="margin-bottom:10px">
             <label class="form-label">Justificativa se estiver fora dos 15 dias</label>
@@ -2210,39 +2146,30 @@ function toggleSomenteIdaEdicaoViagem(){ aplicarSomenteIda('evb-so-ida','evb-fim
 
 async function salvarViagem(){
   const destino=document.getElementById('v-destino').value.trim()
-  const estado=document.getElementById('v-estado').value
-  const estadoOrigem=document.getElementById('v-estado-origem')?.value||''
-  const aeroportoOrigem=document.getElementById('v-aeroporto-origem')?.value||''
-  const aeroportoDestino=document.getElementById('v-aeroporto-destino')?.value||''
   const cliente=document.getElementById('v-cliente').value.trim()
   const inicio=document.getElementById('v-inicio').value
-  const somenteIda=!!document.getElementById('v-so-ida')?.checked
-  const fim=somenteIda?null:(document.getElementById('v-fim').value||null)
+  const fim=document.getElementById('v-fim')?.value||null
   const motivo=document.getElementById('v-motivo').value.trim()
-  const preferencia=document.getElementById('v-preferencia')?.value||'indiferente'
   const justificativa=document.getElementById('v-justificativa')?.value.trim()||''
   const err=document.getElementById('v-erro')
   err.style.display='none'
-  if(!destino||!estado||!estadoOrigem||!aeroportoOrigem||!aeroportoDestino||!cliente||!inicio||(!somenteIda&&!fim)||!motivo){err.textContent='Preencha todos os campos obrigatórios, incluindo estados e aeroportos de origem e destino.';err.style.display='block';return}
-  if(!somenteIda && fim<inicio){err.textContent='Data de volta não pode ser anterior à data de ida.';err.style.display='block';return}
+  if(!destino||!cliente||!inicio||!motivo){err.textContent='Preencha destino, cliente, data de ida e motivo.';err.style.display='block';return}
+  if(fim&&fim<inicio){err.textContent='Data de volta não pode ser anterior à data de ida.';err.style.display='block';return}
   const prazo=politicaPrazoViagem(inicio)
-  if(prazo.nivel!=='ok'&&!justificativa){err.textContent='Solicitação fora da política de 15 dias. Informe a justificativa.';err.style.display='block';return}
-  const observacao=`Tipo: ${somenteIda?'somente_ida':'ida_volta'} | Preferência: ${preferencia} | Justificativa: ${justificativa||'n/a'} | Antecedência: ${prazo.dias} dias | Origem: ${estadoOrigem} – ${aeroportoOrigem} | Destino: ${estado} – ${aeroportoDestino}`
+  if(prazo.nivel!=='ok'&&!justificativa){err.textContent='Solicitação com menos de 15 dias de antecedência. Informe a justificativa.';err.style.display='block';return}
+  const observacao=`Justificativa: ${justificativa||'n/a'} | Antecedência: ${prazo.dias} dias`
   const payload={
     usuario_id:perfil.id,
     created_by:perfil.id,
     destino,
-    estado,
+    estado:'',
     cliente,
     motivo,
     data_sugerida:inicio,
     data_inicio:inicio,
-    data_fim:fim,
+    data_fim:fim||null,
     observacao,
-    status:'pendente',
-    aeroporto_origem: aeroportoOrigem,
-    aeroporto_destino: aeroportoDestino,
-    estado_origem: estadoOrigem
+    status:'pendente'
   }
   const{data:demanda,error}=await sb.from('demandas_viagem').insert(payload).select('id').single()
   if(error){err.textContent='Erro ao enviar solicitação: '+error.message;err.style.display='block';return}
@@ -2260,9 +2187,6 @@ async function salvarViagem(){
   }
 
   ;['v-destino','v-cliente','v-inicio','v-fim','v-motivo','v-justificativa'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
-  ;['v-estado','v-estado-origem','v-aeroporto-origem','v-aeroporto-destino'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
-  if(document.getElementById('v-preferencia'))document.getElementById('v-preferencia').value='indiferente'
-  if(document.getElementById('v-so-ida')){document.getElementById('v-so-ida').checked=false;toggleSomenteIdaViagem()}
   if(document.getElementById('v-prazo-info'))document.getElementById('v-prazo-info').style.display='none'
   if(document.getElementById('v-print-voo'))document.getElementById('v-print-voo').value=''
   mostrarAviso('Solicitação enviada para aprovação do gestor.')
