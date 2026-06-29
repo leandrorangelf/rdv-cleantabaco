@@ -953,6 +953,11 @@ body::before {
             <input id="v-justificativa" class="form-input" placeholder="Obrigatório se pedir com menos de 15 dias">
           </div>
           <div id="v-prazo-info" style="display:none;margin-bottom:10px;font-size:11px;padding:8px 10px;border-radius:8px"></div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Print do voo escolhido <span style="font-weight:400;color:var(--ink2)">(opcional — print da tela da agência com o voo selecionado)</span></label>
+            <input id="v-print-voo" type="file" accept="image/*,.pdf" class="form-input" style="padding:6px 8px;font-size:12px">
+            <div id="v-print-voo-atual" style="font-size:11px;color:var(--ink2);margin-top:4px"></div>
+          </div>
           <div id="v-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn" onclick="showScreen('viagens',document.getElementById('nav-viagens'))">Cancelar</button>
@@ -2239,13 +2244,27 @@ async function salvarViagem(){
     aeroporto_destino: aeroportoDestino,
     estado_origem: estadoOrigem
   }
-  const{error}=await sb.from('demandas_viagem').insert(payload)
+  const{data:demanda,error}=await sb.from('demandas_viagem').insert(payload).select('id').single()
   if(error){err.textContent='Erro ao enviar solicitação: '+error.message;err.style.display='block';return}
+
+  // Upload do print do voo se anexado
+  const printFile=document.getElementById('v-print-voo')?.files?.[0]
+  if(printFile&&demanda?.id){
+    const ext=printFile.name.split('.').pop()
+    const path=`prints_voo/${demanda.id}/${Date.now()}.${ext}`
+    const{error:upErr}=await sb.storage.from('comprovantes').upload(path,printFile,{contentType:printFile.type,upsert:false})
+    if(!upErr){
+      const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
+      await sb.from('demandas_viagem').update({print_voo_url:publicUrl,print_voo_nome:printFile.name}).eq('id',demanda.id)
+    }
+  }
+
   ;['v-destino','v-cliente','v-inicio','v-fim','v-motivo','v-justificativa'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
   ;['v-estado','v-estado-origem','v-aeroporto-origem','v-aeroporto-destino'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
   if(document.getElementById('v-preferencia'))document.getElementById('v-preferencia').value='indiferente'
   if(document.getElementById('v-so-ida')){document.getElementById('v-so-ida').checked=false;toggleSomenteIdaViagem()}
   if(document.getElementById('v-prazo-info'))document.getElementById('v-prazo-info').style.display='none'
+  if(document.getElementById('v-print-voo'))document.getElementById('v-print-voo').value=''
   mostrarAviso('Solicitação enviada para aprovação do gestor.')
   await atualizarCamposIntegrados('agenda')
   showScreen('viagens',document.getElementById('nav-viagens'))
@@ -3031,6 +3050,7 @@ async function carregarAprovacoes(){
           <div style="font-size:11px;color:var(--ink2);margin-top:2px">${periodoViagemTxt(d)} · ${d.cliente} · ${d.motivo||''}</div>
           <div style="font-size:10px;margin-top:3px;color:${fora?'var(--orange-dark)':'var(--mint-dark)'}">${prazo.label}</div>
           <div style="font-size:10px;color:var(--ink2);margin-top:2px">Preferência: ${obs.preferencia||'não informada'}${obs.justificativa&&obs.justificativa!=='n/a'?` · Justificativa: ${obs.justificativa}`:''}</div>
+          ${d.print_voo_url?`<div style="margin-top:5px">${d.print_voo_nome?.toLowerCase().endsWith('.pdf')?`<a href="${d.print_voo_url}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 8px;border-radius:6px;border:1px solid #C4B5FD">📄 ${d.print_voo_nome}</a>`:`<a href="${d.print_voo_url}" target="_blank"><img src="${d.print_voo_url}" style="max-height:80px;max-width:180px;border-radius:6px;border:1px solid var(--line)" title="Print do voo escolhido"></a>`}</div>`:''}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="btn btn-sm btn-approve" onclick="aprovarDemandaViagem('${d.id}')">${isGestor1()?'Aprovar (1ª)':d.status==='aguardando_aprovacao_2'?'Autorizar (final)':'Autorizar'}</button>
