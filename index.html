@@ -3853,9 +3853,10 @@ function coletarValoresAtuais(){
     const lid = tr.id.replace('bloco-tr-','')
     const val = document.getElementById(`bl-val-${lid}`)?.value
     const data = document.getElementById(`bl-data-${lid}`)?.value
+    const dataFim = document.getElementById(`bl-data-fim-${lid}`)?.value
     const desc = document.getElementById(`bl-desc-${lid}`)?.value
     if(!salvo[catId]) salvo[catId] = []
-    salvo[catId].push({val, data, desc})
+    salvo[catId].push({val, data, dataFim, desc})
   })
   return salvo
 }
@@ -3869,8 +3870,10 @@ function adicionarLinhaBloco(catId){
   tr.id = `bloco-tr-${lid}`
   tr.dataset.cat = catId
   tr.innerHTML = `
-    <td style="padding:4px 6px;width:130px">
-      <input type="date" id="bl-data-${lid}" class="form-input" value="${hoje}" style="font-size:12px;padding:5px 8px">
+    <td style="padding:4px 6px;width:200px">
+      <input type="date" id="bl-data-${lid}" class="form-input" value="${hoje}" style="font-size:12px;padding:5px 8px;width:90px">
+      <span style="font-size:11px;color:var(--ink2);margin:0 2px">–</span>
+      <input type="date" id="bl-data-fim-${lid}" class="form-input" style="font-size:12px;padding:5px 8px;width:90px" placeholder="fim">
     </td>
     <td style="padding:4px 6px">
       <input id="bl-desc-${lid}" class="form-input" placeholder="Descrição" style="font-size:12px;padding:5px 8px" oninput="atualizarTotalBloco('${catId}')">
@@ -3970,10 +3973,11 @@ async function salvarMulti(){
     const lid = tr.id.replace('bloco-tr-','')
     const val = parseFloat(document.getElementById(`bl-val-${lid}`)?.value)
     const data = document.getElementById(`bl-data-${lid}`)?.value
+    const dataFim = document.getElementById(`bl-data-fim-${lid}`)?.value||null
     const desc = (document.getElementById(`bl-desc-${lid}`)?.value||'').trim()
     if(!val || val <= 0) return // linha vazia, ignora
     if(!data) return
-    linhas.push({catId, lid, val, data, desc})
+    linhas.push({catId, lid, val, data, dataFim, desc})
   })
 
   if(!linhas.length){
@@ -4014,7 +4018,7 @@ async function salvarMulti(){
 
     const{data:nova,error}=await sb.from('despesas').insert({
       usuario_id:perfil.id, viagem_id:viagId||null, categoria_id:l.catId,
-      descricao:l.desc||null, valor:l.val, data_despesa:l.data,
+      descricao:l.desc||null, valor:l.val, data_despesa:l.data, data_fim:l.dataFim||null,
       status:'pendente', comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
     }).select('id').single()
 
