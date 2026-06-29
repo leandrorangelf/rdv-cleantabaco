@@ -3796,8 +3796,10 @@ function renderBlocos(){
       const hoje = new Date().toISOString().slice(0,10)
       linhasHtml += `
         <tr id="bloco-tr-${lid}" data-cat="${catId}">
-          <td style="padding:4px 6px;width:130px">
-            <input type="date" id="bl-data-${lid}" class="form-input" value="${v.data||hoje}" style="font-size:12px;padding:5px 8px">
+          <td style="padding:4px 6px;width:200px">
+            <input type="date" id="bl-data-${lid}" class="form-input" value="${v.data||hoje}" style="font-size:12px;padding:5px 8px;width:90px">
+            <span style="font-size:11px;color:var(--ink2);margin:0 2px">–</span>
+            <input type="date" id="bl-data-fim-${lid}" class="form-input" value="${v.dataFim||''}" style="font-size:12px;padding:5px 8px;width:90px">
           </td>
           <td style="padding:4px 6px">
             <input id="bl-desc-${lid}" class="form-input" placeholder="Descrição" value="${v.desc||''}" style="font-size:12px;padding:5px 8px" oninput="atualizarTotalBloco('${catId}')">
