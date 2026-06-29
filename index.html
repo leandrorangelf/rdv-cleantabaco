@@ -2593,7 +2593,7 @@ async function editarDespesa(id, origem='agenda'){
   document.getElementById('ai-sugestao').style.display='none'
 
   await atualizarCategoriasDrop()
-  setTimeout(()=>{document.getElementById('d-categoria').value=d.categoria_id},150)
+  document.getElementById('d-categoria').value=d.categoria_id
 
   // Comprovante existente
   if(d.comprovante_url){
@@ -2603,7 +2603,7 @@ async function editarDespesa(id, origem='agenda'){
   }
   arquivosComprimidos=[]
 
-  showScreen('lancar',document.getElementById('nav-lancarmultiplo'))
+  showScreen('lancar',document.getElementById('nav-lancarmultiplo'),true)
 }
 
 async function apagarDespesaDefinitivo(id){
