@@ -1042,7 +1042,8 @@ body::before {
               <select id="d-categoria" class="form-select" onchange="setSugestaoManual()"><option value="">Selecione</option></select>
               <div id="ai-sugestao" class="ai-pill" style="display:none">✦ IA sugeriu esta categoria</div>
             </div>
-            <div class="form-group"><label class="form-label">Data *</label><input id="d-data" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Data início *</label><input id="d-data" type="date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Data fim <span style="font-weight:400;color:var(--ink2)">(opcional — para lançamentos semanais)</span></label><input id="d-data-fim" type="date" class="form-input"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Valor (R$) *</label><input id="d-valor" type="number" step="0.01" class="form-input" placeholder="0,00" onblur="sugerirCategoria()"></div>
@@ -1298,6 +1299,7 @@ let catTipoAtual = 'viagem'
 
 function moeda(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0) }
 function dataFmt(s) { if(!s)return''; const[y,m,d]=s.split('-'); return`${d}/${m}/${y}` }
+function periodoFmt(ini,fim) { return fim&&fim!==ini?`${dataFmt(ini)} – ${dataFmt(fim)}`:dataFmt(ini) }
 function iniciais(nome) { return nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase() }
 function mesAtual() { const n=new Date(); return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` }
 function ultimoDiaMes(mesStr) { const[y,m]=mesStr.split('-'); return new Date(y,m,0).getDate() }
@@ -1909,7 +1911,7 @@ async function carregarAgenda() {
           return`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line)">
             <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
             <div style="flex:1;min-width:0">
-              <span style="font-size:11px;color:var(--ink)">${catPorId[d.categoria_id]||'?'}${d.descricao?' · <span style="color:var(--ink2)">'+d.descricao+'</span>':''} · ${dataFmt(d.data_despesa)}</span>
+              <span style="font-size:11px;color:var(--ink)">${catPorId[d.categoria_id]||'?'}${d.descricao?' · <span style="color:var(--ink2)">'+d.descricao+'</span>':''} · ${periodoFmt(d.data_despesa,d.data_fim)}</span>
               ${rejNote}
             </div>
             <span style="font-size:11px;font-weight:500;color:var(--ink);flex-shrink:0">${moeda(d.valor)}</span>
@@ -2031,7 +2033,7 @@ async function carregarAvulsas(){
       <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;color:var(--ink);font-weight:500">${catPorIdA[d.categoria_id]||'?'}${d.descricao?' · <span style="font-weight:400;color:var(--ink2)">'+d.descricao+'</span>':''}${quemLabel}</div>
-        <div style="font-size:11px;color:var(--ink2);margin-top:1px">${dataFmt(d.data_despesa)}${d.viagem_id&&viagPorId[d.viagem_id]?' · '+viagPorId[d.viagem_id].destino+' – '+viagPorId[d.viagem_id].cliente:' · avulso'} · ${statusBadge(d.status)}</div>
+        <div style="font-size:11px;color:var(--ink2);margin-top:1px">${periodoFmt(d.data_despesa,d.data_fim)}${d.viagem_id&&viagPorId[d.viagem_id]?' · '+viagPorId[d.viagem_id].destino+' – '+viagPorId[d.viagem_id].cliente:' · avulso'} · ${statusBadge(d.status)}</div>
         ${rejNote}
       </div>
       <span style="font-size:12px;font-weight:500;color:var(--ink);flex-shrink:0">${moeda(d.valor)}</span>
@@ -2580,6 +2582,7 @@ async function editarDespesa(id, origem='agenda'){
     setTimeout(()=>{document.getElementById('d-viagem').value=d.viagem_id},100)
   }
   document.getElementById('d-data').value=d.data_despesa
+  document.getElementById('d-data-fim').value=d.data_fim||''
   document.getElementById('d-valor').value=d.valor
   document.getElementById('d-descricao').value=d.descricao||''
   document.getElementById('ai-sugestao').style.display='none'
@@ -2625,6 +2628,7 @@ async function prepararFormViagensSelect(){
 async function salvarDespesa(){
   const catId=document.getElementById('d-categoria').value
   const data=document.getElementById('d-data').value
+  const dataFimVal=document.getElementById('d-data-fim')?.value||null
   const valor=parseFloat(document.getElementById('d-valor').value)
   const desc=document.getElementById('d-descricao').value.trim()
   const viagId=tipoAtual==='viagem'?document.getElementById('d-viagem').value:null
@@ -2667,7 +2671,7 @@ async function salvarDespesa(){
   if(despesaEditandoId){
     const{error}=await sb.from('despesas').update({
       viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,
-      valor,data_despesa:data,status:'pendente',
+      valor,data_despesa:data,data_fim:dataFimVal||null,status:'pendente',
       motivo_rejeicao:null,aprovado_por:null,aprovado_em:null,
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
     }).eq('id',despesaEditandoId)
@@ -2679,7 +2683,7 @@ async function salvarDespesa(){
   } else {
     const{data:novaDespesa,error}=await sb.from('despesas').insert({
       usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,
-      descricao:desc||null,valor,data_despesa:data,status:'pendente',
+      descricao:desc||null,valor,data_despesa:data,data_fim:dataFimVal||null,status:'pendente',
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
     }).select('id').single()
     if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
@@ -2707,6 +2711,7 @@ function limparFormDespesa(){
   document.getElementById('d-valor').value=''
   document.getElementById('d-descricao').value=''
   document.getElementById('d-data').value=new Date().toISOString().slice(0,10)
+  document.getElementById('d-data-fim').value=''
   document.getElementById('d-viagem').value=''
   document.getElementById('ai-sugestao').style.display='none'
   arquivosComprimidos=[]
@@ -3026,7 +3031,7 @@ async function carregarAprovacoes(){
         return`<div class="approve-row" id="row-${d.id}">
           <div style="flex:1;min-width:0">
             <div style="font-size:12px;font-weight:500">${cat?.nome||'?'}${d.descricao?` · <span style="font-weight:400;color:var(--ink2)">${d.descricao}</span>`:''}</div>
-            <div style="font-size:11px;color:var(--ink2);margin-top:2px">${dataFmt(d.data_despesa)}${viag?` · ${viag.destino} – ${viag.cliente}`:' · avulso'}</div>
+            <div style="font-size:11px;color:var(--ink2);margin-top:2px">${periodoFmt(d.data_despesa,d.data_fim)}${viag?` · ${viag.destino} – ${viag.cliente}`:' · avulso'}</div>
             ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
           </div>
           <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
