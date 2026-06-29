@@ -1129,12 +1129,13 @@ body::before {
         </div>
 
         <div class="form-card" id="zip-comprovantes-card" style="margin-bottom:14px">
-          <div class="sec-header" style="margin-bottom:10px">
+          <div class="sec-header" style="margin-bottom:10px;cursor:pointer" onclick="const b=document.getElementById('zip-body');const ic=document.getElementById('zip-toggle-ic');b.style.display=b.style.display==='none'?'block':'none';ic.textContent=b.style.display==='none'?'▸':'▾'">
             <div>
-              <div class="sec-title">Baixar comprovantes</div>
+              <div class="sec-title">📦 Baixar comprovantes <span id="zip-toggle-ic" style="font-size:11px;color:var(--ink2)">▸</span></div>
               <div style="font-size:11px;color:var(--ink2)">Organiza em ZIP por coordenador e categoria.</div>
             </div>
           </div>
+          <div id="zip-body" style="display:none">
           <div class="zip-toolbar">
             <div class="form-group">
               <label class="form-label">Mês</label>
@@ -1162,6 +1163,7 @@ body::before {
           </div>
           <div class="zip-help">Exemplo: RDV_Junho_2026 / Igor / Alimentação / comprovantes.</div>
           <div id="zip-status-msg" class="zip-status"></div>
+          </div><!-- /zip-body -->
         </div>
 
         <div id="aprovar-lista"><div class="loading">Carregando...</div></div>
@@ -3038,13 +3040,14 @@ async function carregarAprovacoes(){
             ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
           </div>
           <div style="font-size:12px;font-weight:500;flex-shrink:0">${moeda(d.valor)}</div>
-          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="baixarZipDespesa('${d.id}')">Baixar</button><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">${isGestor1()?'Aprovar (1ª)':d.status==='aguardando_aprovacao_2'?'Aprovar (final)':'Aprovar'}</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">Rejeitar</button></div>
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm btn-approve" onclick="aprovar('${d.id}')">${isGestor1()?'✓ Aprovar (1ª)':d.status==='aguardando_aprovacao_2'?'✓ Aprovar (final)':'✓ Aprovar'}</button><button class="btn btn-sm btn-reject" onclick="mostrarRejeitar('${d.id}')">✕ Rejeitar</button></div>
         </div>
         <div id="rej-form-${d.id}" style="display:none;padding:8px 12px;background:var(--red-light);border-top:1px solid #FCA5A5">
           <div style="display:flex;gap:8px;align-items:center"><input id="rej-motivo-${d.id}" class="form-input" placeholder="Motivo da rejeição *" style="flex:1;font-size:11px;padding:5px 8px"><button class="btn btn-sm btn-reject" onclick="rejeitar('${d.id}')">Confirmar</button><button class="btn btn-sm" onclick="document.getElementById('rej-form-${d.id}').style.display='none'">Cancelar</button></div>
         </div>`
       }).join('')
-      html+=`<div class="card" style="margin-bottom:10px"><div class="card-header"><div class="card-title">RDV · ${g.nome}</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" onclick="document.getElementById('zip-coord').value='${uid}';document.getElementById('zip-status').value='pendente';baixarZipRDV()">Baixar pendentes</button><span class="badge b-orange">${g.items.length} pendente${g.items.length>1?'s':''}</span></div></div>${rows}<div class="card-footer"><span>Total pendente</span><strong>${moeda(total)}</strong></div></div>`
+      const ids=g.items.map(d=>`'${d.id}'`).join(',')
+      html+=`<div class="card" style="margin-bottom:10px"><div class="card-header"><div class="card-title">RDV · ${g.nome}</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span class="badge b-orange">${g.items.length} pendente${g.items.length>1?'s':''}</span><button class="btn btn-sm btn-approve" onclick="aprovarTodos([${ids}])">✓ Aprovar todos</button><button class="btn btn-sm" onclick="document.getElementById('zip-coord').value='${uid}';const b=document.getElementById('zip-body');b.style.display='block';document.getElementById('zip-toggle-ic').textContent='▾';baixarZipRDV()">📦 Baixar ZIP</button></div></div>${rows}<div class="card-footer"><span>Total pendente</span><strong>${moeda(total)}</strong></div></div>`
     })
   }
   document.getElementById('aprovar-lista').innerHTML=html
@@ -3072,6 +3075,15 @@ async function aprovar(id){
   if(error){alert('Erro ao aprovar: '+error.message);return}
   if(isGestor1()) mostrarAviso('Aprovação 1 registrada. Aguardando aprovação final.')
   await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
+}
+
+async function aprovarTodos(ids){
+  if(!confirm(`Aprovar ${ids.length} despesa${ids.length>1?'s':''}?`)) return
+  const novoStatus = isGestor1() ? 'aguardando_aprovacao_2' : 'aprovado'
+  for(const id of ids){
+    await sb.from('despesas').update({status:novoStatus,motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
+  }
+  await atualizarCamposIntegrados('aprovar')
 }
 
 function mostrarRejeitar(id){
