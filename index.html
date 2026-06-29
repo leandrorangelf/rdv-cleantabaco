@@ -872,27 +872,16 @@ body::before {
         <div class="page-sub">Pesquise o voo na agência, tire um print e anexe abaixo</div>
         <div class="form-card">
           <div class="form-row">
-            <div class="form-group"><label class="form-label">Cidade destino *</label><input id="v-destino" class="form-input" placeholder="ex: São Paulo"></div>
             <div class="form-group"><label class="form-label">Cliente visitado *</label><input id="v-cliente" class="form-input" placeholder="ex: Atacadão SP"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Data ida *</label><input id="v-inicio" type="date" class="form-input" onchange="atualizarPrazoViagem()"></div>
-            <div class="form-group"><label class="form-label">Data volta <span style="font-weight:400;color:var(--ink2)">(opcional)</span></label><input id="v-fim" type="date" class="form-input"></div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Motivo da visita *</label>
-            <input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang">
-          </div>
+            <div class="form-group"><label class="form-label">Motivo da visita *</label><input id="v-motivo" class="form-input" placeholder="ex: apresentação Gudang"></div>
           </div>
           <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Justificativa se estiver fora dos 15 dias</label>
-            <input id="v-justificativa" class="form-input" placeholder="Obrigatório se pedir com menos de 15 dias">
+            <label class="form-label">Justificativa <span style="font-weight:400;color:var(--ink2)">(preencha se a viagem for com menos de 15 dias de antecedência)</span></label>
+            <input id="v-justificativa" class="form-input" placeholder="Motivo da solicitação em cima da hora">
           </div>
-          <div id="v-prazo-info" style="display:none;margin-bottom:10px;font-size:11px;padding:8px 10px;border-radius:8px"></div>
           <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Print do voo escolhido <span style="font-weight:400;color:var(--ink2)">(opcional — print da tela da agência com o voo selecionado)</span></label>
+            <label class="form-label">Print do voo escolhido <span style="font-weight:400;color:var(--ink2)">(pesquise no site da agência e anexe o print aqui)</span></label>
             <input id="v-print-voo" type="file" accept="image/*,.pdf" class="form-input" style="padding:6px 8px;font-size:12px">
-            <div id="v-print-voo-atual" style="font-size:11px;color:var(--ink2);margin-top:4px"></div>
           </div>
           <div id="v-erro" style="display:none;background:var(--red-light);color:#991B1B;padding:7px 10px;border-radius:8px;font-size:11px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -2145,29 +2134,23 @@ function toggleSomenteIdaEdicaoSolicitacao(){ aplicarSomenteIda('ed-so-ida','ed-
 function toggleSomenteIdaEdicaoViagem(){ aplicarSomenteIda('evb-so-ida','evb-fim',null,'evb-volta-wrap','evb-fim-label','Data volta','Data volta') }
 
 async function salvarViagem(){
-  const destino=document.getElementById('v-destino').value.trim()
   const cliente=document.getElementById('v-cliente').value.trim()
-  const inicio=document.getElementById('v-inicio').value
-  const fim=document.getElementById('v-fim')?.value||null
   const motivo=document.getElementById('v-motivo').value.trim()
   const justificativa=document.getElementById('v-justificativa')?.value.trim()||''
   const err=document.getElementById('v-erro')
   err.style.display='none'
-  if(!destino||!cliente||!inicio||!motivo){err.textContent='Preencha destino, cliente, data de ida e motivo.';err.style.display='block';return}
-  if(fim&&fim<inicio){err.textContent='Data de volta não pode ser anterior à data de ida.';err.style.display='block';return}
-  const prazo=politicaPrazoViagem(inicio)
-  if(prazo.nivel!=='ok'&&!justificativa){err.textContent='Solicitação com menos de 15 dias de antecedência. Informe a justificativa.';err.style.display='block';return}
-  const observacao=`Justificativa: ${justificativa||'n/a'} | Antecedência: ${prazo.dias} dias`
+  if(!cliente||!motivo){err.textContent='Preencha cliente e motivo.';err.style.display='block';return}
+  const observacao=`Justificativa: ${justificativa||'n/a'}`
   const payload={
     usuario_id:perfil.id,
     created_by:perfil.id,
-    destino,
+    destino:'',
     estado:'',
     cliente,
     motivo,
-    data_sugerida:inicio,
-    data_inicio:inicio,
-    data_fim:fim||null,
+    data_sugerida:null,
+    data_inicio:null,
+    data_fim:null,
     observacao,
     status:'pendente'
   }
@@ -2186,7 +2169,7 @@ async function salvarViagem(){
     }
   }
 
-  ;['v-destino','v-cliente','v-inicio','v-fim','v-motivo','v-justificativa'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
+  ;['v-cliente','v-motivo','v-justificativa'].forEach(id=>{const el=document.getElementById(id); if(el)el.value=''})
   if(document.getElementById('v-prazo-info'))document.getElementById('v-prazo-info').style.display='none'
   if(document.getElementById('v-print-voo'))document.getElementById('v-print-voo').value=''
   mostrarAviso('Solicitação enviada para aprovação do gestor.')
