@@ -784,6 +784,15 @@ body::before {
 
         <!-- Alerta RDV -->
         <div id="dash-alerta-rdv"></div>
+        <div id="dash-lancar-junho" class="card" style="margin-bottom:12px">
+          <div style="padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              <div class="card-title">Lan&ccedil;amentos de junho/2026</div>
+              <div class="card-meta">Use este atalho para registrar despesas avulsas de junho.</div>
+            </div>
+            <button class="btn btn-primary" onclick="abrirLancamentoJunho()">+ Lan&ccedil;ar junho</button>
+          </div>
+        </div>
 
         <!-- Semana de todos (Admin) -->
         <div id="dash-semana-wrap" style="display:none;margin-bottom:12px">
@@ -1018,7 +1027,7 @@ body::before {
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input id="avulsas-mes" type="month" class="form-input" style="min-height:34px;padding:5px 8px;font-size:12px" onchange="carregarAvulsas()">
-            <button class="btn btn-primary" onclick="showScreen('lancarmultiplo',document.getElementById('nav-lancarmultiplo'));setTimeout(()=>setMultiTipo('avulso'),300)">+ Novo lançamento</button>
+            <button class="btn btn-primary" onclick="abrirNovoLancamentoAvulso()">+ Novo lançamento</button>
           </div>
         </div>
         <div id="avulsas-lista"><div class="loading">Carregando...</div></div>
@@ -3759,6 +3768,24 @@ let multiCats = []       // todas as categorias do banco
 let multiContador = 0    // contador global de linhas
 let multiArquivos = {}   // {catId: [File, ...]} — arquivos por bloco
 
+let multiMesPadrao = null
+
+function dataPadraoMulti(){
+  return multiMesPadrao ? `${multiMesPadrao}-01` : new Date().toISOString().slice(0,10)
+}
+
+function abrirLancamentoJunho(){
+  multiMesPadrao = '2026-06'
+  showScreen('lancarmultiplo', document.getElementById('nav-lancarmultiplo'))
+  setTimeout(()=>setMultiTipo('avulso'), 300)
+}
+
+function abrirNovoLancamentoAvulso(){
+  multiMesPadrao = null
+  showScreen('lancarmultiplo', document.getElementById('nav-lancarmultiplo'))
+  setTimeout(()=>setMultiTipo('avulso'), 300)
+}
+
 async function prepararFormMulti(){
   multiTipoAtual = 'viagem'
   multiContador = 0
@@ -3842,7 +3869,7 @@ function renderBlocos(){
     for(let i=0;i<qtdLinhas;i++){
       const lid = ++multiContador
       const v = linhasSalvas[i]||{}
-      const hoje = new Date().toISOString().slice(0,10)
+      const hoje = dataPadraoMulti()
       linhasHtml += `
         <tr id="bloco-tr-${lid}" data-cat="${catId}">
           <td style="padding:4px 6px;width:200px">
@@ -3914,7 +3941,7 @@ function coletarValoresAtuais(){
 
 function adicionarLinhaBloco(catId){
   const lid = ++multiContador
-  const hoje = new Date().toISOString().slice(0,10)
+  const hoje = dataPadraoMulti()
   const tbody = document.getElementById(`bloco-tbody-${catId}`)
   if(!tbody) return
   const tr = document.createElement('tr')
@@ -4094,8 +4121,15 @@ async function salvarMulti(){
   await atualizarCamposIntegrados('agenda')
   prog.textContent = `✓ ${ok} despesa${ok>1?'s':''} salva${ok>1?'s':''}!`
   setTimeout(()=>{
+    const mesSalvo = multiMesPadrao
     limparMulti()
-    showScreen('viagens', document.getElementById('nav-viagens'))
+    if(multiTipoAtual === 'avulso'){
+      const inputMes = document.getElementById('avulsas-mes')
+      if(inputMes && mesSalvo) inputMes.value = mesSalvo
+      showScreen('avulsas', document.getElementById('nav-lancarmultiplo'))
+    } else {
+      showScreen('viagens', document.getElementById('nav-viagens'))
+    }
   }, 1400)
 }
 
