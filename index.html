@@ -3635,7 +3635,7 @@ async function carregarFinanceiro(){
     <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Custo total</div><div class="metric-value">${moeda(totalCusto)}</div></div>
     <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Cr&eacute;dito PIX</div><div class="metric-value">${moeda(totalCredito)}</div></div>
     <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Saldo cr&eacute;dito</div><div class="metric-value">${moeda(totalSaldoCredito)}</div></div>
-    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Reembolso excedente</div><div class="metric-value">${moeda(totalApagar)}</div></div>
+    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Valor a pagar</div><div class="metric-value">${moeda(totalApagar)}</div></div>
     <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
 
   if(!linhas.length){
@@ -3673,7 +3673,7 @@ async function carregarFinanceiro(){
         <th>Bilhetes</th>
         <th>Custo total</th>
         <th>Cr&eacute;dito PIX</th>
-        <th>Reembolso excedente</th>
+        <th>Valor a pagar</th>
         <th>Saldo cr&eacute;dito</th>
         <th style="text-align:right">Status</th>
       </tr></thead>
