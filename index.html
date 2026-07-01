@@ -1277,6 +1277,7 @@ body::before {
           <button class="btn" onclick="finNavMes(-1)">‹</button>
           <span id="fin-mes-label" style="font-size:13px;font-weight:700;min-width:130px;text-align:center"></span>
           <button class="btn" onclick="finNavMes(1)">›</button>
+          <input id="fin-mes" type="month" class="form-input" style="min-height:34px;padding:5px 8px;font-size:12px;width:150px" onchange="mudarFinMes()">
           <button class="btn" style="margin-left:8px" onclick="carregarFinanceiro()">Atualizar</button>
         </div>
 
@@ -2948,8 +2949,8 @@ async function contarPendentes(){
 
 async function carregarAprovacoes(){
   await carregarFiltrosZipComprovantes()
-  const statusDespesa = isGestor1() ? ['pendente'] : ['aguardando_aprovacao_2','pendente']
-  const statusDemanda = isGestor1() ? ['pendente','solicitada'] : ['aguardando_aprovacao_2','pendente','solicitada']
+  const statusDespesa = isGestor1() ? ['pendente'] : ['aguardando_aprovacao_2']
+  const statusDemanda = isGestor1() ? ['pendente','solicitada'] : ['aguardando_aprovacao_2']
   const [despRes, demRes, profRes, catsRes] = await Promise.all([
     sb.from('despesas').select('*').in('status',statusDespesa).order('data_despesa'),
     sb.from('demandas_viagem').select('*').in('status',statusDemanda).order('created_at',{ascending:true}),
@@ -2992,6 +2993,44 @@ async function carregarAprovacoes(){
   const etapaLabel = isGestor1() ? '1ª aprovação' : 'revisão'
   document.getElementById('aprovar-sub').textContent=`${demandas.length} viagem(ns) e ${despesas.length} RDV(s) aguardando ${etapaLabel}`
   let html=''
+
+  if(!isGestor1() && despesas.length){
+    const catNomePorId = {}
+    cats.forEach(c=>catNomePorId[c.id]=c.nome)
+    const totalFinal = despesas.reduce((s,d)=>s+Number(d.valor||0),0)
+    const porPessoaResumo = {}
+    despesas.forEach(d=>{
+      const uid = d.usuario_id
+      if(!porPessoaResumo[uid]) porPessoaResumo[uid] = {nome:nomePorId[uid]||'?', total:0, items:[]}
+      porPessoaResumo[uid].total += Number(d.valor||0)
+      porPessoaResumo[uid].items.push(d)
+    })
+    const resumoRows = Object.values(porPessoaResumo).map(g=>{
+      const descs = g.items.map(d=>{
+        const cat = catNomePorId[d.categoria_id] || 'Sem categoria'
+        const desc = d.descricao || 'sem descricao'
+        const aprov1 = d.aprovado_por ? ` - ap.1: ${nomePorId[d.aprovado_por]||'?'}` : ''
+        return `<div style="font-size:11px;color:var(--ink2);margin-top:3px">${dataFmt(d.data_despesa)} - ${safeTxt(cat)} - ${safeTxt(desc)} - ${moeda(d.valor)}${aprov1}</div>`
+      }).join('')
+      return `<div style="padding:10px 12px;border-top:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+          <div style="font-size:13px;font-weight:800;color:var(--ink)">${safeTxt(g.nome)}</div>
+          <div style="font-size:13px;font-weight:850;color:var(--purple-dark)">${moeda(g.total)}</div>
+        </div>
+        ${descs}
+      </div>`
+    }).join('')
+    html += `<div class="card" style="margin-bottom:10px;border-color:rgba(91,76,226,.35)">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Resumo para aprovacao final</div>
+          <div class="card-meta">Itens ja aprovados na etapa 1 pelo Vagner</div>
+        </div>
+        <div style="font-size:16px;font-weight:850;color:var(--purple-dark)">${moeda(totalFinal)}</div>
+      </div>
+      ${resumoRows}
+    </div>`
+  }
 
   if(demandas.length){
     const rows=demandas.map(d=>{
@@ -3481,21 +3520,53 @@ async function resetarSenhaFuncionario(id){
 
 // ── Financeiro ────────────────────────────────
 let finMesAtual = mesAtual()
+let finMesAutoAjustado = false
 
 function finNavMes(delta){
   const [y,m] = finMesAtual.split('-').map(Number)
   const d = new Date(y, m-1+delta, 1)
   finMesAtual = d.toISOString().slice(0,7)
+  const input = document.getElementById('fin-mes')
+  if(input) input.value = finMesAtual
   document.getElementById('fin-mes-label').textContent = d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
   carregarFinanceiro()
 }
 
+function mudarFinMes(){
+  const input = document.getElementById('fin-mes')
+  if(input?.value) finMesAtual = input.value
+  finMesAutoAjustado = true
+  carregarFinanceiro()
+}
+
+async function ajustarFinMesInicial(){
+  if(finMesAutoAjustado) return
+  finMesAutoAjustado = true
+  const ini = finMesAtual+'-01'
+  const fim = fimMes(finMesAtual)
+  const { count } = await sb.from('despesas')
+    .select('id',{count:'exact',head:true})
+    .eq('status','aprovado')
+    .gte('data_despesa',ini)
+    .lte('data_despesa',fim)
+  if(count && count > 0) return
+  const { data } = await sb.from('despesas')
+    .select('data_despesa')
+    .eq('status','aprovado')
+    .order('data_despesa',{ascending:false})
+    .limit(1)
+  if(data?.[0]?.data_despesa) finMesAtual = String(data[0].data_despesa).slice(0,7)
+}
+
 async function carregarFinanceiro(){
   if(!podeGerenciarCreditos()){ return }
+  await ajustarFinMesInicial()
   const mes = finMesAtual
   const ini = mes+'-01'
   const fim = fimMes(mes)
   const label = new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  const input = document.getElementById('fin-mes')
+  if(input) input.value = mes
   document.getElementById('fin-mes-label').textContent = label
   document.getElementById('fin-sub').textContent = 'Fechamento · '+label
   document.getElementById('fin-lista').innerHTML='<div class="loading">Carregando...</div>'
@@ -3568,7 +3639,7 @@ async function carregarFinanceiro(){
     <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
 
   if(!linhas.length){
-    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhuma movimentação neste mês.</div>'
+    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhuma movimentação neste mês. Use o seletor de mês acima para ver RDVs aprovados de outro período.</div>'
     return
   }
 
