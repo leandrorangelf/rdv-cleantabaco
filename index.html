@@ -3133,14 +3133,28 @@ async function atualizarCamposIntegrados(origemAtual=null){
   if(origem==='avulsas') await carregarAvulsas()
   if(origem==='insights') await carregarInsights()
   if(origem==='semanal') await carregarSemanal()
+  if(origem==='financeiro' || telaAtiva==='screen-financeiro') await carregarFinanceiro()
+}
+
+function usarMesDaDespesaAprovada(rows){
+  const dataRef = rows?.find(r=>r?.data_despesa)?.data_despesa
+  if(!dataRef) return
+  const mes = String(dataRef).slice(0,7)
+  dashMesAtual = mes
+  finMesAtual = mes
+  const dashMesInput = document.getElementById('dash-mes')
+  if(dashMesInput) dashMesInput.value = mes
 }
 
 async function aprovar(id){
   const novoStatus = isGestor1() ? 'aguardando_aprovacao_2' : 'aprovado'
-  const{error}=await sb.from('despesas')
+  const{data,error}=await sb.from('despesas')
     .update({status:novoStatus,motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
     .eq('id',id)
+    .select('id,status,data_despesa')
   if(error){alert('Erro ao aprovar: '+error.message);return}
+  if(!data?.length){alert('Nenhuma despesa foi alterada. Verifique se voce tem permissao para aprovar este RDV.');return}
+  usarMesDaDespesaAprovada(data)
   if(isGestor1()) mostrarAviso('Aprovação 1 registrada. Aguardando aprovação final.')
   await atualizarCamposIntegrados('aprovar'); if(document.getElementById('screen-viagens')?.classList.contains('active')) await carregarModuloViagens()
 }
@@ -3148,9 +3162,16 @@ async function aprovar(id){
 async function aprovarTodos(ids){
   if(!confirm(`Aprovar ${ids.length} despesa${ids.length>1?'s':''}?`)) return
   const novoStatus = isGestor1() ? 'aguardando_aprovacao_2' : 'aprovado'
-  for(const id of ids){
-    await sb.from('despesas').update({status:novoStatus,motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()}).eq('id',id)
-  }
+  const{data,error}=await sb.from('despesas')
+    .update({status:novoStatus,motivo_rejeicao:null,aprovado_por:perfil.id,aprovado_em:new Date().toISOString()})
+    .in('id',ids)
+    .select('id,status,data_despesa')
+  if(error){alert('Erro ao aprovar despesas: '+error.message);return}
+  if(!data?.length){alert('Nenhuma despesa foi alterada. Verifique se voce tem permissao para aprovar estes RDVs.');return}
+  usarMesDaDespesaAprovada(data)
+  mostrarAviso(isGestor1()
+    ? `Aprovacao 1 registrada em ${data.length} despesa${data.length>1?'s':''}.`
+    : `${data.length} despesa${data.length>1?'s':''} aprovada${data.length>1?'s':''}.`)
   await atualizarCamposIntegrados('aprovar')
 }
 
