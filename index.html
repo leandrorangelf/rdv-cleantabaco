@@ -775,6 +775,12 @@ body::before {
       <div class="screen active" id="screen-dashboard">
         <div class="page-title">Visão geral</div>
         <div class="page-sub" id="dash-sub">Carregando...</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+          <input id="dash-mes" type="month" class="form-input" style="min-height:34px;padding:5px 8px;font-size:12px;width:150px" onchange="mudarDashMes()">
+          <button class="btn" onclick="mudarDashMes()">Ver m&ecirc;s</button>
+          <button class="btn" onclick="abrirAvulsasDash()">Ver lan&ccedil;amentos</button>
+          <button class="btn btn-primary" onclick="abrirLancamentoDash()">+ Lan&ccedil;ar neste m&ecirc;s</button>
+        </div>
         <div class="metrics">
           <div class="metric m-purple"><div class="metric-label">Total solicitado</div><div class="metric-value" id="m-total">—</div></div>
           <div class="metric m-mint"><div class="metric-label">Aprovado</div><div class="metric-value" id="m-aprov">—</div></div>
@@ -784,16 +790,6 @@ body::before {
 
         <!-- Alerta RDV -->
         <div id="dash-alerta-rdv"></div>
-        <div id="dash-lancar-junho" class="card" style="margin-bottom:12px">
-          <div style="padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div>
-              <div class="card-title">Lan&ccedil;amentos de junho/2026</div>
-              <div class="card-meta">Use este atalho para registrar despesas avulsas de junho.</div>
-            </div>
-            <button class="btn btn-primary" onclick="abrirLancamentoJunho()">+ Lan&ccedil;ar junho</button>
-          </div>
-        </div>
-
         <!-- Semana de todos (Admin) -->
         <div id="dash-semana-wrap" style="display:none;margin-bottom:12px">
           <div class="sec-header" style="margin-bottom:6px">
@@ -1089,6 +1085,10 @@ body::before {
         <!-- Cabeçalho: tipo + viagem -->
         <div class="form-card" style="margin-bottom:14px">
           <div class="form-row">
+            <div class="form-group" id="multi-campo-pessoa" style="display:none">
+              <label class="form-label">Lan&ccedil;ar para</label>
+              <select id="multi-pessoa" class="form-select" onchange="aoMudarPessoaMulti()"><option value="">Meu RDV</option></select>
+            </div>
             <div class="form-group">
               <label class="form-label">Tipo</label>
               <div class="tipo-toggle" style="margin-bottom:0">
@@ -1310,6 +1310,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON)
 let perfil = null
 let tipoAtual = 'viagem'
 let catTipoAtual = 'viagem'
+let dashMesAtual = null
 
 function moeda(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0) }
 function dataFmt(s) { if(!s)return''; const[y,m,d]=s.split('-'); return`${d}/${m}/${y}` }
@@ -1318,6 +1319,9 @@ function iniciais(nome) { return nome.split(' ').slice(0,2).map(n=>n[0]).join(''
 function mesAtual() { const n=new Date(); return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}` }
 function ultimoDiaMes(mesStr) { const[y,m]=mesStr.split('-'); return new Date(y,m,0).getDate() }
 function fimMes(mesStr) { return`${mesStr}-${ultimoDiaMes(mesStr)}` }
+function mesLabel(mesStr){ return new Date(`${mesStr}-02T00:00:00`).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) }
+function dashMesSelecionado(){ return document.getElementById('dash-mes')?.value || dashMesAtual || mesAtual() }
+async function mudarDashMes(){ dashMesAtual = dashMesSelecionado(); await carregarDashboard() }
 function statusBadge(s) {
   const m={pendente:'b-orange',solicitada:'b-orange',aprovado:'b-mint',aprovada:'b-mint',autorizada:'b-mint',aguardando_aprovacao_2:'b-orange',aguardando_bilhete:'b-orange',bilhete_preenchido:'b-purple',rejeitado:'b-red',reprovada:'b-red',agendada:'b-gray',em_andamento:'b-purple',concluida:'b-mint',cancelada:'b-gray'}
   const l={pendente:'Pendente',solicitada:'Pendente',aprovado:'Aprovado',aprovada:'Aprovada',autorizada:'Autorizada',aguardando_aprovacao_2:'Aguard. aprovação final',aguardando_bilhete:'Aguardando bilhete',bilhete_preenchido:'Bilhete preenchido',rejeitado:'Rejeitado',reprovada:'Reprovada',agendada:'Agendada',em_andamento:'Em andamento',concluida:'Concluída',cancelada:'Cancelada'}
@@ -1332,10 +1336,12 @@ function viagemAtiva(v){ return registroAtivo(v) && statusNorm(v?.status) !== 'c
 function viagemComBilhete(v){ return viagemAtiva(v) && (statusNorm(v?.status)==='bilhete_preenchido' || !!v?.localizador) }
 function viagemAguardandoBilhete(v){ return viagemAtiva(v) && !viagemComBilhete(v) && ['autorizada','aguardando_bilhete'].includes(statusNorm(v?.status)) }
 function viagemFinanceiraNoPeriodo(v, ini, fim){ return viagemComBilhete(v) && Number(v?.valor_bilhete||0)>0 && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim) }
-function isGestor(){ return perfil?.papel==='aprovador' }
-function isGestor1(){ return perfil?.papel==='gestor' }
+function isGestor(){ return perfil?.papel==='aprovador' || isLeandro() }
+function isGestor1(){ return perfil?.papel==='gestor' && !isLeandro() }
 function isGerente(){ return perfil?.papel==='gerente' }
 function isFinanceiro(){ return perfil?.papel==='financeiro' }
+function podeGerenciarCreditos(){ return isGestor() || isFinanceiro() || isOperadorEspecial() }
+function podeGerenciarPagamentos(){ return isGestor() || isFinanceiro() }
 function podesolicitarViagem(){ return ['aprovador','gestor','gerente','coordenador'].includes(perfil?.papel) }
 function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
@@ -1424,6 +1430,16 @@ function categoriasUnicas(lista, tipoFiltro=null){
     vistos.add(chave)
     return true
   })
+}
+
+function nomeNormalizado(nome){ return normalizarNomeCategoria(nome) }
+function isLeandro(){ return nomeNormalizado(perfil?.nome).includes('leandro') }
+function isVagner(){ return nomeNormalizado(perfil?.nome).includes('vagner') }
+function isOperadorEspecial(){ return isLeandro() || isVagner() }
+function podeLancarParaTerceiros(){ return isOperadorEspecial() }
+function nomePermitidoLancamento(nome){
+  const n = nomeNormalizado(nome)
+  return n.includes('renan') || n.includes('glauco')
 }
 
 function mostrarAviso(msg, tipo='ok'){
@@ -1522,6 +1538,7 @@ async function iniciarApp() {
     document.getElementById('nav-aprovar').style.display='flex'
     document.getElementById('nav-agendaequipe').style.display='flex'
     document.getElementById('nav-label-admin').style.display='block'
+    if(isVagner()) document.getElementById('nav-financeiro').style.display='flex'
   }
   // Gerente: solicita viagem, vê próprias viagens, sem autorizar/aprovar
   if(isGerente()){
@@ -1638,7 +1655,11 @@ function renderViagensDash(){
 }
 
 async function carregarDashboard() {
-  const mes=mesAtual()
+  const mes=dashMesSelecionado()
+  dashMesAtual = mes
+  const dashMesInput = document.getElementById('dash-mes')
+  if(dashMesInput) dashMesInput.value = mes
+  const labelMes = mesLabel(mes)
   let q=sb.from('despesas').select('valor,status,usuario_id,ativo').gte('data_despesa',`${mes}-01`).lte('data_despesa',fimMes(mes))
   if(!isGestor())q=q.eq('usuario_id',perfil.id)
   const{data:despesas}=await q
@@ -1646,6 +1667,7 @@ async function carregarDashboard() {
   const dsAtivas=ds.filter(despesaComputavel)
 
   document.getElementById('dash-sub').textContent=`${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})} · ${isGestor()?'todos':'meu RDV'}`
+  document.getElementById('dash-sub').textContent=`${labelMes} - ${isGestor()?'todos':'meu RDV'}`
   document.getElementById('m-total').textContent=moeda(dsAtivas.reduce((s,d)=>s+d.valor,0))
   document.getElementById('m-aprov').textContent=moeda(dsAtivas.filter(d=>statusNorm(d.status)==='aprovado').reduce((s,d)=>s+Number(d.valor||0),0))
   document.getElementById('m-pend').textContent=moeda(dsAtivas.filter(d=>statusNorm(d.status)==='pendente').reduce((s,d)=>s+Number(d.valor||0),0))
@@ -1713,7 +1735,7 @@ async function carregarDashboard() {
     document.getElementById('dash-tabela').innerHTML=rows?`<div class="sec-header" style="margin-top:12px"><div class="sec-title">Resumo financeiro por coordenador</div></div><div class="card"><table class="tbl"><thead><tr><th>Nome</th><th>Total</th><th>Aprovado</th><th>Pendente</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''
 
     // Tabela por estado
-    const tabelaEstado=await carregarGastosPorEstado()
+    const tabelaEstado=await carregarGastosPorEstado(mes,labelMes)
     document.getElementById('dash-tabela').innerHTML+=(tabelaEstado||'')
 
     // Tabela anual
@@ -3448,7 +3470,7 @@ function finNavMes(delta){
 }
 
 async function carregarFinanceiro(){
-  if(!isGestor() && !isFinanceiro()){ return }
+  if(!podeGerenciarCreditos()){ return }
   const mes = finMesAtual
   const ini = mes+'-01'
   const fim = fimMes(mes)
@@ -3477,9 +3499,11 @@ async function carregarFinanceiro(){
   const { data: verbas } = await sb.from('verbas').select('*').eq('mes', mes)
 
   // Busca pagamentos do mês
-  const { data: pagamentos } = await sb.from('pagamentos_rdv').select('*').eq('mes', mes)
+  const { data: pagamentos } = podeGerenciarPagamentos()
+    ? await sb.from('pagamentos_rdv').select('*').eq('mes', mes)
+    : { data: [] }
 
-  const profsAtivos = (profs||[]).filter(p=>p.ativo!==false && ['coordenador','gerente'].includes(p.papel))
+  const profsAtivos = (profs||[]).filter(p=>p.ativo!==false)
 
   // Agrupa por usuário
   const porRdv = {}
@@ -3495,27 +3519,31 @@ async function carregarFinanceiro(){
   const linhas = profsAtivos.map(p=>{
     const aprovado = porRdv[p.id]||0
     const bilhetes = porBilhete[p.id]||0
-    if(!aprovado && !bilhetes) return null
     const verba = (verbas||[]).find(v=>v.usuario_id===p.id)
     const pag = (pagamentos||[]).find(g=>g.usuario_id===p.id)
     const verbVal = Number(verba?.valor||0)
     const apagar = Math.max(0, aprovado - verbVal)
+    const saldoCredito = Math.max(0, verbVal - aprovado)
     const custoTotal = aprovado + bilhetes
     const pago = !!pag
-    return {p, aprovado, bilhetes, custoTotal, verbVal, apagar, pago, pag}
+    return {p, aprovado, bilhetes, custoTotal, verbVal, saldoCredito, apagar, pago, pag}
   }).filter(Boolean)
 
   // Cards de resumo
   const totalRdv     = linhas.reduce((s,r)=>s+r.aprovado,0)
   const totalBilhetes = linhas.reduce((s,r)=>s+r.bilhetes,0)
   const totalCusto   = linhas.reduce((s,r)=>s+r.custoTotal,0)
+  const totalCredito = linhas.reduce((s,r)=>s+r.verbVal,0)
+  const totalSaldoCredito = linhas.reduce((s,r)=>s+r.saldoCredito,0)
   const totalApagar  = linhas.reduce((s,r)=>s+r.apagar,0)
   const totalPago    = linhas.filter(r=>r.pago).reduce((s,r)=>s+Number(r.pag?.valor_pago||0),0)
   document.getElementById('fin-resumo').innerHTML=`
     <div class="metric m-purple" style="flex:1;min-width:120px"><div class="metric-label">RDV aprovado</div><div class="metric-value">${moeda(totalRdv)}</div></div>
     <div class="metric m-purple" style="flex:1;min-width:120px"><div class="metric-label">Bilhetes</div><div class="metric-value">${moeda(totalBilhetes)}</div></div>
     <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Custo total</div><div class="metric-value">${moeda(totalCusto)}</div></div>
-    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">A pagar (RDV)</div><div class="metric-value">${moeda(totalApagar)}</div></div>
+    <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Cr&eacute;dito PIX</div><div class="metric-value">${moeda(totalCredito)}</div></div>
+    <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Saldo cr&eacute;dito</div><div class="metric-value">${moeda(totalSaldoCredito)}</div></div>
+    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Reembolso excedente</div><div class="metric-value">${moeda(totalApagar)}</div></div>
     <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
 
   if(!linhas.length){
@@ -3523,7 +3551,7 @@ async function carregarFinanceiro(){
     return
   }
 
-  const rows = linhas.map(({p,aprovado,bilhetes,custoTotal,verbVal,apagar,pago,pag})=>`<tr>
+  const rows = linhas.map(({p,aprovado,bilhetes,custoTotal,verbVal,saldoCredito,apagar,pago,pag})=>`<tr>
     <td><div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div></td>
     <td>${aprovado>0?moeda(aprovado):'—'}</td>
     <td>${bilhetes>0?moeda(bilhetes):'—'}</td>
@@ -3535,8 +3563,9 @@ async function carregarFinanceiro(){
       </div>
     </td>
     <td style="font-weight:800;color:var(--orange-dark)">${apagar>0?moeda(apagar):'—'}</td>
+    <td style="font-weight:800;color:var(--mint-dark)">${saldoCredito>0?moeda(saldoCredito):'-'}</td>
     <td>
-      ${pago
+      ${!podeGerenciarPagamentos() ? '<span class="badge b-gray">Cr&eacute;dito</span>' : pago
         ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
         : `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${apagar})">Marcar pago</button>`
       }
@@ -3546,12 +3575,13 @@ async function carregarFinanceiro(){
   document.getElementById('fin-lista').innerHTML=`<div class="card" style="overflow:auto">
     <table class="tbl">
       <thead><tr>
-        <th>Coordenador</th>
+        <th>Pessoa</th>
         <th>RDV aprovado</th>
         <th>Bilhetes</th>
         <th>Custo total</th>
-        <th>Verba em mãos</th>
-        <th>A pagar (RDV)</th>
+        <th>Cr&eacute;dito PIX</th>
+        <th>Reembolso excedente</th>
+        <th>Saldo cr&eacute;dito</th>
         <th style="text-align:right">Status</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -3695,8 +3725,7 @@ async function carregarConsolidadoAnual(profs){
   </div>`
 }
 
-async function carregarGastosPorEstado(){
-  const mes=mesAtual()
+async function carregarGastosPorEstado(mes=mesAtual(), label=mesLabel(mes)){
   const{data:despesas}=await sb.from('despesas')
     .select('valor,status,estado,viagem_id')
     .in('status',['pendente','aprovado'])
@@ -3768,6 +3797,7 @@ let multiCats = []       // todas as categorias do banco
 let multiContador = 0    // contador global de linhas
 let multiArquivos = {}   // {catId: [File, ...]} — arquivos por bloco
 
+let multiPessoasPermitidas = []
 let multiMesPadrao = null
 
 function dataPadraoMulti(){
@@ -3780,10 +3810,68 @@ function abrirLancamentoJunho(){
   setTimeout(()=>setMultiTipo('avulso'), 300)
 }
 
+function abrirLancamentoDash(){
+  multiMesPadrao = dashMesSelecionado()
+  showScreen('lancarmultiplo', document.getElementById('nav-lancarmultiplo'))
+  setTimeout(()=>setMultiTipo('avulso'), 300)
+}
+
+function abrirAvulsasDash(){
+  const inputMes = document.getElementById('avulsas-mes')
+  if(inputMes) inputMes.value = dashMesSelecionado()
+  showScreen('avulsas', document.getElementById('nav-lancarmultiplo'))
+}
+
 function abrirNovoLancamentoAvulso(){
   multiMesPadrao = null
   showScreen('lancarmultiplo', document.getElementById('nav-lancarmultiplo'))
   setTimeout(()=>setMultiTipo('avulso'), 300)
+}
+
+function usuarioMultiSelecionado(){
+  const sel = document.getElementById('multi-pessoa')
+  return sel?.value || perfil.id
+}
+
+function perfilMultiSelecionado(){
+  const uid = usuarioMultiSelecionado()
+  return multiPessoasPermitidas.find(p=>p.id===uid) || perfil
+}
+
+async function carregarViagensMulti(usuarioId){
+  const sel = document.getElementById('multi-viagem')
+  if(!sel) return
+  const {data} = await sb.from('viagens').select('id,destino,cliente,data_inicio')
+    .eq('usuario_id',usuarioId).or('ativo.is.null,ativo.eq.true').neq('status','cancelada')
+    .in('status',['agendada','em_andamento','autorizada','bilhete_preenchido','concluida'])
+    .order('data_inicio',{ascending:false})
+  sel.innerHTML = '<option value="">Selecione a viagem</option>'
+  ;(data||[]).forEach(v=>{
+    sel.innerHTML += `<option value="${v.id}">${v.destino} Â· ${v.cliente} (${dataFmt(v.data_inicio)})</option>`
+  })
+}
+
+async function prepararPessoasMulti(){
+  const campo = document.getElementById('multi-campo-pessoa')
+  const sel = document.getElementById('multi-pessoa')
+  if(!campo || !sel) return
+  multiPessoasPermitidas = [perfil]
+  campo.style.display = 'none'
+  sel.innerHTML = `<option value="${perfil.id}">Meu RDV (${perfil.nome})</option>`
+  if(!podeLancarParaTerceiros()) return
+
+  const {data} = await sb.from('profiles').select('id,nome,estado_base,ativo').order('nome')
+  const permitidos = (data||[]).filter(p=>p.ativo!==false && nomePermitidoLancamento(p.nome))
+  multiPessoasPermitidas = [perfil, ...permitidos.filter(p=>p.id!==perfil.id)]
+  multiPessoasPermitidas.forEach(p=>{
+    if(p.id===perfil.id) return
+    sel.innerHTML += `<option value="${p.id}">${p.nome}</option>`
+  })
+  campo.style.display = permitidos.length ? 'flex' : 'none'
+}
+
+async function aoMudarPessoaMulti(){
+  await carregarViagensMulti(usuarioMultiSelecionado())
 }
 
 async function prepararFormMulti(){
@@ -3809,6 +3897,7 @@ async function prepararFormMulti(){
   atualizarTotalGeral()
 
   try {
+    await prepararPessoasMulti()
     const [viagRes, catsRes] = await Promise.all([
       sb.from('viagens').select('id,destino,cliente,data_inicio')
         .eq('usuario_id',perfil.id).or('ativo.is.null,ativo.eq.true').neq('status','cancelada').in('status',['agendada','em_andamento','autorizada','bilhete_preenchido','concluida']).order('data_inicio',{ascending:false}),
@@ -3822,6 +3911,8 @@ async function prepararFormMulti(){
         sel.innerHTML += `<option value="${v.id}">${v.destino} · ${v.cliente} (${dataFmt(v.data_inicio)})</option>`
       })
     }
+
+    await carregarViagensMulti(usuarioMultiSelecionado())
 
     multiCats = catsRes.data||[]
 
@@ -4040,6 +4131,11 @@ async function salvarMulti(){
   err.style.display = 'none'; prog.style.display = 'none'
 
   const viagId = multiTipoAtual==='viagem' ? document.getElementById('multi-viagem').value : null
+  const usuarioLancamento = usuarioMultiSelecionado()
+  const perfilLancamento = perfilMultiSelecionado()
+  if(usuarioLancamento !== perfil.id && !multiPessoasPermitidas.some(p=>p.id===usuarioLancamento && nomePermitidoLancamento(p.nome))){
+    err.textContent = 'VocÃª nÃ£o tem permissÃ£o para lanÃ§ar para esta pessoa.'; err.style.display = 'block'; return
+  }
   if(multiTipoAtual==='viagem' && !viagId){
     err.textContent = 'Selecione a viagem vinculada.'; err.style.display = 'block'; return
   }
@@ -4067,7 +4163,7 @@ async function salvarMulti(){
   if(multiTipoAtual==='viagem' && viagId){
     const{data:viag}=await sb.from('viagens').select('estado').eq('id',viagId).single()
     estado_despesa = viag?.estado||null
-  } else { estado_despesa = perfil.estado_base||null }
+  } else { estado_despesa = perfilLancamento.estado_base||null }
 
   document.getElementById('multi-btn-salvar').disabled = true
   prog.textContent = `Salvando 0 de ${linhas.length}...`
@@ -4095,7 +4191,7 @@ async function salvarMulti(){
     }
 
     const{data:nova,error}=await sb.from('despesas').insert({
-      usuario_id:perfil.id, viagem_id:viagId||null, categoria_id:l.catId,
+      usuario_id:usuarioLancamento, viagem_id:viagId||null, categoria_id:l.catId,
       descricao:l.desc||null, valor:l.val, data_despesa:l.data, data_fim:l.dataFim||null,
       status:'pendente', comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
     }).select('id').single()
