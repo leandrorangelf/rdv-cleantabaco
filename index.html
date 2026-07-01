@@ -2060,7 +2060,7 @@ async function carregarAvulsas(){
     const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
       ?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${d.motivo_rejeicao}</div>`:''
-    const podeEditar=ehMesAtual&&(d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')
+    const podeEditar=(d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')
     const editBtn=podeEditar
       ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`
       :isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
@@ -3560,6 +3560,7 @@ async function carregarFinanceiro(){
       <div style="display:flex;gap:6px;align-items:center">
         <input type="number" id="fin-verba-${p.id}" class="form-input" style="width:90px;min-height:28px;padding:4px 8px;font-size:12px" value="${verbVal||''}" placeholder="0,00" step="0.01" min="0">
         <button class="btn btn-sm" onclick="salvarVerba('${p.id}','${mes}')">OK</button>
+        ${verbVal>0?`<button class="btn btn-sm btn-reject" onclick="removerVerba('${p.id}','${mes}')">Remover</button>`:''}
       </div>
     </td>
     <td style="font-weight:800;color:var(--orange-dark)">${apagar>0?moeda(apagar):'—'}</td>
@@ -3591,6 +3592,10 @@ async function carregarFinanceiro(){
 
 async function salvarVerba(userId, mes){
   const val = parseFloat(document.getElementById('fin-verba-'+userId)?.value||'0')||0
+  if(val <= 0){
+    await removerVerba(userId, mes, false)
+    return
+  }
   // upsert na tabela verbas
   const { error } = await sb.from('verbas').upsert({
     usuario_id: userId,
@@ -3601,6 +3606,14 @@ async function salvarVerba(userId, mes){
   }, { onConflict: 'usuario_id,mes' })
   if(error){ mostrarAviso('Erro ao salvar verba: '+error.message,'erro'); return }
   mostrarAviso('Verba salva.')
+  await carregarFinanceiro()
+}
+
+async function removerVerba(userId, mes, confirmar=true){
+  if(confirmar && !confirm('Remover o crÃ©dito PIX desta pessoa neste mÃªs?')) return
+  const { error } = await sb.from('verbas').delete().eq('usuario_id', userId).eq('mes', mes)
+  if(error){ mostrarAviso('Erro ao remover crÃ©dito: '+error.message,'erro'); return }
+  mostrarAviso('CrÃ©dito removido.')
   await carregarFinanceiro()
 }
 
