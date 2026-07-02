@@ -1235,6 +1235,7 @@ body::before {
                 <option value="gerente">Gerente visualizador</option>
                 <option value="viagens">VIAGENS / emitir bilhete</option>
                 <option value="financeiro">Financeiro / pagamentos</option>
+                <option value="financeiro_viagens">Financeiro + Viagens / emitir bilhete</option>
                 <option value="gestor">Gestor / aprovação 1</option>
                 <option value="aprovador">Gestor / aprovação final</option>
               </select>
@@ -1340,11 +1341,11 @@ function viagemFinanceiraNoPeriodo(v, ini, fim){ return viagemComBilhete(v) && N
 function isGestor(){ return perfil?.papel==='aprovador' || isLeandro() }
 function isGestor1(){ return perfil?.papel==='gestor' && !isLeandro() }
 function isGerente(){ return perfil?.papel==='gerente' }
-function isFinanceiro(){ return perfil?.papel==='financeiro' }
+function isFinanceiro(){ return perfil?.papel==='financeiro' || perfil?.papel==='financeiro_viagens' }
 function podeGerenciarCreditos(){ return isGestor() || isFinanceiro() || isOperadorEspecial() }
 function podeGerenciarPagamentos(){ return isGestor() || isFinanceiro() }
 function podesolicitarViagem(){ return ['aprovador','gestor','gerente','coordenador'].includes(perfil?.papel) }
-function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' }
+function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' || perfil?.papel==='financeiro_viagens' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
 function diasEntreHoje(dataISO){
   if(!dataISO)return null
@@ -1500,6 +1501,23 @@ async function iniciarApp() {
   document.getElementById('app').classList.add('show')
   document.querySelectorAll('.aprovador-only').forEach(el=>el.style.display='none')
   document.getElementById('nav-label-admin').style.display='none'
+
+  if(perfil?.papel==='financeiro_viagens'){
+    // Financeiro + emissão de bilhetes (Manu): vê só Financeiro e a aba Bilhete de Viagens.
+    document.querySelectorAll('.nav-item').forEach(el=>el.style.display='none')
+    document.querySelectorAll('.nav-label').forEach(el=>el.style.display='none')
+    document.getElementById('nav-financeiro').style.display='flex'
+    document.getElementById('nav-viagens').style.display='flex'
+    const btnNovaFV=document.getElementById('btn-solicitar-viagem')
+    if(btnNovaFV) btnNovaFV.style.display='none'
+    const btnPdfGeralFV=document.getElementById('btn-pdf-agencia-geral')
+    if(btnPdfGeralFV) btnPdfGeralFV.style.display='inline-flex'
+    document.querySelectorAll('#screen-viagens .mod-tab').forEach(el=>el.style.display='none')
+    document.getElementById('tab-viagens-bilhete').style.display='inline-flex'
+    viagensTabAtual='bilhete'
+    showScreen('financeiro',document.getElementById('nav-financeiro'))
+    return
+  }
 
   if(isEmissorViagens()){
     // Perfil operacional: só emite/anexa bilhetes. Não vê RDV, dashboard financeiro, equipe ou categorias.
