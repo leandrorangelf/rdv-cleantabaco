@@ -1,7 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const PAPEIS_VALIDOS = ['aprovador', 'gestor', 'coordenador', 'gerente', 'viagens', 'emissor_viagens', 'financeiro', 'promotor']
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') || 'https://rdv-cleantabaco.vercel.app'
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -30,6 +34,11 @@ Deno.serve(async (req) => {
     // ── Criar funcionário ────────────────────────────────────────────────────
     if (action === 'criar') {
       const { nome, email, senha, papel, estado_base } = body
+
+      if (!nome || !email || !senha || !papel) return json({ error: 'Campos obrigatórios: nome, email, senha, papel.' }, 400)
+      if (!EMAIL_RE.test(email)) return json({ error: 'E-mail inválido.' }, 400)
+      if (String(senha).length < 8) return json({ error: 'Senha deve ter ao menos 8 caracteres.' }, 400)
+      if (!PAPEIS_VALIDOS.includes(papel)) return json({ error: 'Papel inválido.' }, 400)
 
       // Cria o usuário no Auth
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -60,6 +69,8 @@ Deno.serve(async (req) => {
     // ── Atualizar funcionário (papel, estado, ativo) ─────────────────────────
     if (action === 'atualizar') {
       const { user_id, papel, estado_base, ativo } = body
+      if (!user_id) return json({ error: 'user_id é obrigatório.' }, 400)
+      if (papel !== undefined && !PAPEIS_VALIDOS.includes(papel)) return json({ error: 'Papel inválido.' }, 400)
       const updates: Record<string, unknown> = {}
       if (papel     !== undefined) updates.papel      = papel
       if (estado_base !== undefined) updates.estado_base = estado_base
@@ -73,6 +84,8 @@ Deno.serve(async (req) => {
     // ── Resetar senha ────────────────────────────────────────────────────────
     if (action === 'resetar_senha') {
       const { user_id, senha } = body
+      if (!user_id) return json({ error: 'user_id é obrigatório.' }, 400)
+      if (!senha || String(senha).length < 8) return json({ error: 'Senha deve ter ao menos 8 caracteres.' }, 400)
       const { error } = await admin.auth.admin.updateUserById(user_id, { password: senha })
       if (error) return json({ error: error.message }, 400)
       return json({ ok: true })
