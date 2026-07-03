@@ -343,7 +343,7 @@ body {
 .mod-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow:var(--shadow-sm); }
 .mod-card-label { font-size:11px; font-weight:800; color:var(--ink2); margin-bottom:6px; }
 .mod-card-value { font-size:24px; font-weight:850; letter-spacing:-.04em; }
-.fin-summary { display:grid; grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(140px, 1fr)); gap:12px; margin-bottom:16px; }
+.fin-summary { display:grid; grid-template-columns: minmax(220px, 1.6fr) repeat(4, minmax(140px, 1fr)); gap:12px; margin-bottom:16px; }
 .fin-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:var(--shadow-sm); }
 .fin-card-main { border-color:rgba(217,119,6,.35); background:#FFF7ED; }
 .fin-card-label { font-size:11px; font-weight:850; color:var(--ink2); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
@@ -3639,6 +3639,7 @@ async function carregarFinanceiro(){
   }).filter(r=>r.aprovado>0 || r.verbVal>0 || r.pago)
 
   // Cards de resumo
+  const totalCreditoLancado = linhas.reduce((s,r)=>s+r.verbVal,0)
   const totalCreditoUsado = linhas.reduce((s,r)=>s+r.creditoUsado,0)
   const totalSaldoCredito = linhas.reduce((s,r)=>s+r.saldoCredito,0)
   const totalApagar  = linhas.reduce((s,r)=>s+r.apagar,0)
@@ -3654,6 +3655,11 @@ async function carregarFinanceiro(){
         <div class="fin-card-label">J&aacute; pago</div>
         <div class="fin-card-value">${moeda(totalPago)}</div>
         <div class="fin-card-note">Pagamentos marcados neste m&ecirc;s.</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-card-label">Cr&eacute;dito PIX lan&ccedil;ado</div>
+        <div class="fin-card-value">${moeda(totalCreditoLancado)}</div>
+        <div class="fin-card-note">Dinheiro que j&aacute; estava com os funcion&aacute;rios para usar no RDV.</div>
       </div>
       <div class="fin-card">
         <div class="fin-card-label">Cr&eacute;dito usado</div>
@@ -3686,14 +3692,16 @@ async function carregarFinanceiro(){
     <td style="font-weight:800;color:var(--mint-dark)">${saldoCredito>0?moeda(saldoCredito):'&mdash;'}</td>
     <td>
       <div class="${apagar>0?'fin-receber':'fin-zero'}">${apagar>0?moeda(apagar):'R$ 0,00'}</div>
-      ${apagar<=0 && saldoCredito>0?`<div class="fin-credit-note">Cr&eacute;dito cobriu este RDV.</div>`:''}
+      ${apagar<=0 && saldoCredito>0?`<div class="fin-credit-note">${aprovado>0?'Cr&eacute;dito cobriu este RDV.':'Cr&eacute;dito dispon&iacute;vel para abater RDV.'}</div>`:''}
     </td>
     <td>
       ${!podeGerenciarPagamentos() ? '<span class="badge b-gray">Cr&eacute;dito</span>' : pago
         ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
         : apagar>0
           ? `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${apagar})">Marcar pago</button>`
-          : '<span class="badge b-gray">Nada a pagar</span>'
+          : saldoCredito>0
+            ? '<span class="badge b-mint">Cr&eacute;dito dispon&iacute;vel</span>'
+            : '<span class="badge b-gray">Nada a pagar</span>'
       }
     </td>
   </tr>`).join('')
