@@ -3618,15 +3618,13 @@ async function carregarFinanceiro(){
     ? await sb.from('pagamentos_rdv').select('*').eq('mes', mes)
     : { data: [] }
 
-  const profsAtivos = (profs||[]).filter(p=>p.ativo!==false)
-
   // Agrupa por usuário
   const porRdv = {}
   dsAprov.forEach(d=>{
     porRdv[d.usuario_id] = (porRdv[d.usuario_id]||0) + Number(d.valor||0)
   })
   // Monta linhas de reembolso. Custos de viagem ficam fora desta tela.
-  const linhas = profsAtivos.map(p=>{
+  const linhas = (profs||[]).map(p=>{
     const aprovado = porRdv[p.id]||0
     const verba = (verbas||[]).find(v=>v.usuario_id===p.id)
     const pag = (pagamentos||[]).find(g=>g.usuario_id===p.id)
@@ -3681,6 +3679,7 @@ async function carregarFinanceiro(){
   const rows = linhas.map(({p,aprovado,verbVal,creditoUsado,saldoCredito,apagar,pago,pag})=>`<tr>
     <td>
       <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div>
+      ${p.ativo===false?`<div class="fin-credit-note">Funcion&aacute;rio inativo</div>`:''}
       ${verbVal>0?`<div class="fin-credit-note">Cr&eacute;dito inicial: ${moeda(verbVal)}</div>`:''}
     </td>
     <td>${aprovado>0?moeda(aprovado):'&mdash;'}</td>
