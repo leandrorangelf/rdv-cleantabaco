@@ -3611,12 +3611,20 @@ async function carregarFinanceiro(){
   const { data: profs } = await sb.from('profiles').select('id,nome,papel,ativo').order('nome')
 
   // Busca verbas do mês
-  const { data: verbas } = await sb.from('verbas').select('*').eq('mes', mes)
+  const { data: verbas, error: erroVerbas } = await sb.from('verbas').select('*').eq('mes', mes)
+  if(erroVerbas){
+    document.getElementById('fin-lista').innerHTML=`<div class="empty">Erro ao carregar cr&eacute;ditos PIX: ${safeTxt(erroVerbas.message)}. Verifique as permiss&otilde;es do perfil financeiro.</div>`
+    return
+  }
 
   // Busca pagamentos do mês
-  const { data: pagamentos } = podeGerenciarPagamentos()
+  const { data: pagamentos, error: erroPagamentos } = podeGerenciarPagamentos()
     ? await sb.from('pagamentos_rdv').select('*').eq('mes', mes)
-    : { data: [] }
+    : { data: [], error: null }
+  if(erroPagamentos){
+    document.getElementById('fin-lista').innerHTML=`<div class="empty">Erro ao carregar pagamentos: ${safeTxt(erroPagamentos.message)}. Verifique as permiss&otilde;es do perfil financeiro.</div>`
+    return
+  }
 
   // Agrupa por usuário
   const porRdv = {}
