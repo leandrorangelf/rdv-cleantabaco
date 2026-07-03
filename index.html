@@ -343,13 +343,24 @@ body {
 .mod-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow:var(--shadow-sm); }
 .mod-card-label { font-size:11px; font-weight:800; color:var(--ink2); margin-bottom:6px; }
 .mod-card-value { font-size:24px; font-weight:850; letter-spacing:-.04em; }
+.fin-summary { display:grid; grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(140px, 1fr)); gap:12px; margin-bottom:16px; }
+.fin-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:var(--shadow-sm); }
+.fin-card-main { border-color:rgba(217,119,6,.35); background:#FFF7ED; }
+.fin-card-label { font-size:11px; font-weight:850; color:var(--ink2); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+.fin-card-value { font-size:24px; font-weight:900; letter-spacing:-.03em; color:var(--ink); }
+.fin-card-main .fin-card-value { font-size:30px; color:var(--orange-dark); }
+.fin-card-note { font-size:11px; color:var(--ink2); margin-top:6px; line-height:1.35; }
+.fin-receber { font-size:15px; font-weight:900; color:var(--orange-dark); white-space:nowrap; }
+.fin-zero { font-weight:800; color:var(--ink2); white-space:nowrap; }
+.fin-credit-note { font-size:11px; color:var(--ink2); margin-top:3px; }
 .action-row { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
 .week-cell-click { cursor:pointer; transition:.12s ease; }
 .week-cell-click:hover { transform:translateY(-1px); box-shadow:var(--shadow-sm); }
 .person-card { cursor:pointer; }
 .person-card:hover { border-color:rgba(91,33,182,.35); box-shadow:var(--shadow-md); }
 @media (max-width: 900px) { .mod-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px) { .mod-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .fin-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .mod-grid, .fin-summary { grid-template-columns: 1fr; } }
 
 @media (max-width: 900px) {
   body { font-size: 14px; }
@@ -3586,7 +3597,7 @@ async function carregarFinanceiro(){
   const input = document.getElementById('fin-mes')
   if(input) input.value = mes
   document.getElementById('fin-mes-label').textContent = label
-  document.getElementById('fin-sub').textContent = 'Fechamento · '+label
+  document.getElementById('fin-sub').textContent = 'Reembolsos do mes · '+label
   document.getElementById('fin-lista').innerHTML='<div class="loading">Carregando...</div>'
   document.getElementById('fin-resumo').innerHTML=''
 
@@ -3595,12 +3606,6 @@ async function carregarFinanceiro(){
     .select('usuario_id,valor,status,ativo')
     .gte('data_despesa', ini).lte('data_despesa', fim)
   const dsAprov = (despesas||[]).filter(d=>registroAtivo(d) && statusNorm(d.status)==='aprovado')
-
-  // Busca viagens com bilhete no período
-  const { data: viagens } = await sb.from('viagens')
-    .select('usuario_id,valor_bilhete,status,ativo,data_ida,data_inicio,localizador')
-    .or('ativo.is.null,ativo.eq.true')
-  const bilhetesNoMes = (viagens||[]).filter(v=>viagemFinanceiraNoPeriodo(v, ini, fim))
 
   // Busca perfis
   const { data: profs } = await sb.from('profiles').select('id,nome,papel,ativo').order('nome')
@@ -3620,52 +3625,56 @@ async function carregarFinanceiro(){
   dsAprov.forEach(d=>{
     porRdv[d.usuario_id] = (porRdv[d.usuario_id]||0) + Number(d.valor||0)
   })
-  const porBilhete = {}
-  bilhetesNoMes.forEach(v=>{
-    porBilhete[v.usuario_id] = (porBilhete[v.usuario_id]||0) + Number(v.valor_bilhete||0)
-  })
-
-  // Monta linhas — quem tem RDV aprovado OU bilhete no mês
+  // Monta linhas de reembolso. Custos de viagem ficam fora desta tela.
   const linhas = profsAtivos.map(p=>{
     const aprovado = porRdv[p.id]||0
-    const bilhetes = porBilhete[p.id]||0
     const verba = (verbas||[]).find(v=>v.usuario_id===p.id)
     const pag = (pagamentos||[]).find(g=>g.usuario_id===p.id)
     const verbVal = Number(verba?.valor||0)
     const apagar = Math.max(0, aprovado - verbVal)
     const saldoCredito = Math.max(0, verbVal - aprovado)
-    const custoTotal = aprovado + bilhetes
+    const creditoUsado = Math.min(aprovado, verbVal)
     const pago = !!pag
-    return {p, aprovado, bilhetes, custoTotal, verbVal, saldoCredito, apagar, pago, pag}
-  }).filter(Boolean)
+    return {p, aprovado, verbVal, creditoUsado, saldoCredito, apagar, pago, pag}
+  }).filter(r=>r.aprovado>0 || r.verbVal>0 || r.pago)
 
   // Cards de resumo
-  const totalRdv     = linhas.reduce((s,r)=>s+r.aprovado,0)
-  const totalBilhetes = linhas.reduce((s,r)=>s+r.bilhetes,0)
-  const totalCusto   = linhas.reduce((s,r)=>s+r.custoTotal,0)
-  const totalCredito = linhas.reduce((s,r)=>s+r.verbVal,0)
+  const totalCreditoUsado = linhas.reduce((s,r)=>s+r.creditoUsado,0)
   const totalSaldoCredito = linhas.reduce((s,r)=>s+r.saldoCredito,0)
   const totalApagar  = linhas.reduce((s,r)=>s+r.apagar,0)
   const totalPago    = linhas.filter(r=>r.pago).reduce((s,r)=>s+Number(r.pag?.valor_pago||0),0)
   document.getElementById('fin-resumo').innerHTML=`
-    <div class="metric m-purple" style="flex:1;min-width:120px"><div class="metric-label">RDV aprovado</div><div class="metric-value">${moeda(totalRdv)}</div></div>
-    <div class="metric m-purple" style="flex:1;min-width:120px"><div class="metric-label">Bilhetes</div><div class="metric-value">${moeda(totalBilhetes)}</div></div>
-    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Custo total</div><div class="metric-value">${moeda(totalCusto)}</div></div>
-    <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Cr&eacute;dito PIX</div><div class="metric-value">${moeda(totalCredito)}</div></div>
-    <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Saldo cr&eacute;dito</div><div class="metric-value">${moeda(totalSaldoCredito)}</div></div>
-    <div class="metric m-orange" style="flex:1;min-width:120px"><div class="metric-label">Valor a pagar</div><div class="metric-value">${moeda(totalApagar)}</div></div>
-    <div class="metric m-mint" style="flex:1;min-width:120px"><div class="metric-label">Já pago</div><div class="metric-value">${moeda(totalPago)}</div></div>`
+    <div class="fin-summary">
+      <div class="fin-card fin-card-main">
+        <div class="fin-card-label">Total a pagar agora</div>
+        <div class="fin-card-value">${moeda(totalApagar)}</div>
+        <div class="fin-card-note">Excedente que as pessoas devem receber depois de abater o cr&eacute;dito.</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-card-label">J&aacute; pago</div>
+        <div class="fin-card-value">${moeda(totalPago)}</div>
+        <div class="fin-card-note">Pagamentos marcados neste m&ecirc;s.</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-card-label">Cr&eacute;dito usado</div>
+        <div class="fin-card-value">${moeda(totalCreditoUsado)}</div>
+        <div class="fin-card-note">Parte do RDV coberta por dinheiro j&aacute; entregue.</div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-card-label">Saldo de cr&eacute;dito</div>
+        <div class="fin-card-value">${moeda(totalSaldoCredito)}</div>
+        <div class="fin-card-note">Cr&eacute;dito que sobrou depois dos RDVs aprovados.</div>
+      </div>
+    </div>`
 
   if(!linhas.length){
-    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhuma movimentação neste mês. Use o seletor de mês acima para ver RDVs aprovados de outro período.</div>'
+    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhum reembolso ou cr&eacute;dito neste m&ecirc;s. Use o seletor de m&ecirc;s acima para ver outro per&iacute;odo.</div>'
     return
   }
 
-  const rows = linhas.map(({p,aprovado,bilhetes,custoTotal,verbVal,saldoCredito,apagar,pago,pag})=>`<tr>
+  const rows = linhas.map(({p,aprovado,verbVal,creditoUsado,saldoCredito,apagar,pago,pag})=>`<tr>
     <td><div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div></td>
-    <td>${aprovado>0?moeda(aprovado):'—'}</td>
-    <td>${bilhetes>0?moeda(bilhetes):'—'}</td>
-    <td style="font-weight:800">${moeda(custoTotal)}</td>
+    <td>${aprovado>0?moeda(aprovado):'&mdash;'}</td>
     <td>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="number" id="fin-verba-${p.id}" class="form-input" style="width:90px;min-height:28px;padding:4px 8px;font-size:12px" value="${verbVal||''}" placeholder="0,00" step="0.01" min="0">
@@ -3673,12 +3682,18 @@ async function carregarFinanceiro(){
         ${verbVal>0?`<button class="btn btn-sm btn-reject" onclick="removerVerba('${p.id}','${mes}')">Remover</button>`:''}
       </div>
     </td>
-    <td style="font-weight:800;color:var(--orange-dark)">${apagar>0?moeda(apagar):'—'}</td>
-    <td style="font-weight:800;color:var(--mint-dark)">${saldoCredito>0?moeda(saldoCredito):'-'}</td>
+    <td>${creditoUsado>0?moeda(creditoUsado):'&mdash;'}</td>
+    <td style="font-weight:800;color:var(--mint-dark)">${saldoCredito>0?moeda(saldoCredito):'&mdash;'}</td>
+    <td>
+      <div class="${apagar>0?'fin-receber':'fin-zero'}">${apagar>0?moeda(apagar):'R$ 0,00'}</div>
+      ${apagar<=0 && saldoCredito>0?`<div class="fin-credit-note">Cr&eacute;dito cobriu este RDV.</div>`:''}
+    </td>
     <td>
       ${!podeGerenciarPagamentos() ? '<span class="badge b-gray">Cr&eacute;dito</span>' : pago
         ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
-        : `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${apagar})">Marcar pago</button>`
+        : apagar>0
+          ? `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${apagar})">Marcar pago</button>`
+          : '<span class="badge b-gray">Nada a pagar</span>'
       }
     </td>
   </tr>`).join('')
@@ -3686,13 +3701,12 @@ async function carregarFinanceiro(){
   document.getElementById('fin-lista').innerHTML=`<div class="card" style="overflow:auto">
     <table class="tbl">
       <thead><tr>
-        <th>Pessoa</th>
+        <th>Funcion&aacute;rio</th>
         <th>RDV aprovado</th>
-        <th>Bilhetes</th>
-        <th>Custo total</th>
         <th>Cr&eacute;dito PIX</th>
-        <th>Valor a pagar</th>
+        <th>Cr&eacute;dito usado</th>
         <th>Saldo cr&eacute;dito</th>
+        <th>A receber</th>
         <th style="text-align:right">Status</th>
       </tr></thead>
       <tbody>${rows}</tbody>
