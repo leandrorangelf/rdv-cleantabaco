@@ -846,6 +846,7 @@ body::before {
             <div class="page-sub">Solicitações, bilhetes, valores e pendências por profissional</div>
           </div>
           <a href="https://www.comprarviagem.com.br/connectiontouragenciadevia/home" target="_blank" class="btn" style="background:var(--purple-light);color:var(--purple-dark);border-color:#C4B5FD;text-decoration:none">🔍 Pesquisar voos</a>
+          <input id="viagens-mes" type="month" class="form-input" style="min-height:34px;padding:5px 8px;font-size:12px;width:150px" onchange="mudarViagensMes()">
           <button id="btn-solicitar-viagem" class="btn btn-primary" onclick="showScreen('novaviagem',document.getElementById('nav-viagens'))">+ Solicitar viagem</button>
           <button id="btn-pdf-agencia-geral" class="btn aprovador-only" style="display:none;background:var(--purple-light);color:var(--purple-dark);border-color:#C4B5FD" onclick="gerarPdfAgenciaGeral()">📄 PDF p/ agência</button>
         </div>
@@ -1356,7 +1357,9 @@ function isFinanceiro(){ return perfil?.papel==='financeiro' || perfil?.papel===
 function podeGerenciarCreditos(){ return isGestor() || isFinanceiro() || isOperadorEspecial() }
 function podeGerenciarPagamentos(){ return isGestor() || isFinanceiro() }
 function podesolicitarViagem(){ return ['aprovador','gestor','gerente','coordenador'].includes(perfil?.papel) }
+function isFinanceiroViagens(){ return perfil?.papel==='financeiro_viagens' }
 function isEmissorViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' || perfil?.papel==='financeiro_viagens' }
+function isEmissorOperacionalViagens(){ return perfil?.papel==='viagens' || perfil?.papel==='emissor_viagens' }
 function isoHoje(){ return new Date().toISOString().slice(0,10) }
 function diasEntreHoje(dataISO){
   if(!dataISO)return null
@@ -1525,6 +1528,7 @@ async function iniciarApp() {
     if(btnPdfGeralFV) btnPdfGeralFV.style.display='inline-flex'
     document.querySelectorAll('#screen-viagens .mod-tab').forEach(el=>el.style.display='none')
     document.getElementById('tab-viagens-bilhete').style.display='inline-flex'
+    document.getElementById('tab-viagens-emitidas').style.display='inline-flex'
     viagensTabAtual='bilhete'
     showScreen('financeiro',document.getElementById('nav-financeiro'))
     return
@@ -4716,13 +4720,16 @@ async function excluirDiaSemanal(uid, data){
 // ── Módulo Viagens / Agenda Equipe / Equipe 360 ───────────────────────────
 let viagensTabAtual = 'pendentes'
 let viagensCache = { demandas:[], viagens:[], profs:[], despesas:[] }
+let viagensMesAtual = null
 let agendaEquipeSegunda = null
 
 function safeTxt(v){ return String(v??'').replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])) }
 function safeUrl(u){ return /^https?:\/\//i.test(String(u||'')) ? safeTxt(u) : '#' }
 function primeiroNome(n){ return String(n||'?').split(' ')[0] }
-function mesIntervalo(){ const m=mesAtual(); return {ini:`${m}-01`, fim:fimMes(m)} }
+function mesIntervalo(mesStr=mesAtual()){ const m=mesStr||mesAtual(); return {ini:`${m}-01`, fim:fimMes(m)} }
 function isDentroPeriodo(data, ini, fim){ if(!data||!ini)return false; const f=fim||ini; return data>=ini && data<=f }
+function viagensMesSelecionado(){ return document.getElementById('viagens-mes')?.value || viagensMesAtual || mesAtual() }
+async function mudarViagensMes(){ viagensMesAtual=viagensMesSelecionado(); renderViagensResumo(); renderViagensConteudo() }
 
 async function atualizarTudo(telaAtual=''){
   await contarPendentes().catch(()=>{})
@@ -4743,12 +4750,18 @@ function setViagensTab(tab){
 async function carregarModuloViagens(){
   const wrap=document.getElementById('viagens-conteudo')
   if(wrap) wrap.innerHTML='<div class="loading">Carregando viagens...</div>'
+  const inputMes=document.getElementById('viagens-mes')
+  if(inputMes && !inputMes.value) inputMes.value=viagensMesSelecionado()
+  viagensMesAtual=viagensMesSelecionado()
   let qd=sb.from('demandas_viagem').select('*').or('ativo.is.null,ativo.eq.true').order('created_at',{ascending:false})
   let qv=sb.from('viagens').select('*').or('ativo.is.null,ativo.eq.true').order('data_inicio',{ascending:false})
   let qdesp=sb.from('despesas').select('usuario_id,viagem_id,valor,status,data_despesa').or('ativo.is.null,ativo.eq.true')
-  if(isEmissorViagens()){
+  if(isEmissorOperacionalViagens()){
     qd=qd.eq('id','00000000-0000-0000-0000-000000000000')
     qv=qv.in('status',['autorizada','aguardando_bilhete'])
+    qdesp=qdesp.eq('id','00000000-0000-0000-0000-000000000000')
+  } else if(isFinanceiroViagens()){
+    qd=qd.eq('id','00000000-0000-0000-0000-000000000000')
     qdesp=qdesp.eq('id','00000000-0000-0000-0000-000000000000')
   } else if(!isGestor()){
     qd=qd.eq('usuario_id',perfil.id)
@@ -4769,10 +4782,10 @@ async function carregarModuloViagens(){
 }
 
 function renderViagensResumo(){
-  const {ini,fim}=mesIntervalo()
+  const {ini,fim}=mesIntervalo(viagensMesSelecionado())
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
-  if(isEmissorViagens()){
+  if(isEmissorOperacionalViagens()){
     const aguard=viagens.filter(viagemAguardandoBilhete).length
     document.getElementById('viagens-resumo').innerHTML=`
       <div class="mod-card"><div class="mod-card-label">Bilhetes a emitir</div><div class="mod-card-value" style="color:var(--purple-dark)">${aguard}</div></div>
@@ -4801,7 +4814,8 @@ function renderViagensConteudo(){
   const wrap=document.getElementById('viagens-conteudo')
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
-  if(isEmissorViagens()) viagensTabAtual='bilhete'
+  const {ini,fim}=mesIntervalo(viagensMesSelecionado())
+  if(isEmissorOperacionalViagens()) viagensTabAtual='bilhete'
   if(viagensTabAtual==='pendentes'){
     const lista=demandas.filter(d=>demandaAtiva(d)&&['pendente','solicitada'].includes(statusNorm(d.status)))
     wrap.innerHTML=lista.length?lista.map(cardDemandaViagem).join(''):'<div class="empty">Nenhuma solicitação pendente.</div>'
@@ -4813,7 +4827,7 @@ function renderViagensConteudo(){
     return
   }
   if(viagensTabAtual==='emitidas'){
-    const lista=viagens.filter(viagemComBilhete)
+    const lista=viagens.filter(v=>viagemComBilhete(v) && isDentroPeriodo(v.data_ida||v.data_inicio, ini, fim))
     wrap.innerHTML=lista.length?lista.map(cardViagemOperacional).join(''):'<div class="empty">Nenhum bilhete preenchido.</div>'
     return
   }
@@ -4874,7 +4888,7 @@ function cardViagemOperacional(v){
 }
 
 function renderViagensPorPessoa(){
-  const {ini,fim}=mesIntervalo()
+  const {ini,fim}=mesIntervalo(viagensMesSelecionado())
   const profs=viagensCache.profs||[]
   const demandas=viagensCache.demandas||[]
   const viagens=viagensCache.viagens||[]
