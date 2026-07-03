@@ -3679,7 +3679,10 @@ async function carregarFinanceiro(){
   }
 
   const rows = linhas.map(({p,aprovado,verbVal,creditoUsado,saldoCredito,apagar,pago,pag})=>`<tr>
-    <td><div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div></td>
+    <td>
+      <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div>
+      ${verbVal>0?`<div class="fin-credit-note">Cr&eacute;dito inicial: ${moeda(verbVal)}</div>`:''}
+    </td>
     <td>${aprovado>0?moeda(aprovado):'&mdash;'}</td>
     <td>
       <div style="display:flex;gap:6px;align-items:center">
