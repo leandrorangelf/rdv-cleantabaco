@@ -2110,6 +2110,11 @@ async function carregarAvulsas(){
     return
   }
 
+  if(podeVerDespesasTodos()&&!pessoaFiltro){
+    document.getElementById('avulsas-lista').innerHTML=renderRelatorioDespesasPorFuncionario(avulsasAtivasTela,nomePorIdA,catPorIdA,viagPorId)
+    return
+  }
+
   const linhas=avulsasAtivasTela.map(d=>{
     const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
     const rejNote=d.status==='rejeitado'&&d.motivo_rejeicao
@@ -2133,6 +2138,55 @@ async function carregarAvulsas(){
   }).join('')
 
   document.getElementById('avulsas-lista').innerHTML=`<div class="card">${linhas}</div>`
+}
+
+function renderRelatorioDespesasPorFuncionario(despesas,nomePorIdA,catPorIdA,viagPorId){
+  const porPessoa={}
+  ;(despesas||[]).forEach(d=>{
+    const uid=d.usuario_id||'sem_usuario'
+    if(!porPessoa[uid])porPessoa[uid]={uid,nome:nomePorIdA[uid]||'Funcionário não identificado',itens:[],total:0,aprovado:0,pendente:0}
+    porPessoa[uid].itens.push(d)
+    porPessoa[uid].total+=Number(d.valor||0)
+    if(statusNorm(d.status)==='aprovado')porPessoa[uid].aprovado+=Number(d.valor||0)
+    if(statusNorm(d.status)==='pendente'||statusNorm(d.status)==='aguardando_aprovacao_2')porPessoa[uid].pendente+=Number(d.valor||0)
+  })
+
+  const grupos=Object.values(porPessoa).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'))
+  const cards=grupos.map(g=>{
+    const linhas=g.itens
+      .sort((a,b)=>String(b.data_despesa||'').localeCompare(String(a.data_despesa||'')))
+      .map(d=>{
+        const cat=safeTxt(catPorIdA[d.categoria_id]||'?')
+        const desc=d.descricao?` · <span style="font-weight:400;color:var(--ink2)">${safeTxt(d.descricao)}</span>`:''
+        const origem=d.viagem_id&&viagPorId[d.viagem_id]?`${safeTxt(viagPorId[d.viagem_id].destino)} – ${safeTxt(viagPorId[d.viagem_id].cliente)}`:'avulso'
+        return `<tr>
+          <td>${periodoFmt(d.data_despesa,d.data_fim)}</td>
+          <td>${cat}${desc}<div style="font-size:10px;color:var(--ink2);margin-top:1px">${origem}</div></td>
+          <td>${statusBadge(d.status)}</td>
+          <td style="text-align:right;font-weight:500">${moeda(d.valor)}</td>
+        </tr>`
+      }).join('')
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${safeTxt(g.nome)}</div>
+          <div class="card-meta">${g.itens.length} lançamento${g.itens.length===1?'':'s'} · Total do funcionário: ${moeda(g.total)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <span class="badge b-mint">Aprovado ${moeda(g.aprovado)}</span>
+          <span class="badge b-orange">Pendente ${moeda(g.pendente)}</span>
+        </div>
+      </div>
+      <div style="overflow:auto">
+        <table class="tbl">
+          <thead><tr><th style="width:95px">Data</th><th>Despesa</th><th style="width:120px">Status</th><th style="width:100px;text-align:right">Valor</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    </div>`
+  }).join('')
+
+  return `<div class="sec-header" style="margin-bottom:8px"><div class="sec-title">Relatório por funcionário</div></div>${cards}`
 }
 
 function toggleDespesas(vid){

@@ -39,6 +39,16 @@ test('RDV expenses list has employee filter for consolidated view', () => {
   assert.match(avulsasBlock, /selPessoa\.innerHTML=`<option value="">Todos os funcionários<\/option>/)
 })
 
+test('RDV consolidated view renders as employee report instead of mixed list', () => {
+  const avulsasBlock = html.match(/async function carregarAvulsas\(\)\{[\s\S]*?\n\}/)?.[0] || ''
+
+  assert.match(html, /function renderRelatorioDespesasPorFuncionario\(/)
+  assert.match(html, /Relatório por funcionário/)
+  assert.match(html, /Total do funcionário/)
+  assert.match(avulsasBlock, /if\(podeVerDespesasTodos\(\)&&!pessoaFiltro\)\{/)
+  assert.match(avulsasBlock, /renderRelatorioDespesasPorFuncionario\(avulsasAtivasTela,nomePorIdA,catPorIdA,viagPorId\)/)
+})
+
 test('Equipe 360 uses the selected dashboard month for past employee spending', () => {
   const equipeMatches = [...html.matchAll(/async function carregarEquipe\(\)\{[\s\S]*?\n\}/g)]
   const equipeBlock = equipeMatches.at(-1)?.[0] || ''
