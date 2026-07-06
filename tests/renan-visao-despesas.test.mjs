@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260706_renan_leandro_despesas_todos.sql', import.meta.url), 'utf8')
+const financeiroMigrationUrl = new URL('../supabase/migrations/20260706_renan_financeiro_creditos.sql', import.meta.url)
+const financeiroMigration = existsSync(financeiroMigrationUrl) ? readFileSync(financeiroMigrationUrl, 'utf8') : ''
 
 test('Renan and Leandro can view consolidated expenses without becoming full managers', () => {
   assert.match(html, /function isRenan\(\)\{ return nomeNormalizado\(perfil\?\.nome\)\.includes\('renan'\) \}/)
@@ -89,4 +91,20 @@ test('Supabase RLS allows Renan and Leandro to select all expenses', () => {
   assert.match(migration, /lower\(nome\) like '%renan%'/i)
   assert.match(migration, /lower\(nome\) like '%leandro%'/i)
   assert.match(migration, /create policy "profiles_select_renan_leandro_todos"/i)
+})
+
+test('Renan can open Financeiro to inspect consolidated credits', () => {
+  const iniciarBlock = html.match(/async function iniciarApp\(\) \{[\s\S]*?await carregarDashboard\(\)/)?.[0] || ''
+
+  assert.match(html, /function podeGerenciarCreditos\(\)\{ return isGestor\(\) \|\| isFinanceiro\(\) \|\| isOperadorEspecial\(\) \|\| isRenan\(\) \}/)
+  assert.match(iniciarBlock, /if\(podeGerenciarCreditos\(\)\)\{[\s\S]*?document\.getElementById\('nav-financeiro'\)\.style\.display='flex'[\s\S]*?\}/)
+})
+
+test('Supabase RLS allows Renan and Leandro to manage Financeiro credits', () => {
+  assert.match(financeiroMigration, /drop policy if exists "verbas_select" on verbas/i)
+  assert.match(financeiroMigration, /create policy "verbas_select" on verbas for select/i)
+  assert.match(financeiroMigration, /create policy "verbas_insert" on verbas for insert/i)
+  assert.match(financeiroMigration, /create policy "verbas_update" on verbas for update/i)
+  assert.match(financeiroMigration, /create policy "verbas_delete" on verbas for delete/i)
+  assert.match(financeiroMigration, /public\.can_view_all_expenses_by_name\(\)/i)
 })

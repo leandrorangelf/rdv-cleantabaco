@@ -1358,7 +1358,7 @@ function isGestor(){ return perfil?.papel==='aprovador' || isLeandro() }
 function isGestor1(){ return perfil?.papel==='gestor' && !isLeandro() }
 function isGerente(){ return perfil?.papel==='gerente' }
 function isFinanceiro(){ return perfil?.papel==='financeiro' || perfil?.papel==='financeiro_viagens' }
-function podeGerenciarCreditos(){ return isGestor() || isFinanceiro() || isOperadorEspecial() }
+function podeGerenciarCreditos(){ return isGestor() || isFinanceiro() || isOperadorEspecial() || isRenan() }
 function podeGerenciarPagamentos(){ return isGestor() || isFinanceiro() }
 function podesolicitarViagem(){ return ['aprovador','gestor','gerente','coordenador'].includes(perfil?.papel) }
 function isFinanceiroViagens(){ return perfil?.papel==='financeiro_viagens' }
@@ -1576,6 +1576,9 @@ async function iniciarApp() {
   if(podeVerDespesasTodos()){
     document.getElementById('nav-label-admin').style.display='block'
     document.getElementById('nav-equipe').style.display='flex'
+  }
+  if(podeGerenciarCreditos()){
+    document.getElementById('nav-financeiro').style.display='flex'
   }
   // Gestor1 (Vagner / Aprovação 1): vê dashboard, viagens, agenda equipe e tela aprovar (1ª etapa)
   if(isGestor1()){
