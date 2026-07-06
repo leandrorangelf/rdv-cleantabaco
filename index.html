@@ -2152,6 +2152,27 @@ function renderRelatorioDespesasPorFuncionario(despesas,nomePorIdA,catPorIdA,via
   })
 
   const grupos=Object.values(porPessoa).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'))
+  const totalizador=grupos.reduce((acc,g)=>{
+    acc.funcionarios+=1
+    acc.lancamentos+=g.itens.length
+    acc.total+=g.total
+    acc.aprovado+=g.aprovado
+    acc.pendente+=g.pendente
+    return acc
+  },{funcionarios:0,lancamentos:0,total:0,aprovado:0,pendente:0})
+  const resumoGeral=`<div class="card" style="margin-bottom:12px">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Totalizador geral</div>
+        <div class="card-meta">${totalizador.funcionarios} Funcionários · ${totalizador.lancamentos} Lançamentos</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        <span class="badge b-purple">Total geral ${moeda(totalizador.total)}</span>
+        <span class="badge b-mint">Aprovado geral ${moeda(totalizador.aprovado)}</span>
+        <span class="badge b-orange">Pendente geral ${moeda(totalizador.pendente)}</span>
+      </div>
+    </div>
+  </div>`
   const cards=grupos.map(g=>{
     const linhas=g.itens
       .sort((a,b)=>String(b.data_despesa||'').localeCompare(String(a.data_despesa||'')))
@@ -2190,7 +2211,7 @@ function renderRelatorioDespesasPorFuncionario(despesas,nomePorIdA,catPorIdA,via
     </div>`
   }).join('')
 
-  return `<div class="sec-header" style="margin-bottom:8px"><div class="sec-title">Relatório por funcionário</div></div>${cards}`
+  return `<div class="sec-header" style="margin-bottom:8px"><div class="sec-title">Relatório por funcionário</div></div>${resumoGeral}${cards}`
 }
 
 function toggleDespesas(vid){

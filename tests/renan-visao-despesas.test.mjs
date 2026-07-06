@@ -58,6 +58,18 @@ test('RDV employee report includes receipt links when available', () => {
   assert.match(reportBlock, /target="_blank"/)
 })
 
+test('RDV employee report includes an overall totalizer', () => {
+  const reportBlock = html.match(/function renderRelatorioDespesasPorFuncionario\([\s\S]*?\n\}/)?.[0] || ''
+
+  assert.match(reportBlock, /Totalizador geral/)
+  assert.match(reportBlock, /Funcionários/)
+  assert.match(reportBlock, /Lançamentos/)
+  assert.match(reportBlock, /Total geral/)
+  assert.match(reportBlock, /Aprovado geral/)
+  assert.match(reportBlock, /Pendente geral/)
+  assert.match(reportBlock, /const totalizador=/)
+})
+
 test('Equipe 360 uses the selected dashboard month for past employee spending', () => {
   const equipeMatches = [...html.matchAll(/async function carregarEquipe\(\)\{[\s\S]*?\n\}/g)]
   const equipeBlock = equipeMatches.at(-1)?.[0] || ''
