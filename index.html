@@ -1035,6 +1035,9 @@ body::before {
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input id="avulsas-mes" type="month" class="form-input" style="min-height:34px;padding:5px 8px;font-size:12px" onchange="carregarAvulsas()">
+            <select id="avulsas-pessoa" class="form-select" style="display:none;min-height:34px;padding:5px 8px;font-size:12px;width:190px" onchange="carregarAvulsas()">
+              <option value="">Todos os funcionários</option>
+            </select>
             <button class="btn btn-primary" onclick="abrirNovoLancamentoAvulso()">+ Novo lançamento</button>
           </div>
         </div>
@@ -2049,6 +2052,9 @@ async function carregarAvulsas(){
   const mes=inputMes?.value||mesAtual()
   const mesLabel=new Date(mes+'-02').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
   const ehMesAtual=mes===mesAtual()
+  const pessoaFiltro=avulsasPessoaSelecionada()
+  const selPessoa=document.getElementById('avulsas-pessoa')
+  if(selPessoa) selPessoa.style.display=podeVerDespesasTodos()?'block':'none'
   let q=sb.from('despesas')
     .select('id,valor,status,categoria_id,descricao,data_despesa,motivo_rejeicao,comprovante_url,usuario_id,ativo')
     .is('viagem_id',null)
@@ -2056,7 +2062,8 @@ async function carregarAvulsas(){
     .lte('data_despesa',fimMes(mes))
     .order('data_despesa',{ascending:false})
 
-  if(!podeVerDespesasTodos())q=q.eq('usuario_id',perfil.id)
+  if(pessoaFiltro)q=q.eq('usuario_id',pessoaFiltro)
+  else if(!podeVerDespesasTodos())q=q.eq('usuario_id',perfil.id)
 
   // Despesas de viagem do mesmo período
   let qViag=sb.from('despesas')
@@ -2065,7 +2072,8 @@ async function carregarAvulsas(){
     .gte('data_despesa',`${mes}-01`)
     .lte('data_despesa',fimMes(mes))
     .order('data_despesa',{ascending:false})
-  if(!podeVerDespesasTodos())qViag=qViag.eq('usuario_id',perfil.id)
+  if(pessoaFiltro)qViag=qViag.eq('usuario_id',pessoaFiltro)
+  else if(!podeVerDespesasTodos())qViag=qViag.eq('usuario_id',perfil.id)
 
   const[{data:avulsasRaw},{data:viagemDesps},{data:catsA}]=await Promise.all([
     q,qViag,
@@ -2087,6 +2095,9 @@ async function carregarAvulsas(){
   if(podeVerDespesasTodos()){
     const{data:profsA}=await sb.from('profiles').select('id,nome')
     ;(profsA||[]).forEach(p=>nomePorIdA[p.id]=p.nome)
+    if(selPessoa){
+      selPessoa.innerHTML=`<option value="">Todos os funcionários</option>${(profsA||[]).map(p=>`<option value="${p.id}" ${pessoaFiltro===p.id?'selected':''}>${safeTxt(p.nome||'?')}</option>`).join('')}`
+    }
   }
 
   const avulsasAtivasTela=(avulsas||[]).filter(despesaComputavel)
@@ -3989,6 +4000,10 @@ function abrirAvulsasDash(){
   const inputMes = document.getElementById('avulsas-mes')
   if(inputMes) inputMes.value = dashMesSelecionado()
   showScreen('avulsas', document.getElementById('nav-lancarmultiplo'))
+}
+
+function avulsasPessoaSelecionada(){
+  return document.getElementById('avulsas-pessoa')?.value || ''
 }
 
 function abrirNovoLancamentoAvulso(){

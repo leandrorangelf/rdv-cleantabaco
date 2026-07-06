@@ -28,6 +28,17 @@ test('RDV expenses list can show all employees and labels each employee when all
   assert.match(avulsasBlock, /const quemLabel=podeVerDespesasTodos\(\)\?/)
 })
 
+test('RDV expenses list has employee filter for consolidated view', () => {
+  const avulsasBlock = html.match(/async function carregarAvulsas\(\)\{[\s\S]*?\n\}/)?.[0] || ''
+
+  assert.match(html, /id="avulsas-pessoa"[\s\S]*onchange="carregarAvulsas\(\)"/)
+  assert.match(html, /function avulsasPessoaSelecionada\(\)/)
+  assert.match(avulsasBlock, /const pessoaFiltro=avulsasPessoaSelecionada\(\)/)
+  assert.match(avulsasBlock, /if\(pessoaFiltro\)q=q\.eq\('usuario_id',pessoaFiltro\)/)
+  assert.match(avulsasBlock, /if\(pessoaFiltro\)qViag=qViag\.eq\('usuario_id',pessoaFiltro\)/)
+  assert.match(avulsasBlock, /selPessoa\.innerHTML=`<option value="">Todos os funcionários<\/option>/)
+})
+
 test('Equipe 360 uses the selected dashboard month for past employee spending', () => {
   const equipeMatches = [...html.matchAll(/async function carregarEquipe\(\)\{[\s\S]*?\n\}/g)]
   const equipeBlock = equipeMatches.at(-1)?.[0] || ''
