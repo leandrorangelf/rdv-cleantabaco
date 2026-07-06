@@ -3677,15 +3677,18 @@ async function ajustarFinMesInicial(){
   finMesAutoAjustado = true
   const ini = finMesAtual+'-01'
   const fim = fimMes(finMesAtual)
-  const { count } = await sb.from('despesas')
-    .select('id',{count:'exact',head:true})
+  const { data: atual } = await sb.from('despesas')
+    .select('id')
     .eq('status','aprovado')
+    .or('ativo.is.null,ativo.eq.true')
     .gte('data_despesa',ini)
     .lte('data_despesa',fim)
-  if(count && count > 0) return
+    .limit(1)
+  if(atual?.length) return
   const { data } = await sb.from('despesas')
     .select('data_despesa')
     .eq('status','aprovado')
+    .or('ativo.is.null,ativo.eq.true')
     .order('data_despesa',{ascending:false})
     .limit(1)
   if(data?.[0]?.data_despesa) finMesAtual = String(data[0].data_despesa).slice(0,7)
@@ -3693,6 +3696,8 @@ async function ajustarFinMesInicial(){
 
 async function carregarFinanceiro(){
   if(!podeGerenciarCreditos()){ return }
+  document.getElementById('fin-lista').innerHTML='<div class="loading">Carregando...</div>'
+  document.getElementById('fin-resumo').innerHTML=''
   await ajustarFinMesInicial()
   const mes = finMesAtual
   const ini = mes+'-01'
@@ -3702,29 +3707,35 @@ async function carregarFinanceiro(){
   if(input) input.value = mes
   document.getElementById('fin-mes-label').textContent = label
   document.getElementById('fin-sub').textContent = 'Reembolsos do mes · '+label
-  document.getElementById('fin-lista').innerHTML='<div class="loading">Carregando...</div>'
-  document.getElementById('fin-resumo').innerHTML=''
 
-  // Busca despesas aprovadas do mês
-  const { data: despesas } = await sb.from('despesas')
+  const qDespesas=sb.from('despesas')
     .select('usuario_id,valor,status,ativo')
+    .eq('status','aprovado')
+    .or('ativo.is.null,ativo.eq.true')
     .gte('data_despesa', ini).lte('data_despesa', fim)
-  const dsAprov = (despesas||[]).filter(d=>registroAtivo(d) && statusNorm(d.status)==='aprovado')
+  const qProfs=sb.from('profiles').select('id,nome,papel,ativo').order('nome')
+  const qVerbas=sb.from('verbas').select('*').eq('mes', mes)
+  const qPagamentos=podeGerenciarPagamentos()
+    ? sb.from('pagamentos_rdv').select('*').eq('mes', mes)
+    : Promise.resolve({ data: [], error: null })
 
-  // Busca perfis
-  const { data: profs } = await sb.from('profiles').select('id,nome,papel,ativo').order('nome')
+  const [
+    { data: despesas },
+    { data: profs },
+    { data: verbas, error: erroVerbas },
+    { data: pagamentos, error: erroPagamentos }
+  ] = await Promise.all([
+    qDespesas,
+    qProfs,
+    qVerbas,
+    qPagamentos
+  ])
 
-  // Busca verbas do mês
-  const { data: verbas, error: erroVerbas } = await sb.from('verbas').select('*').eq('mes', mes)
   if(erroVerbas){
     document.getElementById('fin-lista').innerHTML=`<div class="empty">Erro ao carregar cr&eacute;ditos PIX: ${safeTxt(erroVerbas.message)}. Verifique as permiss&otilde;es do perfil financeiro.</div>`
     return
   }
 
-  // Busca pagamentos do mês
-  const { data: pagamentos, error: erroPagamentos } = podeGerenciarPagamentos()
-    ? await sb.from('pagamentos_rdv').select('*').eq('mes', mes)
-    : { data: [], error: null }
   if(erroPagamentos){
     document.getElementById('fin-lista').innerHTML=`<div class="empty">Erro ao carregar pagamentos: ${safeTxt(erroPagamentos.message)}. Verifique as permiss&otilde;es do perfil financeiro.</div>`
     return
@@ -3732,7 +3743,7 @@ async function carregarFinanceiro(){
 
   // Agrupa por usuário
   const porRdv = {}
-  dsAprov.forEach(d=>{
+  ;(despesas||[]).forEach(d=>{
     porRdv[d.usuario_id] = (porRdv[d.usuario_id]||0) + Number(d.valor||0)
   })
   // Monta linhas de reembolso. Custos de viagem ficam fora desta tela.
