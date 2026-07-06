@@ -2159,10 +2159,14 @@ function renderRelatorioDespesasPorFuncionario(despesas,nomePorIdA,catPorIdA,via
         const cat=safeTxt(catPorIdA[d.categoria_id]||'?')
         const desc=d.descricao?` · <span style="font-weight:400;color:var(--ink2)">${safeTxt(d.descricao)}</span>`:''
         const origem=d.viagem_id&&viagPorId[d.viagem_id]?`${safeTxt(viagPorId[d.viagem_id].destino)} – ${safeTxt(viagPorId[d.viagem_id].cliente)}`:'avulso'
+        const comprovante=d.comprovante_url
+          ?`<a href="${safeUrl(d.comprovante_url)}" target="_blank" style="color:var(--purple);font-weight:600;text-decoration:none">Abrir</a>`
+          :'—'
         return `<tr>
           <td>${periodoFmt(d.data_despesa,d.data_fim)}</td>
           <td>${cat}${desc}<div style="font-size:10px;color:var(--ink2);margin-top:1px">${origem}</div></td>
           <td>${statusBadge(d.status)}</td>
+          <td>${comprovante}</td>
           <td style="text-align:right;font-weight:500">${moeda(d.valor)}</td>
         </tr>`
       }).join('')
@@ -2179,7 +2183,7 @@ function renderRelatorioDespesasPorFuncionario(despesas,nomePorIdA,catPorIdA,via
       </div>
       <div style="overflow:auto">
         <table class="tbl">
-          <thead><tr><th style="width:95px">Data</th><th>Despesa</th><th style="width:120px">Status</th><th style="width:100px;text-align:right">Valor</th></tr></thead>
+          <thead><tr><th style="width:95px">Data</th><th>Despesa</th><th style="width:120px">Status</th><th style="width:105px">Comprovante</th><th style="width:100px;text-align:right">Valor</th></tr></thead>
           <tbody>${linhas}</tbody>
         </table>
       </div>

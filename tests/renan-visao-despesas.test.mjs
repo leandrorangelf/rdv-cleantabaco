@@ -49,6 +49,15 @@ test('RDV consolidated view renders as employee report instead of mixed list', (
   assert.match(avulsasBlock, /renderRelatorioDespesasPorFuncionario\(avulsasAtivasTela,nomePorIdA,catPorIdA,viagPorId\)/)
 })
 
+test('RDV employee report includes receipt links when available', () => {
+  const reportBlock = html.match(/function renderRelatorioDespesasPorFuncionario\([\s\S]*?\n\}/)?.[0] || ''
+
+  assert.match(reportBlock, /Comprovante/)
+  assert.match(reportBlock, /d\.comprovante_url/)
+  assert.match(reportBlock, /href="\$\{safeUrl\(d\.comprovante_url\)\}"/)
+  assert.match(reportBlock, /target="_blank"/)
+})
+
 test('Equipe 360 uses the selected dashboard month for past employee spending', () => {
   const equipeMatches = [...html.matchAll(/async function carregarEquipe\(\)\{[\s\S]*?\n\}/g)]
   const equipeBlock = equipeMatches.at(-1)?.[0] || ''
