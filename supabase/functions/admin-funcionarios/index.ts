@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const PAPEIS_VALIDOS = ['aprovador', 'gestor', 'coordenador', 'gerente', 'viagens', 'emissor_viagens', 'financeiro', 'promotor', 'financeiro_viagens']
-const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') || 'https://rdv-cleantabaco.vercel.app'
+const ALLOWED_ORIGIN = 'https://rdvs.vercel.app'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const corsHeaders = {

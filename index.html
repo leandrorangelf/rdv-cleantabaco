@@ -3537,14 +3537,20 @@ function erroFuncionario(msg){
 
 async function adminFunc(action, payload){
   const { data:{ session } } = await sb.auth.getSession()
-  const res = await fetch(SUPABASE_URL+'/functions/v1/admin-funcionarios', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token },
-    body: JSON.stringify({ action, ...payload })
-  })
-  const json = await res.json()
-  if(!res.ok) return { error: json.error || 'Erro desconhecido.' }
-  return { error: null }
+  if(!session) return { error:'Sessão expirada. Entre novamente.' }
+  try{
+    const res = await fetch(SUPABASE_URL+'/functions/v1/admin-funcionarios', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token },
+      body: JSON.stringify({ action, ...payload }),
+      signal:AbortSignal.timeout(15000)
+    })
+    const json = await res.json()
+    if(!res.ok) return { error: json.error || 'Erro desconhecido.' }
+    return { error: null }
+  }catch(e){
+    return { error:e?.name==='TimeoutError'?'O cadastro demorou demais. Tente novamente.':'Não foi possível acessar o serviço de funcionários.' }
+  }
 }
 
 async function criarFuncionario(){
