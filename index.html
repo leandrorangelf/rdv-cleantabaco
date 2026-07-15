@@ -3767,7 +3767,7 @@ async function carregarFinanceiro(){
     const creditoUsado = Math.min(aprovado, verbVal)
     const pago = !!pag
     return {p, aprovado, verbVal, creditoUsado, saldoCredito, apagar, pago, pag}
-  }).filter(r=>r.aprovado>0 || r.verbVal>0 || r.pago)
+  })
 
   // Cards de resumo
   const totalCreditoLancado = linhas.reduce((s,r)=>s+r.verbVal,0)
