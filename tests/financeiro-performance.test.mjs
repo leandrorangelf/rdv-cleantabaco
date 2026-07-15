@@ -22,6 +22,12 @@ test('Financeiro loads independent data in parallel', () => {
   assert.match(block, /qPagamentos/)
 })
 
+test('Financeiro shows every employee before their first credit or RDV', () => {
+  const block = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?async function salvarVerba/)?.[0] || ''
+
+  assert.doesNotMatch(block, /\}\)\.filter\(r=>/)
+})
+
 test('Financeiro initial month adjustment avoids exact counts', () => {
   const block = html.match(/async function ajustarFinMesInicial\(\)\{[\s\S]*?async function carregarFinanceiro/)?.[0] || ''
 
