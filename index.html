@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RDV · Cleantabaco</title>
+<title>RDV</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -692,7 +692,7 @@ body::before {
       <div class="login-icon">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6 6l.91-1.85a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
       </div>
-      <div style="font-size:16px;font-weight:500;color:var(--ink)">RDV · Cleantabaco</div>
+      <div style="font-size:16px;font-weight:500;color:var(--ink)">RDV</div>
       <div style="font-size:11px;color:var(--ink2);margin-top:2px">Reembolso de Despesas</div>
     </div>
     <div class="login-card">
@@ -715,7 +715,7 @@ body::before {
   <div class="topbar">
     <div class="topbar-logo">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-      RDV · Cleantabaco
+      RDV
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <div class="topbar-user">
@@ -5614,7 +5614,7 @@ async function gerarPdfAgenciaGeral() {
     doc.text('Solicitação de Cotação de Passagens Aéreas', 14, 10)
     doc.setFont('helvetica','normal')
     doc.setFontSize(8)
-    doc.text('Cleantabaco · RDV — documento gerado automaticamente', 14, 16)
+    doc.text('RDV — documento gerado automaticamente', 14, 16)
     doc.text('Gerado em: ' + new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}), 14, 21)
   }
 
@@ -5765,10 +5765,10 @@ async function gerarPdfAgenciaGeral() {
   for(let i=1; i<=totalPgs; i++){
     doc.setPage(i)
     doc.setFontSize(7); doc.setTextColor(160,160,160)
-    doc.text(`RDV Cleantabaco · documento interno · não é um bilhete emitido · pág ${i}/${totalPgs}`, pw/2, ph-6, {align:'center'})
+    doc.text(`RDV · documento interno · não é um bilhete emitido · pág ${i}/${totalPgs}`, pw/2, ph-6, {align:'center'})
   }
 
-  const nomeArq = `Cotacoes_Cleantabaco_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`
+  const nomeArq = `Cotacoes_RDV_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`
   doc.save(nomeArq)
   mostrarAviso(`PDF gerado com ${pessoas.length} passageiro(s)!`)
 }
@@ -5819,7 +5819,7 @@ async function gerarPdfAgencia(tipo, id) {
   doc.text('Solicitação de Cotação de Passagem Aérea', 14, 11)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
-  doc.text('Cleantabaco · RDV — documento gerado automaticamente', 14, 18)
+  doc.text('RDV — documento gerado automaticamente', 14, 18)
   doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}`, 14, 23)
 
   let y = 36
@@ -5948,7 +5948,7 @@ async function gerarPdfAgencia(tipo, id) {
   // Rodapé
   doc.setFontSize(7)
   doc.setTextColor(160, 160, 160)
-  doc.text('RDV Cleantabaco · documento interno · não é um bilhete emitido', pw/2, ph - 8, { align: 'center' })
+  doc.text('RDV · documento interno · não é um bilhete emitido', pw/2, ph - 8, { align: 'center' })
 
   // 5. Nome do arquivo e download
   const nomeArq = `Cotacao_${(prof.nome||'passageiro').split(' ')[0]}_${ref.destino||'destino'}_${dataIni||'data'}.pdf`
