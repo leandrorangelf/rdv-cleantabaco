@@ -30,3 +30,12 @@ test('Financeiro/gestor podem ver discriminado e comprovantes dos diretores mesm
   assert.match(html, /async function abrirDetalheDiretor\(uid, mes\)\{/)
   assert.match(html, /sb\.from\('despesas'\)\.select\('\*'\)\.eq\('usuario_id',uid\)\.eq\('status','aprovado'\)/)
 })
+
+test('comprovantes de imagem abrem numa galeria navegavel com setas', () => {
+  assert.match(html, /id="galeria-overlay"/)
+  assert.match(html, /function abrirGaleria\(idx\)\{/)
+  assert.match(html, /function navegarGaleria\(delta\)\{/)
+  assert.match(html, /onclick="navegarGaleria\(-1\)"/)
+  assert.match(html, /onclick="navegarGaleria\(1\)"/)
+  assert.match(html, /e\.key==='ArrowRight'\)navegarGaleria\(1\)/)
+})
