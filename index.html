@@ -3729,6 +3729,8 @@ async function carregarFinanceiro(){
   document.getElementById('fin-mes-label').textContent = label
   document.getElementById('fin-sub').textContent = 'Reembolsos do mes · '+label
 
+  await sb.rpc('transferir_saldos_credito', { p_mes: mes })
+
   const qDespesas=sb.from('despesas')
     .select('usuario_id,valor,status,ativo')
     .eq('status','aprovado')
