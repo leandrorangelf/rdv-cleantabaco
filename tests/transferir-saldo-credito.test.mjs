@@ -17,5 +17,6 @@ test('migracao adiciona flag de idempotencia e restringe quem pode transferir sa
   assert.match(migration, /alter table verbas add column if not exists saldo_transferido boolean not null default false/)
   assert.match(migration, /create or replace function public\.transferir_saldos_credito\(p_mes char\(7\)\)/)
   assert.match(migration, /papel in \('aprovador','gestor','financeiro','financeiro_viagens'\)/)
+  assert.doesNotMatch(migration, /can_view_all_expenses_by_name/)
   assert.match(migration, /where not verbas\.saldo_transferido/)
 })

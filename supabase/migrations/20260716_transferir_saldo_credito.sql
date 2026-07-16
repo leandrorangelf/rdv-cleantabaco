@@ -23,7 +23,7 @@ begin
     select 1 from profiles
     where id = auth.uid()
       and papel in ('aprovador','gestor','financeiro','financeiro_viagens')
-  ) and not public.can_view_all_expenses_by_name() then
+  ) then
     raise exception 'sem permissao para transferir saldos de credito';
   end if;
 
