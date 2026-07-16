@@ -2842,11 +2842,12 @@ async function salvarDespesa(){
     comprovante_url=publicUrl;comprovante_nome=primeiroArquivo.name;comprovante_tamanho_kb=Math.round(primeiroArquivo.size/1024)
   }
 
+  const pulaAprov = !!perfil.pula_aprovacao
   if(despesaEditandoId){
     const{error}=await sb.from('despesas').update({
       viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,
-      valor,data_despesa:data,data_fim:dataFimVal||null,status:'pendente',
-      motivo_rejeicao:null,aprovado_por:null,aprovado_em:null,
+      valor,data_despesa:data,data_fim:dataFimVal||null,status:pulaAprov?'aprovado':'pendente',
+      motivo_rejeicao:null,aprovado_por:null,aprovado_em:pulaAprov?new Date().toISOString():null,
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
     }).eq('id',despesaEditandoId)
     if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
@@ -2857,7 +2858,8 @@ async function salvarDespesa(){
   } else {
     const{data:novaDespesa,error}=await sb.from('despesas').insert({
       usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,
-      descricao:desc||null,valor,data_despesa:data,data_fim:dataFimVal||null,status:'pendente',
+      descricao:desc||null,valor,data_despesa:data,data_fim:dataFimVal||null,status:pulaAprov?'aprovado':'pendente',
+      aprovado_por:null,aprovado_em:pulaAprov?new Date().toISOString():null,
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
     }).select('id').single()
     if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}
@@ -3086,7 +3088,7 @@ async function contarPendentes(){
 
 async function carregarAprovacoes(){
   await carregarFiltrosZipComprovantes()
-  const statusDespesa = isGestor1() ? ['pendente'] : ['aguardando_aprovacao_2']
+  const statusDespesa = isGestor1() ? ['pendente'] : (isLeandro() ? ['pendente','aguardando_aprovacao_2'] : ['aguardando_aprovacao_2'])
   const statusDemanda = isGestor1() ? ['pendente','solicitada'] : ['aguardando_aprovacao_2']
   const [despRes, demRes, profRes, catsRes] = await Promise.all([
     sb.from('despesas').select('*').in('status',statusDespesa).order('data_despesa'),
@@ -3252,7 +3254,7 @@ async function carregarAprovacoes(){
           const semComp=!d.comprovante_url&&!extrasTabela.length
           return`<div class="approve-row" id="row-${d.id}" style="padding-left:12px">
             <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:500">${safeTxt(d.descricao||'—')}</div>
+              <div style="font-size:12px;font-weight:500">${safeTxt(d.descricao||'—')}${!isGestor1()&&d.status==='pendente'?' <span class="badge b-orange" style="font-size:9px;padding:1px 6px">Aprovação 1</span>':''}</div>
               <div style="font-size:11px;color:var(--ink2);margin-top:2px">${periodoFmt(d.data_despesa,d.data_fim)}${viag?` · ${safeTxt(viag.destino)} – ${safeTxt(viag.cliente)}`:' · avulso'}</div>
               ${semComp?`<div style="font-size:10px;color:var(--orange-dark);margin-top:3px">⚠ Sem comprovante</div>`:`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center">${compHtml}${totalComps>1?`<span style="font-size:10px;color:var(--ink2)">${totalComps} arquivos</span>`:''}</div>`}
             </div>
@@ -4144,7 +4146,7 @@ async function prepararPessoasMulti(){
   sel.innerHTML = `<option value="${perfil.id}">Meu RDV (${safeTxt(perfil.nome)})</option>`
   if(!podeLancarParaTerceiros()) return
 
-  const {data} = await sb.from('profiles').select('id,nome,estado_base,ativo').order('nome')
+  const {data} = await sb.from('profiles').select('id,nome,estado_base,ativo,pula_aprovacao').order('nome')
   const permitidos = (data||[]).filter(p=>p.ativo!==false && nomePermitidoLancamento(p.nome))
   multiPessoasPermitidas = [perfil, ...permitidos.filter(p=>p.id!==perfil.id)]
   multiPessoasPermitidas.forEach(p=>{
@@ -4474,10 +4476,12 @@ async function salvarMulti(){
       }
     }
 
+    const pulaAprovLote = !!perfilLancamento.pula_aprovacao
     const{data:nova,error}=await sb.from('despesas').insert({
       usuario_id:usuarioLancamento, viagem_id:viagId||null, categoria_id:l.catId,
       descricao:l.desc||null, valor:l.val, data_despesa:l.data, data_fim:l.dataFim||null,
-      status:'pendente', comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
+      status:pulaAprovLote?'aprovado':'pendente', aprovado_por:null, aprovado_em:pulaAprovLote?new Date().toISOString():null,
+      comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
     }).select('id').single()
 
     if(error){
