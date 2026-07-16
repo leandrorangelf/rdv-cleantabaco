@@ -27,8 +27,8 @@ test('transferir_saldos_credito insere lancamento saldo_transferido de forma ide
   assert.match(migration, /tipo, observacao, criado_por\)\s*\n\s*values \(r\.usuario_id, p_mes, \(p_mes \|\| '-01'\)::date, v_saldo, 'saldo_transferido'/)
 })
 
-test('modal de lancamentos permite adicionar e remover PIX manual', () => {
-  assert.match(html, /async function abrirLancamentosCredito\(userId, mes\)\{/)
+test('modal consolidado por funcionario permite adicionar e remover PIX manual', () => {
+  assert.match(html, /async function abrirDetalheFuncionario\(uid, mes\)\{/)
   assert.match(html, /async function adicionarLancamentoCredito\(userId, mes\)\{/)
   assert.match(html, /tipo: 'pix'/)
   assert.match(html, /async function removerLancamentoCredito\(id, userId, mes\)\{/)

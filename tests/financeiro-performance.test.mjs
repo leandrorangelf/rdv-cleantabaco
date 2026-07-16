@@ -5,7 +5,7 @@ import test from 'node:test'
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
 test('Financeiro fetches only approved active expenses from Supabase', () => {
-  const block = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?async function abrirLancamentosCredito/)?.[0] || ''
+  const block = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?async function abrirDetalheFuncionario/)?.[0] || ''
 
   assert.match(block, /\.eq\('status','aprovado'\)/)
   assert.match(block, /\.or\('ativo\.is\.null,ativo\.eq\.true'\)/)
@@ -13,7 +13,7 @@ test('Financeiro fetches only approved active expenses from Supabase', () => {
 })
 
 test('Financeiro loads independent data in parallel', () => {
-  const block = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?async function abrirLancamentosCredito/)?.[0] || ''
+  const block = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?async function abrirDetalheFuncionario/)?.[0] || ''
 
   assert.match(block, /Promise\.all\(\[/)
   assert.match(block, /qDespesas/)
@@ -23,7 +23,7 @@ test('Financeiro loads independent data in parallel', () => {
 })
 
 test('Financeiro shows every employee before their first credit or RDV', () => {
-  const block = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?async function abrirLancamentosCredito/)?.[0] || ''
+  const block = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?async function abrirDetalheFuncionario/)?.[0] || ''
 
   assert.doesNotMatch(block, /\}\)\.filter\(r=>/)
 })

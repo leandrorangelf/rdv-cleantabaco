@@ -3830,31 +3830,22 @@ async function carregarFinanceiro(){
     <td>
       <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div>
       ${p.ativo===false?`<div class="fin-credit-note">Funcion&aacute;rio inativo</div>`:''}
-      ${verbVal>0?`<div class="fin-credit-note">Cr&eacute;dito inicial: ${moeda(verbVal)}</div>`:''}
-      ${p.pula_aprovacao?`<button class="btn btn-sm" style="margin-top:4px" onclick="abrirDetalheDiretor('${p.id}','${mes}')">Ver discriminado</button>`:''}
     </td>
-    <td>${aprovado>0?moeda(aprovado):'&mdash;'}</td>
-    <td>
-      <div style="display:flex;gap:6px;align-items:center">
-        <div style="font-weight:800">${verbVal>0?moeda(verbVal):'&mdash;'}</div>
-        <button class="btn btn-sm" onclick="abrirLancamentosCredito('${p.id}','${mes}')">Lan&ccedil;amentos</button>
-      </div>
-    </td>
-    <td>${creditoUsado>0?moeda(creditoUsado):'&mdash;'}</td>
-    <td style="font-weight:800;color:var(--mint-dark)">${saldoCredito>0?moeda(saldoCredito):'&mdash;'}</td>
     <td>
       <div class="${apagar>0?'fin-receber':'fin-zero'}">${apagar>0?moeda(apagar):'R$ 0,00'}</div>
-      ${apagar<=0 && saldoCredito>0?`<div class="fin-credit-note">${aprovado>0?'Cr&eacute;dito cobriu este RDV.':'Cr&eacute;dito dispon&iacute;vel para abater RDV.'}</div>`:''}
     </td>
     <td>
       ${!podeGerenciarPagamentos() ? '<span class="badge b-gray">Cr&eacute;dito</span>' : pago
-        ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPago('${p.id}','${mes}')">Desfazer</button>`
+        ? '<span class="badge b-mint">Pago</span>'
         : apagar>0
-          ? `<button class="btn btn-sm btn-approve" onclick="marcarPago('${p.id}','${mes}',${apagar})">Marcar pago</button>`
+          ? '<span class="badge b-orange">A pagar</span>'
           : saldoCredito>0
             ? '<span class="badge b-mint">Cr&eacute;dito dispon&iacute;vel</span>'
             : '<span class="badge b-gray">Nada a pagar</span>'
       }
+    </td>
+    <td style="text-align:right">
+      <button class="btn btn-sm" onclick="abrirDetalheFuncionario('${p.id}','${mes}')">Detalhes</button>
     </td>
   </tr>`).join('')
 
@@ -3862,12 +3853,9 @@ async function carregarFinanceiro(){
     <table class="tbl">
       <thead><tr>
         <th>Funcion&aacute;rio</th>
-        <th>RDV aprovado</th>
-        <th>Cr&eacute;dito PIX</th>
-        <th>Cr&eacute;dito usado</th>
-        <th>Saldo cr&eacute;dito</th>
         <th>A receber</th>
-        <th style="text-align:right">Status</th>
+        <th>Status</th>
+        <th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -3911,15 +3899,19 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='Escape')fecharGaleria()
 })
 
-async function abrirDetalheDiretor(uid, mes){
+async function abrirDetalheFuncionario(uid, mes){
   const det=document.getElementById('fin-detalhe')
   det.innerHTML='<div class="loading">Carregando...</div>'
   const ini=mes+'-01', fim=fimMes(mes)
-  const [{data:p},{data:despesas}]=await Promise.all([
+  const [{data:p},{data:despesas},{data:lancamentos},{data:pag}]=await Promise.all([
     sb.from('profiles').select('nome').eq('id',uid).single(),
     sb.from('despesas').select('*').eq('usuario_id',uid).eq('status','aprovado')
       .or('ativo.is.null,ativo.eq.true').gte('data_despesa',ini).lte('data_despesa',fim)
-      .order('data_despesa')
+      .order('data_despesa'),
+    sb.from('lancamentos_credito').select('*').eq('usuario_id',uid).eq('mes',mes).order('data_pix'),
+    podeGerenciarPagamentos()
+      ? sb.from('pagamentos_rdv').select('*').eq('usuario_id',uid).eq('mes',mes).maybeSingle()
+      : Promise.resolve({data:null})
   ])
   const lista=despesas||[]
   const despIds=lista.map(d=>d.id)
@@ -3932,7 +3924,7 @@ async function abrirDetalheDiretor(uid, mes){
   ;(extras||[]).forEach(c=>{ if(!extrasPorDespesa[c.despesa_id])extrasPorDespesa[c.despesa_id]=[]; extrasPorDespesa[c.despesa_id].push(c) })
 
   galeriaFotos=[]
-  const rows=lista.map(d=>{
+  const rowsRdv=lista.map(d=>{
     const arquivos=[]
     if(d.comprovante_url) arquivos.push({url:d.comprovante_url,nome:d.comprovante_nome})
     ;(extrasPorDespesa[d.id]||[]).forEach(c=>arquivos.push({url:c.url,nome:c.nome}))
@@ -3956,49 +3948,58 @@ async function abrirDetalheDiretor(uid, mes){
     </tr>`
   }).join('')
 
-  det.innerHTML=`<div class="card">
-    <div class="card-header">
-      <div><div class="card-title">Discriminado · ${safeTxt(p?.nome||'')}</div><div class="card-meta">RDVs aprovados no m&ecirc;s</div></div>
-      <button class="btn" onclick="document.getElementById('fin-detalhe').innerHTML=''">Fechar</button>
-    </div>
-    <table class="tbl">
-      <thead><tr><th>Data</th><th>Categoria</th><th>Descri&ccedil;&atilde;o</th><th style="text-align:right">Valor</th><th>Comprovante</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="5">Nenhum RDV aprovado no m&ecirc;s.</td></tr>'}</tbody>
-    </table>
-  </div>`
-}
+  const aprovado=lista.reduce((s,d)=>s+Number(d.valor||0),0)
+  const lancList=lancamentos||[]
+  const verbVal=lancList.reduce((s,l)=>s+Number(l.valor||0),0)
+  const creditoUsado=Math.min(aprovado,verbVal)
+  const saldoCredito=Math.max(0,verbVal-aprovado)
+  const apagar=Math.max(0,aprovado-verbVal)
+  const pago=!!pag
 
-async function abrirLancamentosCredito(userId, mes){
-  const det=document.getElementById('fin-detalhe')
-  det.innerHTML='<div class="loading">Carregando...</div>'
-  const [{data:p},{data:lancamentos}]=await Promise.all([
-    sb.from('profiles').select('nome').eq('id',userId).single(),
-    sb.from('lancamentos_credito').select('*').eq('usuario_id',userId).eq('mes',mes).order('data_pix')
-  ])
-  const lista=lancamentos||[]
-  const total=lista.reduce((s,l)=>s+Number(l.valor||0),0)
-  const rows=lista.map(l=>`<tr>
+  const rowsLanc=lancList.map(l=>`<tr>
     <td>${dataFmt(l.data_pix)}</td>
     <td style="text-align:right">${moeda(l.valor)}</td>
     <td>${l.tipo==='saldo_transferido'?'<span class="badge b-gray">Saldo transferido</span>':'<span class="badge b-mint">PIX</span>'}</td>
     <td>${safeTxt(l.observacao||'')}</td>
-    <td><button class="btn btn-sm btn-reject" onclick="removerLancamentoCredito('${l.id}','${userId}','${mes}')">Excluir</button></td>
+    <td><button class="btn btn-sm btn-reject" onclick="removerLancamentoCredito('${l.id}','${uid}','${mes}')">Excluir</button></td>
   </tr>`).join('')
+
+  const acaoPagamento=!podeGerenciarPagamentos() ? '' : pago
+    ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPagoDetalhe('${uid}','${mes}')">Desfazer</button>`
+    : apagar>0
+      ? `<button class="btn btn-sm btn-approve" onclick="marcarPagoDetalhe('${uid}','${mes}',${apagar})">Marcar pago</button>`
+      : ''
 
   det.innerHTML=`<div class="card">
     <div class="card-header">
-      <div><div class="card-title">Lan&ccedil;amentos de cr&eacute;dito PIX &middot; ${safeTxt(p?.nome||'')}</div><div class="card-meta">Total no m&ecirc;s: ${moeda(total)}</div></div>
+      <div><div class="card-title">${safeTxt(p?.nome||'')}</div><div class="card-meta">Detalhes financeiros do m&ecirc;s</div></div>
       <button class="btn" onclick="document.getElementById('fin-detalhe').innerHTML=''">Fechar</button>
     </div>
+    <div class="fin-summary" style="margin-top:12px">
+      <div class="fin-card"><div class="fin-card-label">RDV aprovado</div><div class="fin-card-value">${moeda(aprovado)}</div></div>
+      <div class="fin-card"><div class="fin-card-label">Cr&eacute;dito PIX</div><div class="fin-card-value">${moeda(verbVal)}</div></div>
+      <div class="fin-card"><div class="fin-card-label">Cr&eacute;dito usado</div><div class="fin-card-value">${moeda(creditoUsado)}</div></div>
+      <div class="fin-card"><div class="fin-card-label">Saldo cr&eacute;dito</div><div class="fin-card-value">${moeda(saldoCredito)}</div></div>
+      <div class="fin-card fin-card-main"><div class="fin-card-label">A receber</div><div class="fin-card-value">${moeda(apagar)}</div></div>
+    </div>
+    <div style="margin-top:12px">${acaoPagamento}</div>
+
+    <h4 style="margin-top:24px">Discriminado de RDV</h4>
+    <table class="tbl">
+      <thead><tr><th>Data</th><th>Categoria</th><th>Descri&ccedil;&atilde;o</th><th style="text-align:right">Valor</th><th>Comprovante</th></tr></thead>
+      <tbody>${rowsRdv||'<tr><td colspan="5">Nenhum RDV aprovado no m&ecirc;s.</td></tr>'}</tbody>
+    </table>
+
+    <h4 style="margin-top:24px">Lan&ccedil;amentos de cr&eacute;dito PIX</h4>
     <table class="tbl">
       <thead><tr><th>Data</th><th style="text-align:right">Valor</th><th>Tipo</th><th>Observa&ccedil;&atilde;o</th><th></th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="5">Nenhum lan&ccedil;amento neste m&ecirc;s.</td></tr>'}</tbody>
+      <tbody>${rowsLanc||'<tr><td colspan="5">Nenhum lan&ccedil;amento neste m&ecirc;s.</td></tr>'}</tbody>
     </table>
     <div style="display:flex;gap:6px;align-items:center;margin-top:12px;flex-wrap:wrap">
-      <input type="date" id="lanc-data-${userId}" class="form-input" style="width:140px" value="${new Date().toISOString().slice(0,10)}">
-      <input type="number" id="lanc-valor-${userId}" class="form-input" style="width:100px" placeholder="0,00" step="0.01" min="0">
-      <input type="text" id="lanc-obs-${userId}" class="form-input" style="flex:1;min-width:160px" placeholder="Observa&ccedil;&atilde;o (opcional)">
-      <button class="btn btn-sm btn-approve" onclick="adicionarLancamentoCredito('${userId}','${mes}')">Adicionar PIX</button>
+      <input type="date" id="lanc-data-${uid}" class="form-input" style="width:140px" value="${new Date().toISOString().slice(0,10)}">
+      <input type="number" id="lanc-valor-${uid}" class="form-input" style="width:100px" placeholder="0,00" step="0.01" min="0">
+      <input type="text" id="lanc-obs-${uid}" class="form-input" style="flex:1;min-width:160px" placeholder="Observa&ccedil;&atilde;o (opcional)">
+      <button class="btn btn-sm btn-approve" onclick="adicionarLancamentoCredito('${uid}','${mes}')">Adicionar PIX</button>
     </div>
   </div>`
 }
@@ -4019,7 +4020,7 @@ async function adicionarLancamentoCredito(userId, mes){
   })
   if(error){ mostrarAviso('Erro ao lançar crédito: '+error.message,'erro'); return }
   mostrarAviso('Crédito lançado.')
-  await abrirLancamentosCredito(userId, mes)
+  await abrirDetalheFuncionario(userId, mes)
   await carregarFinanceiro()
 }
 
@@ -4028,7 +4029,7 @@ async function removerLancamentoCredito(id, userId, mes){
   const { error } = await sb.from('lancamentos_credito').delete().eq('id', id)
   if(error){ mostrarAviso('Erro ao excluir lançamento: '+error.message,'erro'); return }
   mostrarAviso('Lançamento excluído.')
-  await abrirLancamentosCredito(userId, mes)
+  await abrirDetalheFuncionario(userId, mes)
   await carregarFinanceiro()
 }
 
@@ -4051,6 +4052,16 @@ async function desmarcarPago(userId, mes){
   if(error){ mostrarAviso('Erro: '+error.message,'erro'); return }
   mostrarAviso('Pagamento desfeito.')
   await carregarFinanceiro()
+}
+
+async function marcarPagoDetalhe(userId, mes, valor){
+  await marcarPago(userId, mes, valor)
+  await abrirDetalheFuncionario(userId, mes)
+}
+
+async function desmarcarPagoDetalhe(userId, mes){
+  await desmarcarPago(userId, mes)
+  await abrirDetalheFuncionario(userId, mes)
 }
 
 // ── Equipe ────────────────────────────────────
