@@ -3738,7 +3738,7 @@ async function carregarFinanceiro(){
     .or('ativo.is.null,ativo.eq.true')
     .gte('data_despesa', ini).lte('data_despesa', fim)
   const qProfs=sb.from('profiles').select('id,nome,papel,ativo,pula_aprovacao').order('nome')
-  const qVerbas=sb.from('verbas').select('*').eq('mes', mes)
+  const qLancamentos=sb.from('lancamentos_credito').select('usuario_id,valor').eq('mes', mes)
   const qPagamentos=podeGerenciarPagamentos()
     ? sb.from('pagamentos_rdv').select('*').eq('mes', mes)
     : Promise.resolve({ data: [], error: null })
@@ -3746,17 +3746,17 @@ async function carregarFinanceiro(){
   const [
     { data: despesas },
     { data: profs },
-    { data: verbas, error: erroVerbas },
+    { data: lancamentos, error: erroLancamentos },
     { data: pagamentos, error: erroPagamentos }
   ] = await Promise.all([
     qDespesas,
     qProfs,
-    qVerbas,
+    qLancamentos,
     qPagamentos
   ])
 
-  if(erroVerbas){
-    document.getElementById('fin-lista').innerHTML=`<div class="empty">Erro ao carregar cr&eacute;ditos PIX: ${safeTxt(erroVerbas.message)}. Verifique as permiss&otilde;es do perfil financeiro.</div>`
+  if(erroLancamentos){
+    document.getElementById('fin-lista').innerHTML=`<div class="empty">Erro ao carregar cr&eacute;ditos PIX: ${safeTxt(erroLancamentos.message)}. Verifique as permiss&otilde;es do perfil financeiro.</div>`
     return
   }
 
@@ -3770,12 +3770,15 @@ async function carregarFinanceiro(){
   ;(despesas||[]).forEach(d=>{
     porRdv[d.usuario_id] = (porRdv[d.usuario_id]||0) + Number(d.valor||0)
   })
+  const porCredito = {}
+  ;(lancamentos||[]).forEach(l=>{
+    porCredito[l.usuario_id] = (porCredito[l.usuario_id]||0) + Number(l.valor||0)
+  })
   // Monta linhas de reembolso. Custos de viagem ficam fora desta tela.
   const linhas = (profs||[]).map(p=>{
     const aprovado = porRdv[p.id]||0
-    const verba = (verbas||[]).find(v=>v.usuario_id===p.id)
     const pag = (pagamentos||[]).find(g=>g.usuario_id===p.id)
-    const verbVal = Number(verba?.valor||0)
+    const verbVal = porCredito[p.id]||0
     const apagar = Math.max(0, aprovado - verbVal)
     const saldoCredito = Math.max(0, verbVal - aprovado)
     const creditoUsado = Math.min(aprovado, verbVal)
@@ -3833,9 +3836,8 @@ async function carregarFinanceiro(){
     <td>${aprovado>0?moeda(aprovado):'&mdash;'}</td>
     <td>
       <div style="display:flex;gap:6px;align-items:center">
-        <input type="number" id="fin-verba-${p.id}" class="form-input" style="width:90px;min-height:28px;padding:4px 8px;font-size:12px" value="${verbVal||''}" placeholder="0,00" step="0.01" min="0">
-        <button class="btn btn-sm" onclick="salvarVerba('${p.id}','${mes}')">OK</button>
-        ${verbVal>0?`<button class="btn btn-sm btn-reject" onclick="removerVerba('${p.id}','${mes}')">Remover</button>`:''}
+        <div style="font-weight:800">${verbVal>0?moeda(verbVal):'&mdash;'}</div>
+        <button class="btn btn-sm" onclick="abrirLancamentosCredito('${p.id}','${mes}')">Lan&ccedil;amentos</button>
       </div>
     </td>
     <td>${creditoUsado>0?moeda(creditoUsado):'&mdash;'}</td>
@@ -3966,30 +3968,67 @@ async function abrirDetalheDiretor(uid, mes){
   </div>`
 }
 
-async function salvarVerba(userId, mes){
-  const val = parseFloat(document.getElementById('fin-verba-'+userId)?.value||'0')||0
-  if(val <= 0){
-    await removerVerba(userId, mes, false)
-    return
-  }
-  // upsert na tabela verbas
-  const { error } = await sb.from('verbas').upsert({
+async function abrirLancamentosCredito(userId, mes){
+  const det=document.getElementById('fin-detalhe')
+  det.innerHTML='<div class="loading">Carregando...</div>'
+  const [{data:p},{data:lancamentos}]=await Promise.all([
+    sb.from('profiles').select('nome').eq('id',userId).single(),
+    sb.from('lancamentos_credito').select('*').eq('usuario_id',userId).eq('mes',mes).order('data_pix')
+  ])
+  const lista=lancamentos||[]
+  const total=lista.reduce((s,l)=>s+Number(l.valor||0),0)
+  const rows=lista.map(l=>`<tr>
+    <td>${dataFmt(l.data_pix)}</td>
+    <td style="text-align:right">${moeda(l.valor)}</td>
+    <td>${l.tipo==='saldo_transferido'?'<span class="badge b-gray">Saldo transferido</span>':'<span class="badge b-mint">PIX</span>'}</td>
+    <td>${safeTxt(l.observacao||'')}</td>
+    <td><button class="btn btn-sm btn-reject" onclick="removerLancamentoCredito('${l.id}','${userId}','${mes}')">Excluir</button></td>
+  </tr>`).join('')
+
+  det.innerHTML=`<div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Lan&ccedil;amentos de cr&eacute;dito PIX &middot; ${safeTxt(p?.nome||'')}</div><div class="card-meta">Total no m&ecirc;s: ${moeda(total)}</div></div>
+      <button class="btn" onclick="document.getElementById('fin-detalhe').innerHTML=''">Fechar</button>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Data</th><th style="text-align:right">Valor</th><th>Tipo</th><th>Observa&ccedil;&atilde;o</th><th></th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="5">Nenhum lan&ccedil;amento neste m&ecirc;s.</td></tr>'}</tbody>
+    </table>
+    <div style="display:flex;gap:6px;align-items:center;margin-top:12px;flex-wrap:wrap">
+      <input type="date" id="lanc-data-${userId}" class="form-input" style="width:140px" value="${new Date().toISOString().slice(0,10)}">
+      <input type="number" id="lanc-valor-${userId}" class="form-input" style="width:100px" placeholder="0,00" step="0.01" min="0">
+      <input type="text" id="lanc-obs-${userId}" class="form-input" style="flex:1;min-width:160px" placeholder="Observa&ccedil;&atilde;o (opcional)">
+      <button class="btn btn-sm btn-approve" onclick="adicionarLancamentoCredito('${userId}','${mes}')">Adicionar PIX</button>
+    </div>
+  </div>`
+}
+
+async function adicionarLancamentoCredito(userId, mes){
+  const data = document.getElementById('lanc-data-'+userId)?.value
+  const valor = parseFloat(document.getElementById('lanc-valor-'+userId)?.value||'0')||0
+  const observacao = document.getElementById('lanc-obs-'+userId)?.value||null
+  if(!data || valor<=0){ mostrarAviso('Informe data e valor v&aacute;lidos.','erro'); return }
+  const { error } = await sb.from('lancamentos_credito').insert({
     usuario_id: userId,
     mes,
-    valor: val,
-    atualizado_por: perfil.id,
-    atualizado_em: new Date().toISOString()
-  }, { onConflict: 'usuario_id,mes' })
-  if(error){ mostrarAviso('Erro ao salvar verba: '+error.message,'erro'); return }
-  mostrarAviso('Verba salva.')
+    data_pix: data,
+    valor,
+    tipo: 'pix',
+    observacao,
+    criado_por: perfil.id
+  })
+  if(error){ mostrarAviso('Erro ao lançar crédito: '+error.message,'erro'); return }
+  mostrarAviso('Crédito lançado.')
+  await abrirLancamentosCredito(userId, mes)
   await carregarFinanceiro()
 }
 
-async function removerVerba(userId, mes, confirmar=true){
-  if(confirmar && !confirm('Remover o crÃ©dito PIX desta pessoa neste mÃªs?')) return
-  const { error } = await sb.from('verbas').delete().eq('usuario_id', userId).eq('mes', mes)
-  if(error){ mostrarAviso('Erro ao remover crÃ©dito: '+error.message,'erro'); return }
-  mostrarAviso('CrÃ©dito removido.')
+async function removerLancamentoCredito(id, userId, mes){
+  if(!confirm('Excluir este lançamento de crédito?')) return
+  const { error } = await sb.from('lancamentos_credito').delete().eq('id', id)
+  if(error){ mostrarAviso('Erro ao excluir lançamento: '+error.message,'erro'); return }
+  mostrarAviso('Lançamento excluído.')
+  await abrirLancamentosCredito(userId, mes)
   await carregarFinanceiro()
 }
 

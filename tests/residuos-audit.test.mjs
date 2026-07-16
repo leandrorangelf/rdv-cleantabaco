@@ -193,7 +193,7 @@ test('mocked Supabase recorder captures critical queries without network access'
 
   assert.ok(financeiroCalls.some(call => call.table === 'despesas'))
   assert.ok(financeiroCalls.some(call => call.table === 'profiles'))
-  assert.ok(financeiroCalls.some(call => call.table === 'verbas'))
+  assert.ok(financeiroCalls.some(call => call.table === 'lancamentos_credito'))
   assert.ok(equipeCalls.some(call => call.table === 'profiles'))
   assert.ok([...financeiroCalls, ...equipeCalls].every(call => Array.isArray(call.steps)))
   assert.ok([...financeiroCalls, ...equipeCalls].some(call => call.steps.some(step => step.method === 'select')))
