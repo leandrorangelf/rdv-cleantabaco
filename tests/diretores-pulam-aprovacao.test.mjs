@@ -23,3 +23,10 @@ test('Leandro tambem ve RDVs em aprovacao 1, com tag distinta', () => {
   assert.match(html, /const statusDespesa = isGestor1\(\) \? \['pendente'\] : \(isLeandro\(\) \? \['pendente','aguardando_aprovacao_2'\] : \['aguardando_aprovacao_2'\]\)/)
   assert.match(html, /!isGestor1\(\)&&d\.status==='pendente'\?' <span class="badge b-orange"[^>]*>Aprovação 1<\/span>'/)
 })
+
+test('Financeiro/gestor podem ver discriminado e comprovantes dos diretores mesmo aprovado', () => {
+  assert.match(html, /\.from\('profiles'\)\.select\('id,nome,papel,ativo,pula_aprovacao'\)/)
+  assert.match(html, /p\.pula_aprovacao\?`<button class="btn btn-sm" style="margin-top:4px" onclick="abrirDetalheDiretor/)
+  assert.match(html, /async function abrirDetalheDiretor\(uid, mes\)\{/)
+  assert.match(html, /sb\.from\('despesas'\)\.select\('\*'\)\.eq\('usuario_id',uid\)\.eq\('status','aprovado'\)/)
+})

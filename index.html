@@ -1300,6 +1300,7 @@ body::before {
 
         <div id="fin-resumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
         <div id="fin-lista"><div class="loading">Carregando...</div></div>
+        <div id="fin-detalhe" style="margin-top:16px"></div>
       </div>
 
       <div class="screen" id="screen-categorias">
@@ -3725,7 +3726,7 @@ async function carregarFinanceiro(){
     .eq('status','aprovado')
     .or('ativo.is.null,ativo.eq.true')
     .gte('data_despesa', ini).lte('data_despesa', fim)
-  const qProfs=sb.from('profiles').select('id,nome,papel,ativo').order('nome')
+  const qProfs=sb.from('profiles').select('id,nome,papel,ativo,pula_aprovacao').order('nome')
   const qVerbas=sb.from('verbas').select('*').eq('mes', mes)
   const qPagamentos=podeGerenciarPagamentos()
     ? sb.from('pagamentos_rdv').select('*').eq('mes', mes)
@@ -3816,6 +3817,7 @@ async function carregarFinanceiro(){
       <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div>
       ${p.ativo===false?`<div class="fin-credit-note">Funcion&aacute;rio inativo</div>`:''}
       ${verbVal>0?`<div class="fin-credit-note">Cr&eacute;dito inicial: ${moeda(verbVal)}</div>`:''}
+      ${p.pula_aprovacao?`<button class="btn btn-sm" style="margin-top:4px" onclick="abrirDetalheDiretor('${p.id}','${mes}')">Ver discriminado</button>`:''}
     </td>
     <td>${aprovado>0?moeda(aprovado):'&mdash;'}</td>
     <td>
@@ -3855,6 +3857,54 @@ async function carregarFinanceiro(){
         <th style="text-align:right">Status</th>
       </tr></thead>
       <tbody>${rows}</tbody>
+    </table>
+  </div>`
+}
+
+async function abrirDetalheDiretor(uid, mes){
+  const det=document.getElementById('fin-detalhe')
+  det.innerHTML='<div class="loading">Carregando...</div>'
+  const ini=mes+'-01', fim=fimMes(mes)
+  const [{data:p},{data:despesas}]=await Promise.all([
+    sb.from('profiles').select('nome').eq('id',uid).single(),
+    sb.from('despesas').select('*').eq('usuario_id',uid).eq('status','aprovado')
+      .or('ativo.is.null,ativo.eq.true').gte('data_despesa',ini).lte('data_despesa',fim)
+      .order('data_despesa')
+  ])
+  const lista=despesas||[]
+  const despIds=lista.map(d=>d.id)
+  const [{data:cats},{data:extras}]=await Promise.all([
+    sb.from('categorias').select('id,nome'),
+    despIds.length?sb.from('comprovantes').select('*').in('despesa_id',despIds):Promise.resolve({data:[]})
+  ])
+  const catNomePorId={};(cats||[]).forEach(c=>catNomePorId[c.id]=c.nome)
+  const extrasPorDespesa={}
+  ;(extras||[]).forEach(c=>{ if(!extrasPorDespesa[c.despesa_id])extrasPorDespesa[c.despesa_id]=[]; extrasPorDespesa[c.despesa_id].push(c) })
+
+  const rows=lista.map(d=>{
+    const arquivos=[]
+    if(d.comprovante_url) arquivos.push({url:d.comprovante_url,nome:d.comprovante_nome})
+    ;(extrasPorDespesa[d.id]||[]).forEach(c=>arquivos.push({url:c.url,nome:c.nome}))
+    const compHtml=arquivos.length
+      ? arquivos.map(a=>`<a href="${safeUrl(a.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD;margin-right:4px">📄 ${safeTxt(a.nome||'comprovante')}</a>`).join('')
+      : '<span style="font-size:10px;color:var(--orange-dark)">Sem comprovante</span>'
+    return `<tr>
+      <td>${dataFmt(d.data_despesa)}</td>
+      <td>${safeTxt(catNomePorId[d.categoria_id]||'Sem categoria')}</td>
+      <td>${safeTxt(d.descricao||'—')}</td>
+      <td style="text-align:right">${moeda(d.valor)}</td>
+      <td>${compHtml}</td>
+    </tr>`
+  }).join('')
+
+  det.innerHTML=`<div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Discriminado · ${safeTxt(p?.nome||'')}</div><div class="card-meta">RDVs aprovados no m&ecirc;s</div></div>
+      <button class="btn" onclick="document.getElementById('fin-detalhe').innerHTML=''">Fechar</button>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Data</th><th>Categoria</th><th>Descri&ccedil;&atilde;o</th><th style="text-align:right">Valor</th><th>Comprovante</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="5">Nenhum RDV aprovado no m&ecirc;s.</td></tr>'}</tbody>
     </table>
   </div>`
 }
