@@ -3954,16 +3954,23 @@ async function abrirDetalheFuncionario(uid, mes){
     modal.addEventListener('click', e=>{ if(e.target===modal) fecharDetalheFuncionario() })
     document.body.appendChild(modal)
   }
-  const det=document.getElementById('fin-detalhe-card')
+  await carregarDetalheFinanceiro(document.getElementById('fin-detalhe-card'), uid, mes, {readonly: false})
+}
+
+let detFinDespesas = []
+let detFinCatNomePorId = {}
+
+async function carregarDetalheFinanceiro(det, uid, mes, {readonly=false}={}){
   det.innerHTML='<div class="loading">Carregando...</div>'
   const ini=mes+'-01', fim=fimMes(mes)
+  const podePag = readonly || podeGerenciarPagamentos()
   const [{data:p},{data:despesas},{data:lancamentos},{data:pag}]=await Promise.all([
     sb.from('profiles').select('nome,empresa').eq('id',uid).single(),
     sb.from('despesas').select('*').eq('usuario_id',uid).eq('status','aprovado')
       .or('ativo.is.null,ativo.eq.true').gte('data_despesa',ini).lte('data_despesa',fim)
       .order('data_despesa'),
     sb.from('lancamentos_credito').select('*').eq('usuario_id',uid).eq('mes',mes).order('data_pix'),
-    podeGerenciarPagamentos()
+    podePag
       ? sb.from('pagamentos_rdv').select('*').eq('usuario_id',uid).eq('mes',mes).maybeSingle()
       : Promise.resolve({data:null})
   ])
@@ -3977,30 +3984,13 @@ async function abrirDetalheFuncionario(uid, mes){
   const extrasPorDespesa={}
   ;(extras||[]).forEach(c=>{ if(!extrasPorDespesa[c.despesa_id])extrasPorDespesa[c.despesa_id]=[]; extrasPorDespesa[c.despesa_id].push(c) })
 
-  galeriaFotos=[]
-  const rowsRdv=lista.map(d=>{
+  detFinDespesas = lista.map(d=>{
     const arquivos=[]
     if(d.comprovante_url) arquivos.push({url:d.comprovante_url,nome:d.comprovante_nome})
     ;(extrasPorDespesa[d.id]||[]).forEach(c=>arquivos.push({url:c.url,nome:c.nome}))
-    const legenda=`${dataFmt(d.data_despesa)} · ${catNomePorId[d.categoria_id]||'Sem categoria'} · ${moeda(d.valor)}`
-    const compHtml=arquivos.length
-      ? arquivos.map(a=>{
-          if(ehImagem(a.nome,a.url)){
-            galeriaFotos.push({url:a.url,legenda})
-            const idx=galeriaFotos.length-1
-            return `<img src="${safeUrl(a.url)}" onclick="abrirGaleria(${idx})" style="width:32px;height:32px;object-fit:cover;border-radius:5px;border:1px solid var(--line);cursor:pointer;margin-right:4px" title="${safeTxt(a.nome||'foto')}">`
-          }
-          return `<a href="${safeUrl(a.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD;margin-right:4px">📄 ${safeTxt(a.nome||'PDF')}</a>`
-        }).join('')
-      : '<span style="font-size:10px;color:var(--orange-dark)">Sem comprovante</span>'
-    return `<tr>
-      <td>${dataFmt(d.data_despesa)}</td>
-      <td>${safeTxt(catNomePorId[d.categoria_id]||'Sem categoria')}</td>
-      <td>${safeTxt(d.descricao||'—')}</td>
-      <td style="text-align:right">${moeda(d.valor)}</td>
-      <td>${compHtml}</td>
-    </tr>`
-  }).join('')
+    return {...d, _arquivos: arquivos}
+  })
+  detFinCatNomePorId = catNomePorId
 
   const aprovado=lista.reduce((s,d)=>s+Number(d.valor||0),0)
   const lancList=lancamentos||[]
@@ -4015,19 +4005,24 @@ async function abrirDetalheFuncionario(uid, mes){
     <td style="text-align:right">${moeda(l.valor)}</td>
     <td>${l.tipo==='saldo_transferido'?'<span class="badge b-gray">Saldo transferido</span>':'<span class="badge b-mint">PIX</span>'}</td>
     <td>${safeTxt(l.observacao||'')}</td>
-    <td><button class="btn btn-sm btn-reject" onclick="removerLancamentoCredito('${l.id}','${uid}','${mes}')">Excluir</button></td>
+    ${readonly ? '' : `<td><button class="btn btn-sm btn-reject" onclick="removerLancamentoCredito('${l.id}','${uid}','${mes}')">Excluir</button></td>`}
   </tr>`).join('')
 
-  const acaoPagamento=!podeGerenciarPagamentos() ? '' : pago
+  const acaoPagamento=(readonly || !podeGerenciarPagamentos()) ? '' : pago
     ? `<span class="badge b-mint">Pago</span> <button class="btn btn-sm btn-reject" style="margin-left:6px" onclick="desmarcarPagoDetalhe('${uid}','${mes}')">Desfazer</button>`
     : apagar>0
       ? `<button class="btn btn-sm btn-approve" onclick="marcarPagoDetalhe('${uid}','${mes}',${apagar})">Marcar pago</button>`
       : ''
+  const statusPagoReadonly = readonly ? (pago?'<span class="badge b-mint">Pago</span>':(apagar>0?'<span class="badge b-orange">A pagar</span>':'<span class="badge b-gray">Nada a pagar</span>')) : ''
+
+  const categorias=[...new Set(detFinDespesas.map(d=>d.categoria_id).filter(Boolean))]
+    .map(id=>({id, nome:catNomePorId[id]||'Sem categoria'}))
+    .sort((a,b)=>a.nome.localeCompare(b.nome))
 
   det.innerHTML=`
     <div class="card-header" style="position:sticky;top:0;background:var(--surface,#fff);z-index:1;padding-bottom:12px">
       <div><div class="card-title">${safeTxt(nomeExibicao(p))}</div><div class="card-meta">Detalhes financeiros do m&ecirc;s</div></div>
-      <button class="btn" onclick="fecharDetalheFuncionario()">Fechar</button>
+      ${readonly ? '' : '<button class="btn" onclick="fecharDetalheFuncionario()">Fechar</button>'}
     </div>
     <div style="padding:0 18px 18px">
     <div class="fin-summary" style="margin-top:12px">
@@ -4037,26 +4032,60 @@ async function abrirDetalheFuncionario(uid, mes){
       <div class="fin-card"><div class="fin-card-label">Cr&eacute;dito usado</div><div class="fin-card-value">${moeda(creditoUsado)}</div></div>
       <div class="fin-card"><div class="fin-card-label">Saldo cr&eacute;dito</div><div class="fin-card-value">${moeda(saldoCredito)}</div></div>
     </div>
-    <div style="margin-top:12px">${acaoPagamento}</div>
+    <div style="margin-top:12px">${readonly ? statusPagoReadonly : acaoPagamento}</div>
 
     <h4 style="margin-top:24px">Discriminado de RDV</h4>
+    <select id="detfin-cat-filtro" class="form-select" style="max-width:280px;margin-bottom:10px" onchange="renderDetFinRows(this.value)">
+      <option value="">Todas as categorias</option>
+      ${categorias.map(c=>`<option value="${c.id}">${safeTxt(c.nome)}</option>`).join('')}
+    </select>
     <table class="tbl">
       <thead><tr><th>Data</th><th>Categoria</th><th>Descri&ccedil;&atilde;o</th><th style="text-align:right">Valor</th><th>Comprovante</th></tr></thead>
-      <tbody>${rowsRdv||'<tr><td colspan="5">Nenhum RDV aprovado no m&ecirc;s.</td></tr>'}</tbody>
+      <tbody id="detfin-rows"></tbody>
     </table>
 
     <h4 style="margin-top:24px">Lan&ccedil;amentos de cr&eacute;dito PIX</h4>
     <table class="tbl">
-      <thead><tr><th>Data</th><th style="text-align:right">Valor</th><th>Tipo</th><th>Observa&ccedil;&atilde;o</th><th></th></tr></thead>
-      <tbody>${rowsLanc||'<tr><td colspan="5">Nenhum lan&ccedil;amento neste m&ecirc;s.</td></tr>'}</tbody>
+      <thead><tr><th>Data</th><th style="text-align:right">Valor</th><th>Tipo</th><th>Observa&ccedil;&atilde;o</th>${readonly?'':'<th></th>'}</tr></thead>
+      <tbody>${rowsLanc||`<tr><td colspan="${readonly?4:5}">Nenhum lan&ccedil;amento neste m&ecirc;s.</td></tr>`}</tbody>
     </table>
+    ${readonly ? '' : `
     <div style="display:flex;gap:6px;align-items:center;margin-top:12px;flex-wrap:wrap">
       <input type="date" id="lanc-data-${uid}" class="form-input" style="width:140px" value="${new Date().toISOString().slice(0,10)}">
       <input type="number" id="lanc-valor-${uid}" class="form-input" style="width:100px" placeholder="0,00" step="0.01" min="0">
       <input type="text" id="lanc-obs-${uid}" class="form-input" style="flex:1;min-width:160px" placeholder="Observa&ccedil;&atilde;o (opcional)">
       <button class="btn btn-sm btn-approve" onclick="adicionarLancamentoCredito('${uid}','${mes}')">Adicionar PIX</button>
-    </div>
+    </div>`}
     </div>`
+
+  renderDetFinRows('')
+}
+
+function renderDetFinRows(catFiltro){
+  const lista = catFiltro ? detFinDespesas.filter(d=>String(d.categoria_id)===String(catFiltro)) : detFinDespesas
+  galeriaFotos=[]
+  const rows = lista.map(d=>{
+    const legenda=`${dataFmt(d.data_despesa)} · ${detFinCatNomePorId[d.categoria_id]||'Sem categoria'} · ${moeda(d.valor)}`
+    const compHtml = d._arquivos.length
+      ? d._arquivos.map(a=>{
+          if(ehImagem(a.nome,a.url)){
+            galeriaFotos.push({url:a.url,legenda})
+            const idx=galeriaFotos.length-1
+            return `<img src="${safeUrl(a.url)}" onclick="abrirGaleria(${idx})" style="width:32px;height:32px;object-fit:cover;border-radius:5px;border:1px solid var(--line);cursor:pointer;margin-right:4px" title="${safeTxt(a.nome||'foto')}">`
+          }
+          return `<a href="${safeUrl(a.url)}" target="_blank" style="display:inline-flex;align-items:center;gap:3px;color:var(--purple);font-size:10px;text-decoration:none;background:var(--purple-light);padding:2px 7px;border-radius:6px;border:1px solid #C4B5FD;margin-right:4px">📄 ${safeTxt(a.nome||'PDF')}</a>`
+        }).join('')
+      : '<span style="font-size:10px;color:var(--orange-dark)">Sem comprovante</span>'
+    return `<tr>
+      <td>${dataFmt(d.data_despesa)}</td>
+      <td>${safeTxt(detFinCatNomePorId[d.categoria_id]||'Sem categoria')}</td>
+      <td>${safeTxt(d.descricao||'—')}</td>
+      <td style="text-align:right">${moeda(d.valor)}</td>
+      <td>${compHtml}</td>
+    </tr>`
+  }).join('')
+  const tbody=document.getElementById('detfin-rows')
+  if(tbody) tbody.innerHTML = rows || '<tr><td colspan="5">Nenhum RDV aprovado no m&ecirc;s.</td></tr>'
 }
 
 async function adicionarLancamentoCredito(userId, mes){
