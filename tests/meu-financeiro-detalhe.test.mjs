@@ -27,3 +27,9 @@ test('filtro de categoria existe e reusa entre os dois usos', () => {
   assert.match(html, /id="detfin-cat-filtro"/)
   assert.match(html, /function renderDetFinRows\(catFiltro\)/)
 })
+
+test('detalhe pessoal renderiza cards de credito usado e saldo de credito', () => {
+  const fn = html.match(/async function carregarDetalheFinanceiro[\s\S]*?\nfunction renderDetFinRows/)?.[0] || ''
+  assert.match(fn, /id="detfin-credito-usado"/)
+  assert.match(fn, /id="detfin-saldo-credito"/)
+})

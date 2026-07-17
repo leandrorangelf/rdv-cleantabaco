@@ -4068,8 +4068,8 @@ async function carregarDetalheFinanceiro(det, uid, mes, {readonly=false}={}){
       <div class="fin-card fin-card-main"><div class="fin-card-label">A receber</div><div class="fin-card-value">${moeda(apagar)}</div></div>
       <div class="fin-card"><div class="fin-card-label">RDV aprovado</div><div class="fin-card-value">${moeda(aprovado)}</div></div>
       <div class="fin-card"><div class="fin-card-label">Cr&eacute;dito PIX</div><div class="fin-card-value">${moeda(verbVal)}</div></div>
-      <div class="fin-card"><div class="fin-card-label">Cr&eacute;dito usado</div><div class="fin-card-value">${moeda(creditoUsado)}</div></div>
-      <div class="fin-card"><div class="fin-card-label">Saldo cr&eacute;dito</div><div class="fin-card-value">${moeda(saldoCredito)}</div></div>
+      <div class="fin-card" id="detfin-credito-usado"><div class="fin-card-label">Cr&eacute;dito usado</div><div class="fin-card-value">${moeda(creditoUsado)}</div></div>
+      <div class="fin-card" id="detfin-saldo-credito"><div class="fin-card-label">Saldo cr&eacute;dito</div><div class="fin-card-value">${moeda(saldoCredito)}</div></div>
     </div>
     <div style="margin-top:12px">${readonly ? statusPagoReadonly : acaoPagamento}</div>
 
