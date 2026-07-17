@@ -25,7 +25,7 @@ test('Leandro tambem ve RDVs em aprovacao 1, com tag distinta', () => {
 })
 
 test('Financeiro/gestor podem ver discriminado e comprovantes dos diretores mesmo aprovado', () => {
-  assert.match(html, /\.from\('profiles'\)\.select\('id,nome,papel,ativo,pula_aprovacao'\)/)
+  assert.match(html, /\.from\('profiles'\)\.select\('id,nome,empresa,papel,ativo,pula_aprovacao'\)/)
   assert.match(html, /onclick="abrirDetalheFuncionario\('\$\{p\.id\}','\$\{mes\}'\)">Detalhes</)
   assert.match(html, /async function abrirDetalheFuncionario\(uid, mes\)\{/)
   assert.match(html, /sb\.from\('despesas'\)\.select\('\*'\)\.eq\('usuario_id',uid\)\.eq\('status','aprovado'\)/)

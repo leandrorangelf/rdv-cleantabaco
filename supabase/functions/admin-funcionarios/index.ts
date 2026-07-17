@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     // ── Criar funcionário ────────────────────────────────────────────────────
     if (action === 'criar') {
-      const { nome, email, senha, papel, estado_base } = body
+      const { nome, email, senha, papel, estado_base, empresa } = body
 
       if (!nome || !email || !senha || !papel) return json({ error: 'Campos obrigatórios: nome, email, senha, papel.' }, 400)
       if (!EMAIL_RE.test(email)) return json({ error: 'E-mail inválido.' }, 400)
@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
         email,
         papel,
         estado_base: estado_base || null,
+        empresa: empresa || null,
         ativo: true,
       })
       if (profileErr) {
@@ -68,12 +69,13 @@ Deno.serve(async (req) => {
 
     // ── Atualizar funcionário (papel, estado, ativo) ─────────────────────────
     if (action === 'atualizar') {
-      const { user_id, papel, estado_base, ativo } = body
+      const { user_id, papel, estado_base, empresa, ativo } = body
       if (!user_id) return json({ error: 'user_id é obrigatório.' }, 400)
       if (papel !== undefined && !PAPEIS_VALIDOS.includes(papel)) return json({ error: 'Papel inválido.' }, 400)
       const updates: Record<string, unknown> = {}
       if (papel     !== undefined) updates.papel      = papel
       if (estado_base !== undefined) updates.estado_base = estado_base
+      if (empresa   !== undefined) updates.empresa    = empresa
       if (ativo     !== null && ativo !== undefined) updates.ativo = ativo
 
       const { error } = await admin.from('profiles').update(updates).eq('id', user_id)

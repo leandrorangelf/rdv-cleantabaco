@@ -1228,6 +1228,10 @@ body::before {
           <div class="sec-title" style="margin-bottom:12px">Novo funcionário</div>
           <div class="form-row">
             <div class="form-group">
+              <label class="form-label">Empresa</label>
+              <input id="func-empresa" class="form-input" placeholder="ex: Matriz">
+            </div>
+            <div class="form-group">
               <label class="form-label">Nome *</label>
               <input id="func-nome" class="form-input" placeholder="Nome completo">
             </div>
@@ -1299,6 +1303,7 @@ body::before {
         </div>
 
         <div id="fin-resumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+        <input id="fin-filtro" class="form-input" style="max-width:280px;margin-bottom:12px" placeholder="Filtrar por funcion&aacute;rio ou empresa..." oninput="renderFinLista(this.value)">
         <div id="fin-lista"><div class="loading">Carregando...</div></div>
       </div>
 
@@ -3520,6 +3525,10 @@ async function toggleSku(id,ativo){
 
 
 // ── Funcionários / Logins ─────────────────────
+function nomeExibicao(p){
+  return [p?.empresa, p?.nome].filter(Boolean).join(' - ').toUpperCase()
+}
+
 function labelPapel(papel){
   return {
     aprovador:'Gestor / aprovação final',
@@ -3570,6 +3579,7 @@ async function criarFuncionario(){
   const senha=document.getElementById('func-senha')?.value.trim()
   const papel=document.getElementById('func-papel')?.value
   const estado=document.getElementById('func-estado')?.value || null
+  const empresa=document.getElementById('func-empresa')?.value.trim() || null
   const err=document.getElementById('func-erro')
   if(err)err.style.display='none'
 
@@ -3579,13 +3589,14 @@ async function criarFuncionario(){
 
   const btn=[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Cadastrar funcionário'))
   if(btn){btn.disabled=true;btn.textContent='Cadastrando...'}
-  const { error } = await adminFunc('criar', { nome, email, senha, papel, estado_base: estado })
+  const { error } = await adminFunc('criar', { nome, email, senha, papel, estado_base: estado, empresa })
   if(btn){btn.disabled=false;btn.textContent='Cadastrar funcionário'}
   if(error){ erroFuncionario('Erro ao cadastrar: '+error); return }
   document.getElementById('func-nome').value=''
   document.getElementById('func-email').value=''
   document.getElementById('func-senha').value=''
   document.getElementById('func-estado').value=''
+  document.getElementById('func-empresa').value=''
   mostrarAviso('Funcionário cadastrado com sucesso.')
   await carregarFuncionarios()
 }
@@ -3595,7 +3606,7 @@ async function carregarFuncionarios(){
   if(!box)return
   if(!isGestor()){ box.innerHTML='<div class="empty">Apenas gestor pode acessar funcionários.</div>'; return }
   box.innerHTML='<div class="loading">Carregando funcionários...</div>'
-  const { data, error } = await sb.from('profiles').select('id,nome,email,papel,estado_base,ativo,created_at').order('nome')
+  const { data, error } = await sb.from('profiles').select('id,nome,email,papel,estado_base,empresa,ativo,created_at').order('nome')
   if(error){ box.innerHTML=`<div class="empty">Erro ao carregar funcionários: ${safeTxt(error.message)}</div>`; return }
   if(!data?.length){ box.innerHTML='<div class="empty">Nenhum funcionário cadastrado.</div>'; return }
 
@@ -3603,9 +3614,10 @@ async function carregarFuncionarios(){
     const ativo=p.ativo!==false
     return `<tr>
       <td>
-        <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome||'—')}</div>
+        <div style="font-weight:800;color:var(--ink)">${safeTxt(nomeExibicao(p))}</div>
         <div style="font-size:11px;color:var(--ink2)">${safeTxt(p.email||'—')}</div>
       </td>
+      <td><input id="func-empresa-${p.id}" class="form-input" style="min-height:32px;padding:5px 8px;font-size:12px" value="${safeTxt(p.empresa||'')}" placeholder="ex: Matriz"></td>
       <td>
         <select id="func-papel-${p.id}" class="form-select" style="min-height:32px;padding:5px 8px;font-size:12px">
           <option value="coordenador" ${p.papel==='coordenador'?'selected':''}>Coordenador</option>
@@ -3634,7 +3646,7 @@ async function carregarFuncionarios(){
   }).join('')
 
   box.innerHTML=`<div class="card" style="overflow:auto"><table class="tbl">
-    <thead><tr><th>Funcionário</th><th>Permissão</th><th>Estado</th><th>Status</th><th style="text-align:right">Ações</th></tr></thead>
+    <thead><tr><th>Funcionário</th><th>Empresa</th><th>Permissão</th><th>Estado</th><th>Status</th><th style="text-align:right">Ações</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`
 }
@@ -3643,7 +3655,8 @@ async function salvarFuncionario(id){
   if(!isGestor())return
   const papel=document.getElementById('func-papel-'+id)?.value
   const estado=document.getElementById('func-estado-'+id)?.value || null
-  const { error } = await adminFunc('atualizar', { user_id:id, papel, estado_base:estado, ativo:null })
+  const empresa=document.getElementById('func-empresa-'+id)?.value.trim() || null
+  const { error } = await adminFunc('atualizar', { user_id:id, papel, estado_base:estado, empresa, ativo:null })
   if(error){ mostrarAviso('Erro ao salvar funcionário: '+error,'erro'); return }
   mostrarAviso('Funcionário atualizado.')
   await carregarFuncionarios()
@@ -3655,7 +3668,8 @@ async function alternarFuncionario(id, ativoAtual){
   const novo=!ativoAtual
   const papel=document.getElementById('func-papel-'+id)?.value || null
   const estado=document.getElementById('func-estado-'+id)?.value || null
-  const { error } = await adminFunc('atualizar', { user_id:id, papel, estado_base:estado, ativo:novo })
+  const empresa=document.getElementById('func-empresa-'+id)?.value.trim() || null
+  const { error } = await adminFunc('atualizar', { user_id:id, papel, estado_base:estado, empresa, ativo:novo })
   if(error){ mostrarAviso('Erro ao alterar status: '+error,'erro'); return }
   mostrarAviso(novo?'Funcionário ativado.':'Funcionário inativado.')
   await carregarFuncionarios()
@@ -3674,6 +3688,7 @@ async function resetarSenhaFuncionario(id){
 // ── Financeiro ────────────────────────────────
 let finMesAtual = mesAtual()
 let finMesAutoAjustado = false
+let finLinhasAtual = []
 
 function finNavMes(delta){
   const [y,m] = finMesAtual.split('-').map(Number)
@@ -3736,7 +3751,7 @@ async function carregarFinanceiro(){
     .eq('status','aprovado')
     .or('ativo.is.null,ativo.eq.true')
     .gte('data_despesa', ini).lte('data_despesa', fim)
-  const qProfs=sb.from('profiles').select('id,nome,papel,ativo,pula_aprovacao').order('nome')
+  const qProfs=sb.from('profiles').select('id,nome,empresa,papel,ativo,pula_aprovacao').order('nome')
   const qLancamentos=sb.from('lancamentos_credito').select('usuario_id,valor').eq('mes', mes)
   const qPagamentos=podeGerenciarPagamentos()
     ? sb.from('pagamentos_rdv').select('*').eq('mes', mes)
@@ -3820,14 +3835,28 @@ async function carregarFinanceiro(){
       </div>
     </div>`
 
+  finLinhasAtual = linhas
   if(!linhas.length){
     document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhum reembolso ou cr&eacute;dito neste m&ecirc;s. Use o seletor de m&ecirc;s acima para ver outro per&iacute;odo.</div>'
     return
   }
 
+  renderFinLista(document.getElementById('fin-filtro')?.value||'')
+}
+
+function renderFinLista(filtro){
+  const termo=(filtro||'').trim().toUpperCase()
+  const linhas=termo?finLinhasAtual.filter(({p})=>nomeExibicao(p).includes(termo)):finLinhasAtual
+  const mes=finMesAtual
+
+  if(!linhas.length){
+    document.getElementById('fin-lista').innerHTML='<div class="empty">Nenhum funcion&aacute;rio encontrado para esse filtro.</div>'
+    return
+  }
+
   const rows = linhas.map(({p,aprovado,verbVal,creditoUsado,saldoCredito,apagar,pago,pag})=>`<tr>
     <td>
-      <div style="font-weight:800;color:var(--ink)">${safeTxt(p.nome)}</div>
+      <div style="font-weight:800;color:var(--ink)">${safeTxt(nomeExibicao(p))}</div>
       ${p.ativo===false?`<div class="fin-credit-note">Funcion&aacute;rio inativo</div>`:''}
     </td>
     <td>
@@ -3911,7 +3940,7 @@ async function abrirDetalheFuncionario(uid, mes){
     modal=document.createElement('div')
     modal.id='modal-fin-detalhe'
     modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px'
-    modal.innerHTML='<div class="card" id="fin-detalhe-card" style="width:100%;max-width:760px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)"></div>'
+    modal.innerHTML='<div class="card" id="fin-detalhe-card" style="width:100%;max-width:900px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)"></div>'
     modal.addEventListener('click', e=>{ if(e.target===modal) fecharDetalheFuncionario() })
     document.body.appendChild(modal)
   }
@@ -3919,7 +3948,7 @@ async function abrirDetalheFuncionario(uid, mes){
   det.innerHTML='<div class="loading">Carregando...</div>'
   const ini=mes+'-01', fim=fimMes(mes)
   const [{data:p},{data:despesas},{data:lancamentos},{data:pag}]=await Promise.all([
-    sb.from('profiles').select('nome').eq('id',uid).single(),
+    sb.from('profiles').select('nome,empresa').eq('id',uid).single(),
     sb.from('despesas').select('*').eq('usuario_id',uid).eq('status','aprovado')
       .or('ativo.is.null,ativo.eq.true').gte('data_despesa',ini).lte('data_despesa',fim)
       .order('data_despesa'),
@@ -3987,16 +4016,16 @@ async function abrirDetalheFuncionario(uid, mes){
 
   det.innerHTML=`
     <div class="card-header" style="position:sticky;top:0;background:var(--surface,#fff);z-index:1;padding-bottom:12px">
-      <div><div class="card-title">${safeTxt(p?.nome||'')}</div><div class="card-meta">Detalhes financeiros do m&ecirc;s</div></div>
+      <div><div class="card-title">${safeTxt(nomeExibicao(p))}</div><div class="card-meta">Detalhes financeiros do m&ecirc;s</div></div>
       <button class="btn" onclick="fecharDetalheFuncionario()">Fechar</button>
     </div>
     <div style="padding:0 18px 18px">
     <div class="fin-summary" style="margin-top:12px">
+      <div class="fin-card fin-card-main"><div class="fin-card-label">A receber</div><div class="fin-card-value">${moeda(apagar)}</div></div>
       <div class="fin-card"><div class="fin-card-label">RDV aprovado</div><div class="fin-card-value">${moeda(aprovado)}</div></div>
       <div class="fin-card"><div class="fin-card-label">Cr&eacute;dito PIX</div><div class="fin-card-value">${moeda(verbVal)}</div></div>
       <div class="fin-card"><div class="fin-card-label">Cr&eacute;dito usado</div><div class="fin-card-value">${moeda(creditoUsado)}</div></div>
       <div class="fin-card"><div class="fin-card-label">Saldo cr&eacute;dito</div><div class="fin-card-value">${moeda(saldoCredito)}</div></div>
-      <div class="fin-card fin-card-main"><div class="fin-card-label">A receber</div><div class="fin-card-value">${moeda(apagar)}</div></div>
     </div>
     <div style="margin-top:12px">${acaoPagamento}</div>
 
