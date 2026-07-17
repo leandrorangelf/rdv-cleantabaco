@@ -3728,6 +3728,8 @@ async function carregarMeuFinanceiro(){
   document.getElementById('meufin-mes-label').textContent = d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
   const input = document.getElementById('meufin-mes')
   if(input) input.value = meuFinMesAtual
+  const { error: erroTransferencia } = await sb.rpc('transferir_saldo_credito_proprio', { p_mes: meuFinMesAtual })
+  if(erroTransferencia) console.error('Erro ao transferir saldo proprio de credito:', erroTransferencia)
   await carregarDetalheFinanceiro(document.getElementById('meufin-detalhe'), perfil.id, meuFinMesAtual, {readonly: true})
 }
 

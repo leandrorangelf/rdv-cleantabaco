@@ -16,6 +16,7 @@ create table if not exists lancamentos_credito (
 
 alter table lancamentos_credito enable row level security;
 
+drop policy if exists "lancamentos_credito_select" on lancamentos_credito;
 create policy "lancamentos_credito_select" on lancamentos_credito for select
   using (
     exists (
@@ -25,6 +26,7 @@ create policy "lancamentos_credito_select" on lancamentos_credito for select
     )
   );
 
+drop policy if exists "lancamentos_credito_insert" on lancamentos_credito;
 create policy "lancamentos_credito_insert" on lancamentos_credito for insert
   with check (
     exists (
@@ -34,6 +36,7 @@ create policy "lancamentos_credito_insert" on lancamentos_credito for insert
     )
   );
 
+drop policy if exists "lancamentos_credito_delete" on lancamentos_credito;
 create policy "lancamentos_credito_delete" on lancamentos_credito for delete
   using (
     exists (
@@ -54,7 +57,11 @@ select
   atualizado_por,
   coalesce(atualizado_em, now())
 from verbas
-where valor > 0;
+where valor > 0
+  and not exists (
+    select 1 from lancamentos_credito l
+    where l.usuario_id = verbas.usuario_id and l.mes = verbas.mes
+  );
 
 create or replace function public.transferir_saldos_credito(p_mes char(7))
 returns void

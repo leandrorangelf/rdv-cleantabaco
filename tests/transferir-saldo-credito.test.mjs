@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260716_lancamentos_credito_pix.sql', import.meta.url), 'utf8')
+const fixMigrationUrl = new URL('../supabase/migrations/20260717_corrige_transferencia_credito.sql', import.meta.url)
+const fixMigration = existsSync(fixMigrationUrl) ? readFileSync(fixMigrationUrl, 'utf8') : ''
 
 test('carregarFinanceiro chama a RPC de transferencia de saldo antes de buscar os lancamentos do mes', () => {
   const bloco = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?\n\}/)?.[0] || ''
@@ -32,4 +34,18 @@ test('modal consolidado por funcionario permite adicionar e remover PIX manual',
   assert.match(html, /async function adicionarLancamentoCredito\(userId, mes\)\{/)
   assert.match(html, /tipo: 'pix'/)
   assert.match(html, /async function removerLancamentoCredito\(id, userId, mes\)\{/)
+})
+
+test('meu financeiro garante a transferencia do proprio saldo antes de carregar os cards', () => {
+  const bloco = html.match(/async function carregarMeuFinanceiro\(\)\{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(bloco, /await sb\.rpc\('transferir_saldo_credito_proprio', \{ p_mes: meuFinMesAtual \}\)/)
+  assert.ok(bloco.indexOf('transferir_saldo_credito_proprio') < bloco.indexOf('carregarDetalheFinanceiro'))
+})
+
+test('migration de correcao usa lancamentos_credito e recupera transferencias antigas', () => {
+  assert.match(fixMigration, /insert into lancamentos_credito[\s\S]*from verbas[\s\S]*saldo_transferido/)
+  assert.match(fixMigration, /create or replace function public\.transferir_saldos_credito\(p_mes char\(7\)\)/)
+  assert.match(fixMigration, /from lancamentos_credito[\s\S]*tipo = 'saldo_transferido'/)
+  assert.match(fixMigration, /create or replace function public\.transferir_saldo_credito_proprio\(p_mes char\(7\)\)/)
+  assert.match(fixMigration, /usuario_id = auth\.uid\(\)/)
 })
