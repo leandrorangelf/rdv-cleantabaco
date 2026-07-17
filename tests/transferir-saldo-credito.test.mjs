@@ -6,6 +6,8 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/20260716_lancamentos_credito_pix.sql', import.meta.url), 'utf8')
 const fixMigrationUrl = new URL('../supabase/migrations/20260717_corrige_transferencia_credito.sql', import.meta.url)
 const fixMigration = existsSync(fixMigrationUrl) ? readFileSync(fixMigrationUrl, 'utf8') : ''
+const guardMigrationUrl = new URL('../supabase/migrations/20260718_protege_transferencia_credito.sql', import.meta.url)
+const guardMigration = existsSync(guardMigrationUrl) ? readFileSync(guardMigrationUrl, 'utf8') : ''
 
 test('carregarFinanceiro chama a RPC de transferencia de saldo antes de buscar os lancamentos do mes', () => {
   const bloco = html.match(/async function carregarFinanceiro\(\)\{[\s\S]*?\n\}/)?.[0] || ''
@@ -48,4 +50,10 @@ test('migration de correcao usa lancamentos_credito e recupera transferencias an
   assert.match(fixMigration, /from lancamentos_credito[\s\S]*tipo = 'saldo_transferido'/)
   assert.match(fixMigration, /create or replace function public\.transferir_saldo_credito_proprio\(p_mes char\(7\)\)/)
   assert.match(fixMigration, /usuario_id = auth\.uid\(\)/)
+})
+
+test('protecao financeira impede duas transferencias do mesmo funcionario no mesmo mes', () => {
+  assert.match(guardMigration, /create unique index if not exists lancamentos_credito_saldo_transferido_unico/)
+  assert.match(guardMigration, /where tipo = 'saldo_transferido'/)
+  assert.match(guardMigration, /on conflict \(usuario_id, mes\) where tipo = 'saldo_transferido' do nothing/)
 })
