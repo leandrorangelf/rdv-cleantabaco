@@ -1303,7 +1303,9 @@ body::before {
         </div>
 
         <div id="fin-resumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
-        <input id="fin-filtro" class="form-input" style="max-width:280px;margin-bottom:12px" placeholder="Filtrar por funcion&aacute;rio ou empresa..." oninput="renderFinLista(this.value)">
+        <select id="fin-filtro" class="form-select" style="max-width:280px;margin-bottom:12px" onchange="renderFinLista(this.value)">
+          <option value="">Todas as empresas</option>
+        </select>
         <div id="fin-lista"><div class="loading">Carregando...</div></div>
       </div>
 
@@ -3841,12 +3843,20 @@ async function carregarFinanceiro(){
     return
   }
 
-  renderFinLista(document.getElementById('fin-filtro')?.value||'')
+  const selectEmpresa=document.getElementById('fin-filtro')
+  if(selectEmpresa){
+    const empresas=[...new Set(linhas.map(({p})=>p.empresa).filter(Boolean))].sort((a,b)=>a.localeCompare(b))
+    const atual=selectEmpresa.value
+    selectEmpresa.innerHTML='<option value="">Todas as empresas</option>'
+      +empresas.map(e=>`<option value="${safeTxt(e)}">${safeTxt(e.toUpperCase())}</option>`).join('')
+    if(empresas.includes(atual)) selectEmpresa.value=atual
+  }
+
+  renderFinLista(selectEmpresa?.value||'')
 }
 
-function renderFinLista(filtro){
-  const termo=(filtro||'').trim().toUpperCase()
-  const linhas=termo?finLinhasAtual.filter(({p})=>nomeExibicao(p).includes(termo)):finLinhasAtual
+function renderFinLista(filtroEmpresa){
+  const linhas=filtroEmpresa?finLinhasAtual.filter(({p})=>p.empresa===filtroEmpresa):finLinhasAtual
   const mes=finMesAtual
 
   if(!linhas.length){
