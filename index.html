@@ -759,6 +759,10 @@ body::before {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Financeiro
       </div>
+      <div class="nav-item" onclick="showScreen('meufinanceiro',this)" id="nav-meufinanceiro">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Meu financeiro
+      </div>
       <div class="nav-label aprovador-only" id="nav-label-admin" style="display:none">Gestão</div>
       <div class="nav-item aprovador-only" onclick="showScreen('equipe',this)" id="nav-equipe" style="display:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1309,6 +1313,18 @@ body::before {
         <div id="fin-lista"><div class="loading">Carregando...</div></div>
       </div>
 
+      <div class="screen" id="screen-meufinanceiro">
+        <div class="page-title">Meu financeiro</div>
+        <div class="page-sub" id="meufin-sub">Cr&eacute;dito PIX, gastos e saldo do m&ecirc;s</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <button class="btn" onclick="meuFinNavMes(-1)">‹</button>
+          <span id="meufin-mes-label" style="font-size:13px;font-weight:700;min-width:130px;text-align:center"></span>
+          <button class="btn" onclick="meuFinNavMes(1)">›</button>
+          <input id="meufin-mes" type="month" class="form-input" style="min-height:34px;padding:5px 8px;font-size:12px;width:150px" onchange="mudarMeuFinMes()">
+        </div>
+        <div id="meufin-detalhe"><div class="loading">Carregando...</div></div>
+      </div>
+
       <div id="galeria-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
         <button onclick="fecharGaleria()" style="position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1">✕</button>
         <button onclick="navegarGaleria(-1)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:28px;width:44px;height:44px;border-radius:50%;cursor:pointer">‹</button>
@@ -1626,7 +1642,7 @@ function showScreen(nome,navEl,skipLoader=false) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('screen-'+nome).classList.add('active')
   if(navEl)navEl.classList.add('active')
-  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,viagens:carregarModuloViagens,agendaequipe:carregarAgendaEquipe,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,funcionarios:carregarFuncionarios,avulsas:carregarAvulsas,semanal:carregarSemanal,financeiro:carregarFinanceiro}
+  const loaders={dashboard:carregarDashboard,agenda:carregarAgenda,viagens:carregarModuloViagens,agendaequipe:carregarAgendaEquipe,aprovar:carregarAprovacoes,insights:carregarInsights,categorias:carregarCategorias,lancar:prepararFormDespesa,lancarmultiplo:prepararFormMulti,skus:carregarSkus,equipe:carregarEquipe,funcionarios:carregarFuncionarios,avulsas:carregarAvulsas,semanal:carregarSemanal,financeiro:carregarFinanceiro,meufinanceiro:carregarMeuFinanceiro}
   if(!skipLoader && loaders[nome])loaders[nome]()
 }
 
@@ -3691,6 +3707,29 @@ async function resetarSenhaFuncionario(id){
 let finMesAtual = mesAtual()
 let finMesAutoAjustado = false
 let finLinhasAtual = []
+
+let meuFinMesAtual = mesAtual()
+
+function meuFinNavMes(delta){
+  const [y,m] = meuFinMesAtual.split('-').map(Number)
+  const d = new Date(y, m-1+delta, 1)
+  meuFinMesAtual = d.toISOString().slice(0,7)
+  carregarMeuFinanceiro()
+}
+
+function mudarMeuFinMes(){
+  const input = document.getElementById('meufin-mes')
+  if(input?.value) meuFinMesAtual = input.value
+  carregarMeuFinanceiro()
+}
+
+async function carregarMeuFinanceiro(){
+  const d = new Date(meuFinMesAtual+'-15')
+  document.getElementById('meufin-mes-label').textContent = d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+  const input = document.getElementById('meufin-mes')
+  if(input) input.value = meuFinMesAtual
+  await carregarDetalheFinanceiro(document.getElementById('meufin-detalhe'), perfil.id, meuFinMesAtual, {readonly: true})
+}
 
 function finNavMes(delta){
   const [y,m] = finMesAtual.split('-').map(Number)
