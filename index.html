@@ -2021,7 +2021,7 @@ async function carregarAgenda() {
         const linhas=ds.map(d=>{
           const dotCor=statusNorm(d.status)==='aprovado'?'dot-mint':despesaRejeitada(d)?'dot-red':'dot-orange'
           const rejNote=despesaRejeitada(d)&&d.motivo_rejeicao?`<div style="font-size:10px;color:#991B1B;background:var(--red-light);border:1px solid #FCA5A5;border-radius:5px;padding:2px 7px;margin-top:2px">✗ ${safeTxt(d.motivo_rejeicao)}</div>`:''
-          const editBtn=(d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')&&ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:''
+          const editBtn=((d.status==='pendente'||d.status==='aguardando_aprovacao_2'||d.status==='rejeitado')&&ehDono)||(d.status==='aprovado'&&isGestor())?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','agenda')">Excluir</button>`:''
           return`<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line)">
             <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
             <div style="flex:1;min-width:0">
@@ -2158,7 +2158,7 @@ async function carregarAvulsas(){
     const ehDono=d.usuario_id===perfil.id
     const editBtn=podeEditar
       ?(ehDono?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:'')
-      :isGestor()?`<button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
+      :isGestor()?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editarDespesa('${d.id}','avulsas')">Editar</button><button class="btn btn-sm btn-reject" style="font-size:10px;padding:2px 8px" onclick="excluirDespesa('${d.id}','avulsas')">Excluir</button>`:''
     const quemLabel=podeVerDespesasTodos()?`<span style="color:var(--ink2)"> · ${safeTxt(nomePorIdA[d.usuario_id]||'?')}</span>`:''
     return`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)">
       <span class="dot ${dotCor}" style="margin-top:4px;flex-shrink:0"></span>
@@ -2425,6 +2425,7 @@ async function aprovarDemandaViagem(id){
 
   // Aprovação 2 / final (aprovador): cria viagem e autoriza
   const inicio=d.data_inicio||d.data_sugerida
+  if(!d.destino||!inicio){alert('Preencha destino e data de ida em "Editar" antes de autorizar esta solicitação.');return}
   const somenteIda=viagemSomenteIda(d)
   const fim=somenteIda?null:(d.data_fim||d.data_sugerida||inicio)
   const{data:viagem,error:insErr}=await sb.from('viagens').insert({
@@ -2773,7 +2774,7 @@ async function editarDespesa(id, origem='agenda'){
   // Busca despesa
   const{data:d}=await sb.from('despesas').select('*').eq('id',id).single()
   if(!d)return
-  if(d.status==='aprovado'){alert('Despesas já aprovadas não podem ser editadas.');return}
+  if(d.status==='aprovado'&&!isGestor()){alert('Despesas já aprovadas não podem ser editadas.');return}
 
   despesaEditandoId=id
   document.getElementById('d-titulo').textContent='Editar despesa'
@@ -2875,10 +2876,16 @@ async function salvarDespesa(){
 
   const pulaAprov = !!perfil.pula_aprovacao
   if(despesaEditandoId){
+    let statusUpd=pulaAprov?'aprovado':'pendente', aprovadoPorUpd=null, aprovadoEmUpd=pulaAprov?new Date().toISOString():null
+    const{data:orig}=await sb.from('despesas').select('status,aprovado_por,aprovado_em').eq('id',despesaEditandoId).single()
+    if(orig?.status==='aprovado'&&isGestor()){
+      // Gestor corrigindo despesa já aprovada: mantém o status de aprovação.
+      statusUpd=orig.status;aprovadoPorUpd=orig.aprovado_por;aprovadoEmUpd=orig.aprovado_em
+    }
     const{error}=await sb.from('despesas').update({
       viagem_id:viagId||null,categoria_id:catId,descricao:desc||null,
-      valor,data_despesa:data,data_fim:dataFimVal||null,status:pulaAprov?'aprovado':'pendente',
-      motivo_rejeicao:null,aprovado_por:null,aprovado_em:pulaAprov?new Date().toISOString():null,
+      valor,data_despesa:data,data_fim:dataFimVal||null,status:statusUpd,
+      motivo_rejeicao:null,aprovado_por:aprovadoPorUpd,aprovado_em:aprovadoEmUpd,
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
     }).eq('id',despesaEditandoId)
     if(error){err.textContent='Erro ao salvar.';err.style.display='block';return}

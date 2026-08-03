@@ -6,8 +6,14 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
 test('salvarDespesa grava status aprovado direto para quem pula aprovacao', () => {
   assert.match(html, /const pulaAprov = !!perfil\.pula_aprovacao/)
-  assert.match(html, /status:pulaAprov\?'aprovado':'pendente',\s*\n\s*motivo_rejeicao:null,aprovado_por:null,aprovado_em:pulaAprov\?new Date\(\)\.toISOString\(\):null,/)
+  assert.match(html, /let statusUpd=pulaAprov\?'aprovado':'pendente', aprovadoPorUpd=null, aprovadoEmUpd=pulaAprov\?new Date\(\)\.toISOString\(\):null/)
+  assert.match(html, /status:statusUpd,\s*\n\s*motivo_rejeicao:null,aprovado_por:aprovadoPorUpd,aprovado_em:aprovadoEmUpd,/)
   assert.match(html, /status:pulaAprov\?'aprovado':'pendente',\s*\n\s*aprovado_por:null,aprovado_em:pulaAprov\?new Date\(\)\.toISOString\(\):null,/)
+})
+
+test('gestor pode editar/excluir despesa ja aprovada, mantendo o status', () => {
+  assert.match(html, /if\(d\.status==='aprovado'&&!isGestor\(\)\)\{alert\('Despesas já aprovadas não podem ser editadas\.'\);return\}/)
+  assert.match(html, /if\(orig\?\.status==='aprovado'&&isGestor\(\)\)\{[\s\S]*?statusUpd=orig\.status;aprovadoPorUpd=orig\.aprovado_por;aprovadoEmUpd=orig\.aprovado_em/)
 })
 
 test('lancamento em lote grava status aprovado direto para quem pula aprovacao', () => {
