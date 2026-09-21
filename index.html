@@ -2626,6 +2626,7 @@ async function salvarBilhete(){
 
 let despesaEditandoId = null
 let telaOrigemDespesa = 'agenda'
+let categoriasExigeComprovante = {} // {catId: boolean}
 
 async function prepararFormDespesa(){
   despesaEditandoId = null
@@ -2642,7 +2643,10 @@ async function atualizarCategoriasDrop(){
   const{data:cats}=await sb.from('categorias').select('*').eq('ativo',true).eq('tipo',tipoAtual).order('ordem')
   const sel=document.getElementById('d-categoria')
   sel.innerHTML='<option value="">Selecione</option>'
-  categoriasUnicas(cats,tipoAtual).forEach(c=>{sel.innerHTML+=`<option value="${c.id}">${c.nome}</option>`})
+  categoriasUnicas(cats,tipoAtual).forEach(c=>{
+    categoriasExigeComprovante[c.id]=!!c.exige_comprovante
+    sel.innerHTML+=`<option value="${c.id}">${c.nome}${c.exige_comprovante?' *':''}</option>`
+  })
 }
 
 function setTipo(t){
@@ -2858,12 +2862,19 @@ async function salvarDespesa(){
   const primeiroArquivo = arquivosComprimidos[0] || null
   let comprovante_url=null, comprovante_nome=null, comprovante_tamanho_kb=null
 
+  if(categoriasExigeComprovante[catId] && !primeiroArquivo && !despesaEditandoId){
+    err.textContent='Esta categoria exige comprovante anexado.';err.style.display='block';return
+  }
+
   if(despesaEditandoId && !primeiroArquivo){
     // Editando sem novo arquivo — mantém o existente
     const{data:d}=await sb.from('despesas').select('comprovante_url,comprovante_nome,comprovante_tamanho_kb').eq('id',despesaEditandoId).single()
     comprovante_url=d?.comprovante_url||null
     comprovante_nome=d?.comprovante_nome||null
     comprovante_tamanho_kb=d?.comprovante_tamanho_kb||null
+    if(categoriasExigeComprovante[catId] && !comprovante_url){
+      err.textContent='Esta categoria exige comprovante anexado.';err.style.display='block';return
+    }
   }
 
   if(primeiroArquivo){
@@ -4558,7 +4569,7 @@ function renderBlocos(){
       <div class="card" style="margin-bottom:12px" id="bloco-${catId}">
         <div class="card-header" style="background:var(--purple-light);border-color:#d1dae7">
           <div>
-            <div class="card-title" style="color:var(--purple)">${safeTxt(cat.nome)}</div>
+            <div class="card-title" style="color:var(--purple)">${safeTxt(cat.nome)}${cat.exige_comprovante?' *':''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:10px">
             <span style="font-size:13px;font-weight:700;color:var(--purple)" id="total-bloco-${catId}">R$ 0,00</span>
@@ -4733,6 +4744,18 @@ async function salvarMulti(){
     err.textContent = 'Nenhuma linha com valor preenchida.'; err.style.display = 'block'; return
   }
 
+  // Categorias que exigem comprovante precisam de ao menos 1 arquivo no bloco
+  const catsFaltandoComprovante = new Set()
+  linhas.forEach(l=>{
+    const cat = multiCats.find(c=>c.id===l.catId)
+    if(cat?.exige_comprovante && !(multiArquivos[l.catId]||[]).length) catsFaltandoComprovante.add(cat.nome)
+  })
+  if(catsFaltandoComprovante.size){
+    err.textContent = `Anexe um comprovante para: ${[...catsFaltandoComprovante].join(', ')}.`
+    err.style.display = 'block'
+    return
+  }
+
   // Estado
   let estado_despesa = null
   if(multiTipoAtual==='viagem' && viagId){
@@ -4747,30 +4770,31 @@ async function salvarMulti(){
   let ok = 0
   // Agrupa por categoria para saber quais comprovantes usar
   const catsSalvas = new Set()
+  const comprovantePorCategoria = {} // {catId: {url,nome,tamanhoKb}}
 
   for(const l of linhas){
     const arqsBloco = multiArquivos[l.catId]||[]
-    // Primeiro comprovante do bloco vai no campo legado
-    // (se já salvou outra linha deste bloco, não duplica o upload)
     const jaSalvou = catsSalvas.has(l.catId)
-    const primeiro = (!jaSalvou && arqsBloco[0]) ? arqsBloco[0] : null
-    let comprovante_url=null, comprovante_nome=null, comprovante_tamanho_kb=null
 
-    if(primeiro){
+    // Primeiro comprovante do bloco vai no campo legado, uma única vez por categoria;
+    // a mesma URL é reaproveitada em todas as linhas do bloco (sem novo upload).
+    if(!jaSalvou && arqsBloco[0]){
+      const primeiro = arqsBloco[0]
       const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${primeiro.name}`
       const{error:upErr}=await sb.storage.from('comprovantes').upload(path, primeiro, {contentType:primeiro.type})
       if(!upErr){
         const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
-        comprovante_url=publicUrl; comprovante_nome=primeiro.name; comprovante_tamanho_kb=Math.round(primeiro.size/1024)
+        comprovantePorCategoria[l.catId] = {url:publicUrl, nome:primeiro.name, tamanhoKb:Math.round(primeiro.size/1024)}
       }
     }
+    const comp = comprovantePorCategoria[l.catId] || {}
 
     const pulaAprovLote = !!perfilLancamento.pula_aprovacao
     const{data:nova,error}=await sb.from('despesas').insert({
       usuario_id:usuarioLancamento, viagem_id:viagId||null, categoria_id:l.catId,
       descricao:l.desc||null, valor:l.val, data_despesa:l.data, data_fim:l.dataFim||null,
       status:pulaAprovLote?'aprovado':'pendente', aprovado_por:null, aprovado_em:pulaAprovLote?new Date().toISOString():null,
-      comprovante_url, comprovante_nome, comprovante_tamanho_kb, estado:estado_despesa
+      comprovante_url:comp.url||null, comprovante_nome:comp.nome||null, comprovante_tamanho_kb:comp.tamanhoKb||null, estado:estado_despesa
     }).select('id').single()
 
     if(error){
