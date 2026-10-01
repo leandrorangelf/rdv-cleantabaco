@@ -28,9 +28,16 @@ test('single expense form blocks submission without a receipt for mandatory cate
   assert.match(html, /if\(categoriasExigeComprovante\[catId\] && !comprovante_url\)\{/)
 })
 
-test('bulk expense form validates receipts per category block before saving', () => {
-  assert.match(html, /const catsFaltandoComprovante = new Set\(\)/)
+test('bulk expense form validates receipts per category block before saving, highlighting the pending block', () => {
+  assert.match(html, /const catsFaltando = \[\]/)
   assert.match(html, /cat\?\.exige_comprovante && !\(multiArquivos\[l\.catId\]\|\|\[\]\)\.length/)
+  assert.match(html, /bloco\.style\.outline='2px solid #DC2626'/)
+  assert.match(html, /scrollIntoView\(\{behavior:'smooth',block:'center'\}\)/)
+})
+
+test('bulk expense form surfaces upload and insert failures tied to the specific category', () => {
+  assert.match(html, /Falha ao enviar o comprovante de "\$\{cat\?\.nome\|\|'categoria'\}": \$\{upErr\.message\}/)
+  assert.match(html, /Erro ao salvar despesa de "\$\{cat\?\.nome\|\|'categoria'\}": \$\{error\.message\}/)
 })
 
 test('bulk expense form reuses the block receipt URL across every row of the category', () => {

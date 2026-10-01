@@ -4745,13 +4745,19 @@ async function salvarMulti(){
   }
 
   // Categorias que exigem comprovante precisam de ao menos 1 arquivo no bloco
-  const catsFaltandoComprovante = new Set()
+  document.querySelectorAll('[id^="bloco-"]').forEach(b=>b.style.outline='')
+  const catsFaltando = []
   linhas.forEach(l=>{
     const cat = multiCats.find(c=>c.id===l.catId)
-    if(cat?.exige_comprovante && !(multiArquivos[l.catId]||[]).length) catsFaltandoComprovante.add(cat.nome)
+    if(cat?.exige_comprovante && !(multiArquivos[l.catId]||[]).length && !catsFaltando.find(c=>c.id===cat.id)) catsFaltando.push(cat)
   })
-  if(catsFaltandoComprovante.size){
-    err.textContent = `Anexe um comprovante para: ${[...catsFaltandoComprovante].join(', ')}.`
+  if(catsFaltando.length){
+    catsFaltando.forEach(cat=>{
+      const bloco = document.getElementById(`bloco-${cat.id}`)
+      if(bloco) bloco.style.outline='2px solid #DC2626'
+    })
+    document.getElementById(`bloco-${catsFaltando[0].id}`)?.scrollIntoView({behavior:'smooth',block:'center'})
+    err.textContent = `Anexe um comprovante no bloco destacado abaixo: ${catsFaltando.map(c=>c.nome).join(', ')}.`
     err.style.display = 'block'
     return
   }
@@ -4782,10 +4788,18 @@ async function salvarMulti(){
       const primeiro = arqsBloco[0]
       const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${primeiro.name}`
       const{error:upErr}=await sb.storage.from('comprovantes').upload(path, primeiro, {contentType:primeiro.type})
-      if(!upErr){
-        const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
-        comprovantePorCategoria[l.catId] = {url:publicUrl, nome:primeiro.name, tamanhoKb:Math.round(primeiro.size/1024)}
+      if(upErr){
+        const cat = multiCats.find(c=>c.id===l.catId)
+        document.getElementById('multi-btn-salvar').disabled = false
+        const bloco = document.getElementById(`bloco-${l.catId}`)
+        if(bloco){ bloco.style.outline='2px solid #DC2626'; bloco.scrollIntoView({behavior:'smooth',block:'center'}) }
+        err.textContent = `Falha ao enviar o comprovante de "${cat?.nome||'categoria'}": ${upErr.message}`
+        err.style.display = 'block'
+        prog.style.display = 'none'
+        return
       }
+      const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
+      comprovantePorCategoria[l.catId] = {url:publicUrl, nome:primeiro.name, tamanhoKb:Math.round(primeiro.size/1024)}
     }
     const comp = comprovantePorCategoria[l.catId] || {}
 
@@ -4799,7 +4813,10 @@ async function salvarMulti(){
 
     if(error){
       document.getElementById('multi-btn-salvar').disabled = false
-      err.textContent = 'Erro ao salvar uma despesa: ' + error.message
+      const cat = multiCats.find(c=>c.id===l.catId)
+      const bloco = document.getElementById(`bloco-${l.catId}`)
+      if(bloco){ bloco.style.outline='2px solid #DC2626'; bloco.scrollIntoView({behavior:'smooth',block:'center'}) }
+      err.textContent = `Erro ao salvar despesa de "${cat?.nome||'categoria'}": ${error.message}`
       err.style.display = 'block'
       prog.style.display = 'none'
       return
