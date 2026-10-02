@@ -3785,9 +3785,11 @@ async function ajustarFinMesInicial(){
     .select('data_despesa')
     .eq('status','aprovado')
     .or('ativo.is.null,ativo.eq.true')
+    .lte('data_despesa',new Date().toISOString().slice(0,10))
     .order('data_despesa',{ascending:false})
     .limit(1)
-  if(data?.[0]?.data_despesa) finMesAtual = String(data[0].data_despesa).slice(0,7)
+  const mesRecente = String(data?.[0]?.data_despesa||'').slice(0,7)
+  if(/^\d{4}-\d{2}$/.test(mesRecente)) finMesAtual = mesRecente
 }
 
 async function carregarFinanceiro(){

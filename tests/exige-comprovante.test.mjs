@@ -44,3 +44,9 @@ test('bulk expense form reuses the block receipt URL across every row of the cat
   assert.match(html, /const comprovantePorCategoria = \{\} \/\/ \{catId: \{url,nome,tamanhoKb\}\}/)
   assert.match(html, /comprovante_url:comp\.url\|\|null, comprovante_nome:comp\.nome\|\|null, comprovante_tamanho_kb:comp\.tamanhoKb\|\|null/)
 })
+
+test('Financeiro ignores future or malformed expense dates when auto-adjusting the initial month', () => {
+  const bloco = html.match(/async function ajustarFinMesInicial\(\)\{[\s\S]*?\n\}/)?.[0] || ''
+  assert.match(bloco, /\.lte\('data_despesa',new Date\(\)\.toISOString\(\)\.slice\(0,10\)\)/)
+  assert.match(bloco, /\/\^\\d\{4\}-\\d\{2\}\$\/\.test\(mesRecente\)/)
+})
