@@ -2887,7 +2887,7 @@ async function salvarDespesa(){
 
   const pulaAprov = !!perfil.pula_aprovacao
   if(despesaEditandoId){
-    let statusUpd=pulaAprov?'aprovado':'pendente', aprovadoPorUpd=null, aprovadoEmUpd=pulaAprov?new Date().toISOString():null
+    let statusUpd=pulaAprov?'aprovado':(perfil.aprovacao_final_direta?'aguardando_aprovacao_2':'pendente'), aprovadoPorUpd=null, aprovadoEmUpd=pulaAprov?new Date().toISOString():null
     const{data:orig}=await sb.from('despesas').select('status,aprovado_por,aprovado_em').eq('id',despesaEditandoId).single()
     if(orig?.status==='aprovado'&&isGestor()){
       // Gestor corrigindo despesa já aprovada: mantém o status de aprovação.
@@ -2907,7 +2907,7 @@ async function salvarDespesa(){
   } else {
     const{data:novaDespesa,error}=await sb.from('despesas').insert({
       usuario_id:perfil.id,viagem_id:viagId||null,categoria_id:catId,
-      descricao:desc||null,valor,data_despesa:data,data_fim:dataFimVal||null,status:pulaAprov?'aprovado':'pendente',
+      descricao:desc||null,valor,data_despesa:data,data_fim:dataFimVal||null,status:pulaAprov?'aprovado':(perfil.aprovacao_final_direta?'aguardando_aprovacao_2':'pendente'),
       aprovado_por:null,aprovado_em:pulaAprov?new Date().toISOString():null,
       comprovante_url,comprovante_nome,comprovante_tamanho_kb,estado:estado_despesa
     }).select('id').single()
@@ -4448,7 +4448,7 @@ async function prepararPessoasMulti(){
   sel.innerHTML = `<option value="${perfil.id}">Meu RDV (${safeTxt(perfil.nome)})</option>`
   if(!podeLancarParaTerceiros()) return
 
-  const {data} = await sb.from('profiles').select('id,nome,estado_base,ativo,pula_aprovacao').order('nome')
+  const {data} = await sb.from('profiles').select('id,nome,estado_base,ativo,pula_aprovacao,aprovacao_final_direta').order('nome')
   const permitidos = (data||[]).filter(p=>p.ativo!==false && nomePermitidoLancamento(p.nome))
   multiPessoasPermitidas = [perfil, ...permitidos.filter(p=>p.id!==perfil.id)]
   multiPessoasPermitidas.forEach(p=>{
@@ -4809,7 +4809,7 @@ async function salvarMulti(){
     const{data:nova,error}=await sb.from('despesas').insert({
       usuario_id:usuarioLancamento, viagem_id:viagId||null, categoria_id:l.catId,
       descricao:l.desc||null, valor:l.val, data_despesa:l.data, data_fim:l.dataFim||null,
-      status:pulaAprovLote?'aprovado':'pendente', aprovado_por:null, aprovado_em:pulaAprovLote?new Date().toISOString():null,
+      status:pulaAprovLote?'aprovado':(perfilLancamento.aprovacao_final_direta?'aguardando_aprovacao_2':'pendente'), aprovado_por:null, aprovado_em:pulaAprovLote?new Date().toISOString():null,
       comprovante_url:comp.url||null, comprovante_nome:comp.nome||null, comprovante_tamanho_kb:comp.tamanhoKb||null, estado:estado_despesa
     }).select('id').single()
 

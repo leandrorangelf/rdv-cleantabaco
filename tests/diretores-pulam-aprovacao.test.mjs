@@ -6,9 +6,9 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
 test('salvarDespesa grava status aprovado direto para quem pula aprovacao', () => {
   assert.match(html, /const pulaAprov = !!perfil\.pula_aprovacao/)
-  assert.match(html, /let statusUpd=pulaAprov\?'aprovado':'pendente', aprovadoPorUpd=null, aprovadoEmUpd=pulaAprov\?new Date\(\)\.toISOString\(\):null/)
+  assert.match(html, /let statusUpd=pulaAprov\?'aprovado':\(perfil\.aprovacao_final_direta\?'aguardando_aprovacao_2':'pendente'\), aprovadoPorUpd=null, aprovadoEmUpd=pulaAprov\?new Date\(\)\.toISOString\(\):null/)
   assert.match(html, /status:statusUpd,\s*\n\s*motivo_rejeicao:null,aprovado_por:aprovadoPorUpd,aprovado_em:aprovadoEmUpd,/)
-  assert.match(html, /status:pulaAprov\?'aprovado':'pendente',\s*\n\s*aprovado_por:null,aprovado_em:pulaAprov\?new Date\(\)\.toISOString\(\):null,/)
+  assert.match(html, /status:pulaAprov\?'aprovado':\(perfil\.aprovacao_final_direta\?'aguardando_aprovacao_2':'pendente'\),\s*\n\s*aprovado_por:null,aprovado_em:pulaAprov\?new Date\(\)\.toISOString\(\):null,/)
 })
 
 test('gestor pode editar/excluir despesa ja aprovada, mantendo o status', () => {
@@ -18,11 +18,11 @@ test('gestor pode editar/excluir despesa ja aprovada, mantendo o status', () => 
 
 test('lancamento em lote grava status aprovado direto para quem pula aprovacao', () => {
   assert.match(html, /const pulaAprovLote = !!perfilLancamento\.pula_aprovacao/)
-  assert.match(html, /status:pulaAprovLote\?'aprovado':'pendente', aprovado_por:null, aprovado_em:pulaAprovLote\?new Date\(\)\.toISOString\(\):null,/)
+  assert.match(html, /status:pulaAprovLote\?'aprovado':\(perfilLancamento\.aprovacao_final_direta\?'aguardando_aprovacao_2':'pendente'\), aprovado_por:null, aprovado_em:pulaAprovLote\?new Date\(\)\.toISOString\(\):null,/)
 })
 
 test('select de pessoas do lancamento em lote inclui pula_aprovacao', () => {
-  assert.match(html, /\.from\('profiles'\)\.select\('id,nome,estado_base,ativo,pula_aprovacao'\)/)
+  assert.match(html, /\.from\('profiles'\)\.select\('id,nome,estado_base,ativo,pula_aprovacao,aprovacao_final_direta'\)/)
 })
 
 test('Leandro tambem ve RDVs em aprovacao 1, com tag distinta', () => {
@@ -44,4 +44,10 @@ test('comprovantes de imagem abrem numa galeria navegavel com setas', () => {
   assert.match(html, /onclick="navegarGaleria\(-1\)"/)
   assert.match(html, /onclick="navegarGaleria\(1\)"/)
   assert.match(html, /e\.key==='ArrowRight'\)navegarGaleria\(1\)/)
+})
+
+test('RDV do Dalton vai direto para aprovacao final (Renan/Leandro)', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20261027_dalton_aprovacao_final.sql', import.meta.url), 'utf8')
+  assert.match(sql, /add column if not exists aprovacao_final_direta boolean not null default false/)
+  assert.match(sql, /pula_aprovacao = false, aprovacao_final_direta = true[\s\S]*dalton@latam\.com/)
 })
