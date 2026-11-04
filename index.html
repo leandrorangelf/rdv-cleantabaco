@@ -2503,7 +2503,7 @@ async function uploadPdfBilhete(viagemId){
   const input=document.getElementById('b-pdf')
   const file=input?.files?.[0]
   if(!file) return null
-  const nomeLimpo=nomeSeguroZip(file.name||'bilhete.pdf')
+  const nomeLimpo=nomeSeguroStorage(file.name||'bilhete.pdf')
   const path=`bilhetes/${viagemId}/${Date.now()}_${nomeLimpo}`
   const {error}=await sb.storage.from('comprovantes').upload(path,file,{contentType:file.type||'application/pdf',upsert:false})
   if(error) throw error
@@ -2761,7 +2761,7 @@ async function handleArquivo(input){ await handleArquivos(input) }
 async function uploadComprovantes(despesaId, arquivos){
   const urls = []
   for(const arquivo of arquivos){
-    const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${arquivo.name}`
+    const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${nomeSeguroStorage(arquivo.name)}`
     const {error} = await sb.storage.from('comprovantes').upload(path, arquivo, {contentType: arquivo.type})
     if(error){ console.error('Erro upload:', error); continue }
     const {data:{publicUrl}} = sb.storage.from('comprovantes').getPublicUrl(path)
@@ -2878,7 +2878,7 @@ async function salvarDespesa(){
   }
 
   if(primeiroArquivo){
-    const path=`${perfil.id}/${Date.now()}_${primeiroArquivo.name}`
+    const path=`${perfil.id}/${Date.now()}_${nomeSeguroStorage(primeiroArquivo.name)}`
     const{error:upErr}=await sb.storage.from('comprovantes').upload(path,primeiroArquivo,{contentType:primeiroArquivo.type})
     if(upErr){err.textContent='Erro ao enviar comprovante.';err.style.display='block';return}
     const{data:{publicUrl}}=sb.storage.from('comprovantes').getPublicUrl(path)
@@ -2970,6 +2970,14 @@ async function carregarFiltrosZipComprovantes(){
   }
 }
 
+// Nome de arquivo seguro p/ chave do Supabase Storage (evita "Invalid key": acentos, espaços, [], #, % etc.)
+function nomeSeguroStorage(v){
+  const s=String(v||'arquivo').normalize('NFD').replace(/[̀-ͯ]/g,'')
+  const i=s.lastIndexOf('.')
+  const ext=i>0?s.slice(i+1).replace(/[^A-Za-z0-9]/g,'').slice(0,8):''
+  const base=(i>0?s.slice(0,i):s).replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'arquivo'
+  return ext?`${base}.${ext}`:base
+}
 function nomeSeguroZip(v){
   return String(v||'sem_nome')
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -4788,7 +4796,7 @@ async function salvarMulti(){
     // a mesma URL é reaproveitada em todas as linhas do bloco (sem novo upload).
     if(!jaSalvou && arqsBloco[0]){
       const primeiro = arqsBloco[0]
-      const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${primeiro.name}`
+      const path = `${perfil.id}/${Date.now()}_${Math.random().toString(36).slice(2)}_${nomeSeguroStorage(primeiro.name)}`
       const{error:upErr}=await sb.storage.from('comprovantes').upload(path, primeiro, {contentType:primeiro.type})
       if(upErr){
         const cat = multiCats.find(c=>c.id===l.catId)
